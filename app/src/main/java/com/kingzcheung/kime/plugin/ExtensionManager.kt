@@ -51,6 +51,12 @@ object ExtensionManager {
                 try {
                     val emojiItems = plugin.getEmojis(category = null, searchText = null, topK = 100)
                     if (emojiItems.isNotEmpty()) {
+                        val layoutConfig = try {
+                            plugin.getCategoryLayoutConfig(emojiItems.firstOrNull()?.category ?: "")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "getCategoryLayoutConfig not supported by ${pluginInfo?.name}")
+                            null
+                        }
                         pluginCategories.add(
                             EmojiCategory(
                                 name = pluginInfo?.name ?: "表情",
@@ -58,7 +64,8 @@ object ExtensionManager {
                                 emojis = emptyList(),
                                 isPlugin = true,
                                 pluginId = pluginId,
-                                emojiItems = emojiItems
+                                emojiItems = emojiItems,
+                                layoutConfig = layoutConfig
                             )
                         )
                         Log.d(TAG, "Preloaded ${emojiItems.size} from ${pluginInfo?.name}")

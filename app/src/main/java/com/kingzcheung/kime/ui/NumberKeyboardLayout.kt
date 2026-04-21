@@ -1,6 +1,8 @@
 package com.kingzcheung.kime.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -30,18 +32,20 @@ fun NumberKeyboardLayout(
     keyBackgroundColor: Color,
     keyTextColor: Color,
     specialKeyBackgroundColor: Color,
+    keyboardBackgroundColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null
 ) {
-    // 固定的常用符号
     val symbols = listOf("@", "%", "-")
     
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
+    Box(modifier = modifier.background(keyboardBackgroundColor)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(keyboardBackgroundColor)
+                .padding(vertical = 8.dp, horizontal = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
         // 第一行：符号 | 1 | 2 | 3 | 退格
         Row(
             modifier = Modifier
@@ -221,6 +225,7 @@ fun NumberKeyboardLayout(
                 modifier = Modifier.weight(1.2f),
                 onPress = { onKeyPressDown?.invoke("enter") }
             )
+        }
         }
     }
 }

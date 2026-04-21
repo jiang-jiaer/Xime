@@ -39,6 +39,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.kingzcheung.kime.clipboard.ClipboardManager
 import com.kingzcheung.kime.plugin.ExtensionManager
+import com.kingzcheung.kime.plugin.core.api.CategoryLayoutConfig
 import com.kingzcheung.kime.plugin.core.api.EmojiItem
 
 data class EmojiCategory(
@@ -47,7 +48,8 @@ data class EmojiCategory(
     val emojis: List<String>,
     val isPlugin: Boolean = false,
     val pluginId: String? = null,
-    val emojiItems: List<EmojiItem>? = null
+    val emojiItems: List<EmojiItem>? = null,
+    val layoutConfig: CategoryLayoutConfig? = null
 )
 
 object EmojiData {
@@ -181,17 +183,21 @@ fun EmojiKeyboardLayout(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 if (currentCategory.isPlugin && currentCategory.emojiItems != null) {
-                    val hasImages = currentCategory.emojiItems.any { it.imageUrl != null }
-                    val columns = if (hasImages) 6 else 8
+                    val config = currentCategory.layoutConfig
+                    val columns = config?.columns ?: (if (currentCategory.emojiItems.any { it.imageUrl != null }) 6 else 8)
+                    val itemHeightDp = config?.itemHeightDp ?: (if (currentCategory.emojiItems.any { it.imageUrl != null }) 60 else 40)
                     
                     currentCategory.emojiItems.chunked(columns).forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             rowItems.forEach { item ->
                                 PluginEmojiButton(
                                     emojiItem = item,
+                                    defaultHeightDp = itemHeightDp,
+                                    backgroundColor = backgroundColor,
+                                    textColor = textColor,
                                     onClick = {
                                         val imageUrl = item.imageUrl
                                         if (imageUrl != null && onImageEmojiSelect != null) {
@@ -218,13 +224,11 @@ fun EmojiKeyboardLayout(
                                             onEmojiSelect(item.insertText)
                                         }
                                     },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(if (hasImages) 60.dp else 40.dp)
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
                             repeat(columns - rowItems.size) {
-                                Spacer(modifier = Modifier.weight(1f))
+                                Spacer(modifier = Modifier.weight(1f).height((itemHeightDp).dp))
                             }
                         }
                         Spacer(modifier = Modifier.height(2.dp))
@@ -353,16 +357,33 @@ fun EmojiButton(
 fun PluginEmojiButton(
     emojiItem: EmojiItem,
     onClick: () -> Unit,
+    defaultHeightDp: Int = 40,
+    backgroundColor: Color = Color.Unspecified,
+    textColor: Color = Color.Unspecified,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val config = emojiItem.displayConfig
+    val heightDp = config?.heightDp ?: defaultHeightDp
+    val aspectRatio = config?.aspectRatio
+    
+    val isLightTheme = (backgroundColor.red + backgroundColor.green + backgroundColor.blue) / 3f > 0.5f
+    val buttonBackgroundColor = if (isLightTheme) Color.White.copy(alpha = 0.8f)
+                                else Color.LightGray.copy(alpha = 0.15f)
+    val contentColor = if (isLightTheme) Color.Black else textColor
     
     Box(
         modifier = modifier
+            .height(heightDp.dp)
+            .then(
+                if (emojiItem.imageUrl != null && aspectRatio != null) Modifier.aspectRatio(aspectRatio)
+                else if (emojiItem.imageUrl != null) Modifier.aspectRatio(1f)
+                else Modifier.fillMaxWidth()
+            )
             .clip(RoundedCornerShape(4.dp))
-            .background(Color.LightGray.copy(alpha = 0.1f))
+            .background(buttonBackgroundColor)
             .clickable(onClick = onClick)
-            .padding(horizontal = 2.dp, vertical = 1.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center
     ) {
         if (emojiItem.imageUrl != null) {
@@ -378,21 +399,14 @@ fun PluginEmojiButton(
                 contentScale = ContentScale.Fit
             )
         } else {
-            val textLength = emojiItem.displayText.length
-            val fontSize = when {
-                textLength <= 3 -> 10.sp
-                textLength <= 4 -> 8.sp
-                textLength <= 5 -> 6.sp
-                else -> 5.sp
-            }
-            
             Text(
                 text = emojiItem.displayText,
-                fontSize = fontSize,
+                fontSize = 12.sp,
+                color = contentColor,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Visible
+                maxLines = 2,
+                softWrap = true,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

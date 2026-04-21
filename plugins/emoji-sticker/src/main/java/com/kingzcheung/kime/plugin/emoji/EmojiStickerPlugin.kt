@@ -3,6 +3,7 @@ package com.kingzcheung.kime.plugin.emoji
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
+import com.kingzcheung.kime.plugin.core.api.EmojiDisplayConfig
 import com.kingzcheung.kime.plugin.core.api.EmojiItem
 import com.kingzcheung.kime.plugin.core.api.EmojiPlugin
 import com.kingzcheung.kime.plugin.core.model.PluginContext

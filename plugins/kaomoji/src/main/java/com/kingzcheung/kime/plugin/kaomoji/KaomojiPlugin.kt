@@ -3,6 +3,7 @@ package com.kingzcheung.kime.plugin.kaomoji
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
+import com.kingzcheung.kime.plugin.core.api.CategoryLayoutConfig
 import com.kingzcheung.kime.plugin.core.api.EmojiItem
 import com.kingzcheung.kime.plugin.core.api.EmojiPlugin
 import com.kingzcheung.kime.plugin.core.model.PluginContext
@@ -42,4 +43,8 @@ class KaomojiPlugin : EmojiPlugin {
     }
     
     override suspend fun getCategories(): List<String> = listOf("颜文字")
+    
+    override suspend fun getCategoryLayoutConfig(category: String): CategoryLayoutConfig {
+        return CategoryLayoutConfig(columns = 3, itemHeightDp = 30)
+    }
 }

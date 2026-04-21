@@ -1,5 +1,6 @@
 package com.kingzcheung.kime.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -26,6 +27,7 @@ fun SymbolKeyboardLayout(
     keyBackgroundColor: Color,
     keyTextColor: Color,
     specialKeyBackgroundColor: Color,
+    keyboardBackgroundColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null
 ) {
@@ -54,6 +56,7 @@ fun SymbolKeyboardLayout(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .background(keyboardBackgroundColor)
             .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {

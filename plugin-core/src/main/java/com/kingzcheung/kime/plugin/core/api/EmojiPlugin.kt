@@ -3,6 +3,11 @@ package com.kingzcheung.kime.plugin.core.api
 import android.content.Context
 import com.kingzcheung.kime.plugin.core.model.PluginContext
 
+data class CategoryLayoutConfig(
+    val columns: Int = 8,
+    val itemHeightDp: Int = 40
+)
+
 interface EmojiPlugin : IPluginEntryClass {
     
     override fun onLoad(context: PluginContext)
@@ -13,15 +18,24 @@ interface EmojiPlugin : IPluginEntryClass {
     
     suspend fun getCategories(): List<String>
     
+    suspend fun getCategoryLayoutConfig(category: String): CategoryLayoutConfig? = null
+    
     override fun hasSettings(): Boolean = false
     
     override fun openSettings(context: Context) {}
 }
+
+data class EmojiDisplayConfig(
+    val span: Int = 1,
+    val heightDp: Int = 40,
+    val aspectRatio: Float? = null
+)
 
 data class EmojiItem(
     val id: String,
     val displayText: String,
     val insertText: String,
     val imageUrl: String?,
-    val category: String
+    val category: String,
+    val displayConfig: EmojiDisplayConfig? = null
 )

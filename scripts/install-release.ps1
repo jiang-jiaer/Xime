@@ -6,10 +6,8 @@ param(
 
 $PackageName = "com.kingzcheung.kime"
 $Plugins = @(
-    "com.kingzcheung.kime.plugin.funasr",
     "com.kingzcheung.kime.plugin.emoji",
-    "com.kingzcheung.kime.plugin.kaomoji",
-    "com.kingzcheung.kime.plugin.prediction"
+    "com.kingzcheung.kime.plugin.kaomoji"
 )
 
 Write-Host ""
@@ -45,18 +43,14 @@ if ($Action -eq "uninstall") {
 if ($Source -eq "ide") {
     $AppPath = "app\release"
     $PluginPaths = @{
-        "funasr" = "plugins\funasr-speech\release"
         "emoji" = "plugins\emoji-sticker\release"
         "kaomoji" = "plugins\kaomoji\release"
-        "prediction" = "plugins\prediction-onnx\release"
     }
 } else {
     $AppPath = "app\build\outputs\apk\release"
     $PluginPaths = @{
-        "funasr" = "plugins\funasr-speech\build\outputs\apk\release"
         "emoji" = "plugins\emoji-sticker\build\outputs\apk\release"
         "kaomoji" = "plugins\kaomoji\build\outputs\apk\release"
-        "prediction" = "plugins\prediction-onnx\build\outputs\apk\release"
     }
 }
 
