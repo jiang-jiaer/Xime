@@ -24,7 +24,7 @@ class EmojiStickerPlugin : EmojiPlugin {
         this.pluginContext = context
         Log.d(TAG, "Plugin loaded: ${context.pluginInfo.id}")
         
-        val filesDir = File("/data/data/com.kingzcheung.kime/files")
+        val filesDir = context.application.filesDir
         if (!filesDir.exists()) filesDir.mkdirs()
         
         loadEmojis(filesDir, context.pluginInfo.path)

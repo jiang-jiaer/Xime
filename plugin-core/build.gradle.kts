@@ -53,4 +53,6 @@ dependencies {
     api(libs.androidx.lifecycle.runtime.compose)
 
     api("com.android.tools.smali:smali-dexlib2:3.0.8")
+    
+    testImplementation("junit:junit:4.13.2")
 }

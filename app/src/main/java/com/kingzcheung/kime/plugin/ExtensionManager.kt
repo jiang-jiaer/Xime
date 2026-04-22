@@ -8,7 +8,10 @@ import com.kingzcheung.kime.plugin.core.runtime.PluginManager
 import com.kingzcheung.kime.settings.SettingsPreferences
 import com.kingzcheung.kime.ui.EmojiCategory
 import com.kingzcheung.kime.ui.EmojiData
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +22,7 @@ object ExtensionManager {
     private const val TAG = "ExtensionManager"
     
     private var initialized = false
+    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _emojiCategoriesFlow = MutableStateFlow<List<EmojiCategory>>(EmojiData.categories)
     val emojiCategoriesFlow: StateFlow<List<EmojiCategory>> = _emojiCategoriesFlow.asStateFlow()
     
@@ -30,7 +34,7 @@ object ExtensionManager {
         Log.d(TAG, "Initialized")
         initialized = true
         
-        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+        managerScope.launch {
             PluginManager.pluginInstancesFlow.collect { instances ->
                 Log.d(TAG, "Plugin instances changed: ${instances.size} instances")
                 loadEmojiDataFromPlugins(context)
@@ -84,7 +88,7 @@ object ExtensionManager {
     fun reload(context: Context): Boolean {
         Log.d(TAG, "reload called")
         return try {
-            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            managerScope.launch {
                 val scanned = PluginManager.scanAndInstallSystemPlugins()
                 Log.d(TAG, "Scanned $scanned new plugins")
                 val loaded = PluginManager.loadEnabledPlugins()
@@ -138,5 +142,8 @@ object ExtensionManager {
     
     fun hasEmojiPlugins(context: Context): Boolean = getEnabledEmojiPlugins(context).isNotEmpty()
     
-    fun release() { initialized = false }
+    fun release() {
+        initialized = false
+        managerScope.cancel()
+    }
 }

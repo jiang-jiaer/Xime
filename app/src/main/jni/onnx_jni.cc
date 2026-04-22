@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include <mutex>
 
 #define LOG_TAG "OnnxJNI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -14,6 +15,7 @@
 static OrtEnv* g_env = nullptr;
 static OrtSession* g_session = nullptr;
 static OrtAllocator* g_allocator = nullptr;
+static std::mutex g_onnx_mutex;
 
 static const OrtApi* GetApi() {
     static const OrtApi* api = nullptr;
@@ -30,6 +32,8 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_kingzcheung_kime_association_NativeOnnxEngine_nativeInitialize(
     JNIEnv* env, jobject thiz, jstring model_path) {
+
+    std::lock_guard<std::mutex> lock(g_onnx_mutex);
 
     const OrtApi* api = GetApi();
     if (!api) {
@@ -101,6 +105,8 @@ extern "C"
 JNIEXPORT jobjectArray JNICALL
 Java_com_kingzcheung_kime_association_NativeOnnxEngine_nativePredict(
     JNIEnv* env, jobject thiz, jlongArray input_ids, jint top_k) {
+
+    std::lock_guard<std::mutex> lock(g_onnx_mutex);
 
     const OrtApi* api = GetApi();
     if (!api || !g_session) {
@@ -240,6 +246,8 @@ JNIEXPORT void JNICALL
 Java_com_kingzcheung_kime_association_NativeOnnxEngine_nativeRelease(
     JNIEnv* env, jobject thiz) {
 
+    std::lock_guard<std::mutex> lock(g_onnx_mutex);
+
     const OrtApi* api = GetApi();
 
     if (g_session) {
@@ -259,5 +267,6 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_kingzcheung_kime_association_NativeOnnxEngine_nativeIsInitialized(
     JNIEnv* env, jobject thiz) {
+    std::lock_guard<std::mutex> lock(g_onnx_mutex);
     return g_session ? JNI_TRUE : JNI_FALSE;
 }

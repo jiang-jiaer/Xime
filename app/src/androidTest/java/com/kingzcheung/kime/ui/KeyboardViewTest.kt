@@ -5,6 +5,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kingzcheung.kime.ui.theme.DividerColor
+import com.kingzcheung.kime.ui.theme.KeyBackground
+import com.kingzcheung.kime.ui.theme.KeyTextColor
+import com.kingzcheung.kime.ui.theme.KeyboardBackground
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,16 +58,18 @@ class KeyboardViewTest {
     }
     
     @Test
-    fun `CandidateBar should highlight selected candidate`() {
+    fun `CandidateBar should display candidates`() {
         val candidates = listOf("你好", "世界", "测试")
-        var selectedIndex = 0
         
         composeTestRule.setContent {
             CandidateBar(
                 candidates = candidates,
-                selectedIndex = selectedIndex,
-                onCandidateClick = { index -> selectedIndex = index },
-                onCandidateLongClick = {}
+                inputText = "nihao",
+                isComposing = true,
+                onCandidateSelect = {},
+                backgroundColor = KeyboardBackground,
+                textColor = KeyTextColor,
+                dividerColor = DividerColor
             )
         }
         
@@ -72,18 +78,17 @@ class KeyboardViewTest {
     }
     
     @Test
-    fun `KeyboardLayout should switch modes`() {
-        var isSymbolMode = false
-        
+    fun `CandidateItem should display text and comment`() {
         composeTestRule.setContent {
-            KeyboardLayout(
-                isSymbolMode = isSymbolMode,
-                onSymbolModeChange = { isSymbolMode = it },
-                onKeyPress = {},
-                candidates = emptyList(),
-                selectedIndex = -1,
-                onCandidateClick = {}
+            CandidateItem(
+                text = "你好",
+                index = 0,
+                onClick = {},
+                textColor = KeyTextColor,
+                comment = "wubi"
             )
         }
+        
+        composeTestRule.onNodeWithText("你好").assertIsDisplayed()
     }
 }

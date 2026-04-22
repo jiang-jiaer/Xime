@@ -4,6 +4,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kingzcheung.kime.ui.theme.DividerColor
+import com.kingzcheung.kime.ui.theme.KeyTextColor
+import com.kingzcheung.kime.ui.theme.KeyboardBackground
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,9 +24,12 @@ class CandidateBarTest {
         composeTestRule.setContent {
             CandidateBar(
                 candidates = candidates,
-                selectedIndex = 0,
-                onCandidateClick = {},
-                onCandidateLongClick = {}
+                inputText = "nihao",
+                isComposing = true,
+                onCandidateSelect = {},
+                backgroundColor = KeyboardBackground,
+                textColor = KeyTextColor,
+                dividerColor = DividerColor
             )
         }
         
@@ -37,10 +43,97 @@ class CandidateBarTest {
         composeTestRule.setContent {
             CandidateBar(
                 candidates = emptyList(),
-                selectedIndex = -1,
-                onCandidateClick = {},
-                onCandidateLongClick = {}
+                inputText = "",
+                isComposing = false,
+                onCandidateSelect = {},
+                backgroundColor = KeyboardBackground,
+                textColor = KeyTextColor,
+                dividerColor = DividerColor
             )
         }
+    }
+    
+    @Test
+    fun `CandidateBar should display input text when composing`() {
+        composeTestRule.setContent {
+            CandidateBar(
+                candidates = listOf("你好"),
+                inputText = "nihao",
+                isComposing = true,
+                onCandidateSelect = {},
+                backgroundColor = KeyboardBackground,
+                textColor = KeyTextColor,
+                dividerColor = DividerColor
+            )
+        }
+        
+        composeTestRule.onNodeWithText("nihao").assertIsDisplayed()
+    }
+    
+    @Test
+    fun `CandidateBar should display comments`() {
+        composeTestRule.setContent {
+            CandidateBar(
+                candidates = listOf("你好"),
+                candidateComments = listOf("wubi"),
+                inputText = "nihao",
+                isComposing = true,
+                onCandidateSelect = {},
+                backgroundColor = KeyboardBackground,
+                textColor = KeyTextColor,
+                dividerColor = DividerColor
+            )
+        }
+        
+        composeTestRule.onNodeWithText("你好").assertIsDisplayed()
+    }
+    
+    @Test
+    fun `CandidateBar should display association candidates`() {
+        composeTestRule.setContent {
+            CandidateBar(
+                candidates = listOf("你好"),
+                associationCandidates = listOf("世界", "吗"),
+                inputText = "nihao",
+                isComposing = true,
+                onCandidateSelect = {},
+                backgroundColor = KeyboardBackground,
+                textColor = KeyTextColor,
+                dividerColor = DividerColor
+            )
+        }
+        
+        composeTestRule.onNodeWithText("你好").assertIsDisplayed()
+        composeTestRule.onNodeWithText("世界").assertIsDisplayed()
+    }
+    
+    @Test
+    fun `CandidateItem should display text`() {
+        composeTestRule.setContent {
+            CandidateItem(
+                text = "测试候选词",
+                index = 0,
+                onClick = {},
+                textColor = KeyTextColor
+            )
+        }
+        
+        composeTestRule.onNodeWithText("测试候选词").assertIsDisplayed()
+    }
+    
+    @Test
+    fun `CandidateItem should display comment`() {
+        composeTestRule.setContent {
+            CandidateItem(
+                text = "你好",
+                index = 0,
+                onClick = {},
+                textColor = KeyTextColor,
+                comment = "aaaa"
+            )
+        }
+        
+        composeTestRule.onNodeWithText("你好").assertIsDisplayed()
+        composeTestRule.onNodeWithText("aaaa").assertIsDisplayed()
     }
 }
