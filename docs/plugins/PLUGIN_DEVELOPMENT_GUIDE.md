@@ -379,7 +379,7 @@ adb install my-plugin/build/outputs/apk/debug/my-plugin-xxx.apk
 | 插件 | 类型 | 特点 |
 |------|------|------|
 | kaomoji | EMOJI | 预定义颜文字数据 |
-| emoji-sticker | EMOJI | 图片表情包（从 APK assets 加载） |
+| meme-bunny | EMOJI | 恶搞兔表情包（从 APK assets 加载） |
 
 ## 参考文档
 

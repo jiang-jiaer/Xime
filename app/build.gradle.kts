@@ -70,7 +70,7 @@ tasks.register("copyPluginsToAssets", Copy::class) {
     description = "Manually copy plugin APKs to assets for debugging"
     
     val pluginProjects = listOf(
-        ":plugins:emoji-sticker",
+        ":plugins:meme-bunny",
         ":plugins:kaomoji"
     )
     

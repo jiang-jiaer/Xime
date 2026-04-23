@@ -43,13 +43,13 @@ if ($Action -eq "uninstall") {
 if ($Source -eq "ide") {
     $AppPath = "app\release"
     $PluginPaths = @{
-        "emoji" = "plugins\emoji-sticker\release"
+        "meme-bunny" = "plugins\meme-bunny\release"
         "kaomoji" = "plugins\kaomoji\release"
     }
 } else {
     $AppPath = "app\build\outputs\apk\release"
     $PluginPaths = @{
-        "emoji" = "plugins\emoji-sticker\build\outputs\apk\release"
+        "meme-bunny" = "plugins\meme-bunny\build\outputs\apk\release"
         "kaomoji" = "plugins\kaomoji\build\outputs\apk\release"
     }
 }

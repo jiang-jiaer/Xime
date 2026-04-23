@@ -56,7 +56,7 @@ class PluginEnabledStateTest {
     @Test
     fun `different plugins have independent enabled states`() {
         val plugin1 = "prediction-onnx"
-        val plugin2 = "emoji-sticker"
+        val plugin2 = "meme-bunny"
         
         SettingsPreferences.setPluginEnabled(context, plugin1, true)
         SettingsPreferences.setPluginEnabled(context, plugin2, false)
@@ -101,7 +101,7 @@ class PluginEnabledStateTest {
 
     @Test
     fun `multiple plugins enabled states are tracked independently`() {
-        val plugins = listOf("prediction-onnx", "emoji-sticker", "kaomoji")
+        val plugins = listOf("prediction-onnx", "meme-bunny", "kaomoji")
         
         plugins.forEachIndexed { index, pluginId ->
             SettingsPreferences.setPluginEnabled(context, pluginId, index % 2 == 0)

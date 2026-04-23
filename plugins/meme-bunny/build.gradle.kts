@@ -46,7 +46,7 @@ android {
 }
 
 android.applicationVariants.all {
-    val pluginName = "emoji-sticker"
+    val pluginName = "meme-bunny"
     outputs.all {
         (this as BaseVariantOutputImpl).outputFileName = "$pluginName-$versionName.apk"
     }

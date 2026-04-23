@@ -44,7 +44,7 @@ app/src/main/assets/association_model
 # Plugin module builds
 plugin-api/build
 plugins/funasr-speech/build
-plugins/emoji-sticker/build
+plugins/meme-bunny/build
 plugins/kaomoji/build
 
 # Plugin APKs (development only, not packaged in main app)

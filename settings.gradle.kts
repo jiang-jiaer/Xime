@@ -37,5 +37,5 @@ dependencyResolutionManagement {
 rootProject.name = "Kime"
 include(":app")
 include(":plugin-core")
-include(":plugins:emoji-sticker")
+include(":plugins:meme-bunny")
 include(":plugins:kaomoji")

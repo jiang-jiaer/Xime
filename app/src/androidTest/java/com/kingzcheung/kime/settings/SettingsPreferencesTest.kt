@@ -114,7 +114,7 @@ class SettingsPreferencesTest {
     @Test
     fun `plugin enabled state is isolated by plugin id`() {
         val predictionPlugin = "prediction-onnx"
-        val emojiPlugin = "emoji-sticker"
+        val emojiPlugin = "meme-bunny"
 
         assertFalse(SettingsPreferences.isPluginEnabled(context, predictionPlugin))
         assertFalse(SettingsPreferences.isPluginEnabled(context, emojiPlugin))
