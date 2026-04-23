@@ -21,6 +21,13 @@ export default defineConfig({
           ]
         },
         {
+          text: '功能',
+          items: [
+            { text: '智能联想', link: '/smart-prediction' },
+            { text: '语音转文本', link: '/speech-to-text' }
+          ]
+        },
+        {
           text: '插件',
           items: [
             { text: '插件列表', link: '/plugins/' },

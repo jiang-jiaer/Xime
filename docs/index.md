@@ -27,9 +27,9 @@ features:
     title: 表情插件
     details: 支持扩展表情插件，颜文字、表情包等
   - icon: 🎨
-    title: Material Design 3
-    details: 简洁现代界面，支持浅色/深色主题
-  - icon: 🖌️
     title: 主题定制
-    details: 多种键盘配色方案可选，个性化你的输入体验
+    details: 多种键盘配色方案可选，支持浅色/深色主题
+  - icon: 💡
+    title: 智能联想
+    details: 基于 Trie 和 ONNX 模型的智能联想词，提升输入效率
 ---
