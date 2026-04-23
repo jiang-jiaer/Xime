@@ -4,10 +4,29 @@
 
 ## 官方插件
 
-| 插件名称 | 版本 | 说明 | 下载 | 源码 |
-|---------|------|------|------|------|
-| Kaomoji（颜文字） | 2.0.0-beta1 | 预定义颜文字数据，包含丰富的日式颜文字表情如 `(^_^)`、`(T_T)`、`(≧▽≦)`、`(╯°□°)╯︵ ┻━┻` | [APK](https://github.com/ximeiorg/Kime/releases) | [源码](https://github.com/ximeiorg/Kime/tree/main/plugins/kaomoji) |
-| Meme Bunny（恶搞兔） | 2.0.0-beta1 | 恶搞兔表情包，从 APK assets 加载表情图片 | [APK](https://github.com/ximeiorg/Kime/releases) | [源码](https://github.com/ximeiorg/Kime/tree/main/plugins/meme-bunny) |
+### Kaomoji（颜文字）
+
+**版本：** 2.0.0-beta1
+
+**说明：** 预定义颜文字数据，包含丰富的日式颜文字表情如 `(^_^)`、`(T_T)`、`(≧▽≦)`、`(╯°□°)╯︵ ┻━┻`
+
+![表情键盘插件](/Screenshot/表情键盘_插件_light.jpg)
+
+**下载：** [APK](https://github.com/ximeiorg/Kime/releases) | **源码：** [GitHub](https://github.com/ximeiorg/Kime/tree/main/plugins/kaomoji)
+
+---
+
+### Meme Bunny（恶搞兔）
+
+**版本：** 2.0.0-beta1
+
+**说明：** 恶搞兔表情包，从 APK assets 加载表情图片
+
+![Meme Bunny](/Screenshot/MemeBunny.jpg)
+
+**下载：** [APK](https://github.com/ximeiorg/Kime/releases) | **源码：** [GitHub](https://github.com/ximeiorg/Kime/tree/main/plugins/meme-bunny)
+
+---
 
 ## 安装插件
 
