@@ -34,6 +34,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kingzcheung.kime.ui.theme.KeyBackground
+import com.kingzcheung.kime.ui.theme.KeyBackgroundDark
 import kotlin.math.roundToInt
 
 private val BubbleBodyHeight = KeyboardDimensions.BubbleHeightDown
@@ -226,7 +228,7 @@ fun SwipeBubble(
     
     android.util.Log.d("SwipeBubble", "SwipeBubble called: keyBounds=$keyBounds, keyboardWidth=$keyboardWidth")
     
-    val bubbleBgColor = if (isDarkTheme) Color(0xFF45474A) else Color(0xFFF0F1F2)
+    val bubbleBgColor = if (isDarkTheme) KeyBackgroundDark else KeyBackground
     val bubbleTextColor = if (isDarkTheme) Color(0xFFE8EAED) else Color(0xFF202124)
     
     var actualBodyWidth by remember { mutableStateOf(0f) }
@@ -296,20 +298,19 @@ fun SwipeBubble(
             }
     ) {
         Column {
-            Row(
+            Box(
                 modifier = Modifier
                     .height(BubbleBodyHeight)
-                    .defaultMinSize(minWidth = 48.dp)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                    .defaultMinSize(minWidth = 64.dp)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = displayText,
                     color = bubbleTextColor,
                     fontSize = 14.sp,
                     fontFamily = chaiFontFamily,
-                    fontWeight = FontWeight.Normal,
+                    fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     softWrap = false
                 )
