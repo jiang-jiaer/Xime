@@ -29,7 +29,8 @@ data class InputUIState(
     val voiceRecognizedText: String = "",
     val voiceAmplitude: Float = 0f,
     val pendingEnglishText: String = "",
-    val stretchFactor: Float = 1f
+    val stretchFactor: Float = 1f,
+    val isShowingRecentClipboard: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -63,6 +64,7 @@ data class InputUIState(
         if (voiceAmplitude != other.voiceAmplitude) return false
         if (pendingEnglishText != other.pendingEnglishText) return false
         if (stretchFactor != other.stretchFactor) return false
+        if (isShowingRecentClipboard != other.isShowingRecentClipboard) return false
 
         return true
     }
@@ -94,6 +96,7 @@ data class InputUIState(
         result = 31 * result + voiceAmplitude.hashCode()
         result = 31 * result + pendingEnglishText.hashCode()
         result = 31 * result + stretchFactor.hashCode()
+        result = 31 * result + isShowingRecentClipboard.hashCode()
         return result
     }
 }

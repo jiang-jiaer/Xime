@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -48,6 +49,7 @@ fun CandidateBar(
     isComposing: Boolean,
     onCandidateSelect: (Int) -> Unit,
     backgroundColor: Color,
+    showClipboardHeader: Boolean = false,
     textColor: Color,
     dividerColor: Color,
     accentColor: Color = Color(0xFF1A73E8),
@@ -242,6 +244,21 @@ fun CandidateBar(
                 Spacer(modifier = Modifier.width(8.dp))
             }
             
+            if (showClipboardHeader) {
+                Row(
+                    modifier = Modifier.padding(end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "剪切板",
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+//                Spacer(modifier = Modifier.width(2.dp))
+            }
+
             LazyRow(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)

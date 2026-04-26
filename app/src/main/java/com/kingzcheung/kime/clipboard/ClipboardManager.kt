@@ -43,15 +43,19 @@ class ClipboardManager private constructor(private val context: Context) {
     
     private val _clipboardItems = MutableStateFlow<List<ClipboardItem>>(emptyList())
     val clipboardItems: StateFlow<List<ClipboardItem>> = _clipboardItems.asStateFlow()
-    
+
     private val _quickSendItems = MutableStateFlow<List<ClipboardItem>>(emptyList())
     val quickSendItems: StateFlow<List<ClipboardItem>> = _quickSendItems.asStateFlow()
+
+    private val _recentItems = MutableStateFlow<List<ClipboardItem>>(emptyList())
+    val recentItems: StateFlow<List<ClipboardItem>> = _recentItems.asStateFlow()
     
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     
     init {
         loadItems()
         loadQuickSendItems()
+        updateRecentItems()
         startListening()
     }
     
@@ -77,6 +81,12 @@ class ClipboardManager private constructor(private val context: Context) {
                 Log.e(TAG, "Failed to load quick send items", e)
             }
         }
+    }
+
+    private fun updateRecentItems() {
+        val now = System.currentTimeMillis()
+        val cutoff = now - 10 * 1000L
+        _recentItems.value = _clipboardItems.value.filter { it.timestamp >= cutoff }
     }
     
     private fun saveItems() {
@@ -170,9 +180,10 @@ class ClipboardManager private constructor(private val context: Context) {
                 currentItems.removeAll(toRemove.toSet())
             }
         }
-        
+
         _clipboardItems.value = currentItems
         saveItems()
+        updateRecentItems()
     }
     
     private fun <T> MutableList<T>.moveToTop(index: Int) {
@@ -276,6 +287,12 @@ class ClipboardManager private constructor(private val context: Context) {
         } else null
     }
     
+    fun getRecentItems(seconds: Int = 30): List<ClipboardItem> {
+        val now = System.currentTimeMillis()
+        val cutoff = now - seconds * 1000L
+        return _clipboardItems.value.filter { it.timestamp >= cutoff }
+    }
+
     fun copyImageToSystemClipboard(imagePath: String, label: String = "emoji_image"): Boolean {
         return try {
             val imageFile = File(imagePath)
@@ -283,28 +300,28 @@ class ClipboardManager private constructor(private val context: Context) {
                 Log.e(TAG, "Image file not found: $imagePath")
                 return false
             }
-            
+
             val cacheDir = File(context.cacheDir, "emoji_cache")
             if (!cacheDir.exists()) {
                 cacheDir.mkdirs()
             }
-            
+
             val cacheFile = File(cacheDir, imageFile.name)
             FileInputStream(imageFile).use { input ->
                 cacheFile.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
-            
+
             val uri = FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.fileprovider",
                 cacheFile
             )
-            
+
             val clip = ClipData.newUri(context.contentResolver, label, uri)
             androidClipboardManager.setPrimaryClip(clip)
-            
+
             Log.d(TAG, "Image copied to clipboard: $uri")
             true
         } catch (e: Exception) {

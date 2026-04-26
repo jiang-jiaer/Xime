@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.kingzcheung.kime.clipboard.ClipboardItem
+import com.kingzcheung.kime.service.InputUIState
 import com.kingzcheung.kime.settings.SchemaInfo
 import com.kingzcheung.kime.speech.RecognitionState
 import com.kingzcheung.kime.ui.theme.DividerColor
@@ -44,6 +45,7 @@ fun KeyboardView(
     showBottomButtons: Boolean = false,
     clipboardItems: List<ClipboardItem> = emptyList(),
     quickSendItems: List<ClipboardItem> = emptyList(),
+    recentClipboardItems: List<ClipboardItem> = emptyList(),
     associationCandidates: Array<String> = emptyArray(),
     keyboardHeightDp: Int = 290,
     onKeyPress: (String, Boolean) -> Unit,
@@ -74,6 +76,7 @@ fun KeyboardView(
     voiceRecognitionState: RecognitionState = RecognitionState.IDLE,
     voiceRecognizedText: String = "",
     voiceAmplitude: Float = 0f,
+    uiStateProvider: () -> InputUIState,
     modifier: Modifier = Modifier
 ) {
     var isShifted by remember { mutableStateOf(false) }
@@ -93,6 +96,7 @@ fun KeyboardView(
     val candidateBarBg = keyboardBgColor
     val candidateTextColor = keyTextColor
     val dividerColor = if (isDarkTheme) DividerColorDark else DividerColor
+    val state = uiStateProvider()
 
     Box(modifier = modifier) {
         Column(
@@ -107,6 +111,7 @@ CandidateBar(
                 isComposing = isComposing,
                 onCandidateSelect = onCandidateSelect,
                 backgroundColor = candidateBarBg,
+                showClipboardHeader = state.isShowingRecentClipboard,
                 textColor = candidateTextColor,
                 dividerColor = dividerColor,
                 accentColor = accentColor,

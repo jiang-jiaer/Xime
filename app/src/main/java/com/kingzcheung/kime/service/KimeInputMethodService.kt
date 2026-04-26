@@ -87,6 +87,7 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private val uiState = mutableStateOf(InputUIState())
     private val clipboardItemsState = mutableStateOf<List<com.kingzcheung.kime.clipboard.ClipboardItem>>(emptyList())
     private val quickSendItemsState = mutableStateOf<List<com.kingzcheung.kime.clipboard.ClipboardItem>>(emptyList())
+    private val recentClipboardItemsState = mutableStateOf<List<com.kingzcheung.kime.clipboard.ClipboardItem>>(emptyList())
     
     private var isTrackingVoiceButtons = false
     private var voiceRecordingStarted = false
@@ -165,7 +166,7 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 initClipboardManager()
                 initAssociationEngine()
                 initSpeechRecognition()
-                
+
                 withContext(Dispatchers.Main) {
                     FileLogger.i(TAG, "Service initialization completed")
                 }
@@ -229,13 +230,13 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             clipboardManager = ClipboardManager.getInstance(this)
             clipboardItemsState.value = clipboardManager.clipboardItems.value
             quickSendItemsState.value = clipboardManager.quickSendItems.value
-            
+
             serviceScope.launch {
                 clipboardManager.clipboardItems.collect { items ->
                     clipboardItemsState.value = items
                 }
             }
-            
+
             serviceScope.launch {
                 clipboardManager.quickSendItems.collect { items ->
                     quickSendItemsState.value = items
@@ -244,6 +245,20 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             Log.d(TAG, "initClipboardManager: Clipboard manager initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "initClipboardManager: Failed to initialize clipboard manager", e)
+        }
+    }
+
+    private fun ensureClipboardManagerInitialized() {
+        if (!::clipboardManager.isInitialized) {
+            Log.d(TAG, "ensureClipboardManagerInitialized: Initializing clipboard manager synchronously")
+            try {
+                clipboardManager = ClipboardManager.getInstance(this)
+                clipboardItemsState.value = clipboardManager.clipboardItems.value
+                quickSendItemsState.value = clipboardManager.quickSendItems.value
+                Log.d(TAG, "ensureClipboardManagerInitialized: Clipboard manager initialized")
+            } catch (e: Exception) {
+                Log.e(TAG, "ensureClipboardManagerInitialized: Failed to initialize clipboard manager", e)
+            }
         }
     }
 
@@ -294,8 +309,9 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             themeId = state.themeId,
                             showBottomButtons = state.showBottomButtons,
                             keyboardHeightDp = state.keyboardHeightDp,
-                            clipboardItems = clipboardItemsState.value,
-                            quickSendItems = quickSendItemsState.value,
+                             clipboardItems = clipboardItemsState.value,
+                             quickSendItems = quickSendItemsState.value,
+                             recentClipboardItems = recentClipboardItemsState.value,
                             candidateComments = state.candidateComments,
                             isVoiceMode = state.isVoiceMode,
                             voiceBottomActive = state.voiceButtonState.bottomActive,
@@ -305,6 +321,7 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             voiceRecognitionState = state.voiceRecognitionState,
                             voiceRecognizedText = state.voiceRecognizedText,
                             voiceAmplitude = state.voiceAmplitude,
+                            uiStateProvider = { uiState.value },
                             onKeyPress = { key, isShifted ->
                                 handleKeyPress(key, isShifted)
                             },
@@ -532,12 +549,52 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         super.onStartInput(attribute, restarting)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         loadDarkModePreference()
-        
+
         predictionManager.lastCommittedText = ""
         Log.d(TAG, "onStartInput: cleared lastCommittedText")
-        
+
         checkAndInitializeAssociationEngine()
-        
+
+        // 获取最近30秒的剪切板内容
+        ensureClipboardManagerInitialized()
+        try {
+            recentClipboardItemsState.value = clipboardManager.recentItems.value
+            // 将最近剪切板内容显示在候选栏
+            uiState.value = uiState.value.copy(
+                candidates = recentClipboardItemsState.value.map { it.text }.toTypedArray(),
+                candidateComments = emptyArray(),
+                isShowingRecentClipboard = true
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get recent clipboard items", e)
+        }
+
+        // 监听recentClipboardItems变化，更新候选栏
+        serviceScope.launch {
+            clipboardManager.recentItems.collect { items ->
+                recentClipboardItemsState.value = items
+                if (items.isNotEmpty()) {
+                    // 清空Rime联想词等
+                    rimeEngine.clearComposition()
+                    uiState.value = uiState.value.copy(
+                        candidates = items.map { it.text.take(8) + if (it.text.length > 8) "..." else "" }.toTypedArray(),
+                        candidateComments = emptyArray(),
+                        inputText = "",
+                        isComposing = false,
+                        associationCandidates = emptyArray(),
+                        isShowingRecentClipboard = true
+                    )
+                } else if (uiState.value.isShowingRecentClipboard) {
+                    // 如果没有recent items，清空候选栏
+                    uiState.value = uiState.value.copy(
+                        candidates = emptyArray(),
+                        candidateComments = emptyArray(),
+                        isShowingRecentClipboard = false
+                    )
+                }
+            }
+        }
+
         attribute?.let { updateEnterKeyText(it) }
     }
     
@@ -558,11 +615,13 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         super.onFinishInput()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         clearInputState()
+        recentClipboardItemsState.value = emptyList()
     }
     
     override fun onWindowHidden() {
         super.onWindowHidden()
         clearInputState()
+        recentClipboardItemsState.value = emptyList()
     }
     
     private fun clearInputState() {
@@ -571,7 +630,8 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             candidates = emptyArray(),
             candidateComments = emptyArray(),
             inputText = "",
-            isComposing = false
+            isComposing = false,
+            isShowingRecentClipboard = false
         )
     }
 
@@ -603,7 +663,8 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             candidateComments = candidatesWithComments.map { it.comment }.toTypedArray(),
             isComposing = inputText.isNotEmpty(),
             isAsciiMode = rimeEngine.isAsciiMode(),
-            associationCandidates = emptyArray()
+            associationCandidates = emptyArray(),
+            isShowingRecentClipboard = false
         )
         
         val pendingEnglish = uiState.value.pendingEnglishText
@@ -884,8 +945,18 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
     
     private fun selectCandidate(index: Int) {
-        serviceScope.launch(Dispatchers.Default) {
-            selectCandidateAsync(index)
+        if (uiState.value.isShowingRecentClipboard && index >= 0 && index < recentClipboardItemsState.value.size) {
+            val text = recentClipboardItemsState.value[index].text
+            selectClipboardItem(text)
+            uiState.value = uiState.value.copy(
+                isShowingRecentClipboard = false,
+                candidates = emptyArray(),
+                candidateComments = emptyArray()
+            )
+        } else {
+            serviceScope.launch(Dispatchers.Default) {
+                selectCandidateAsync(index)
+            }
         }
     }
     
