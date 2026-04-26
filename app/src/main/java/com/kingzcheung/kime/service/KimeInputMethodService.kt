@@ -589,6 +589,7 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
     
     private fun hideKeyboard() {
+        uiState.value = uiState.value.copy(associationCandidates = emptyArray())
         requestHideSelf(0)
     }
     
