@@ -558,7 +558,7 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         // 获取最近30秒的剪切板内容
         ensureClipboardManagerInitialized()
         try {
-            recentClipboardItemsState.value = clipboardManager.recentItems.value
+            recentClipboardItemsState.value = clipboardManager.getRecentItems(30)
             // 将最近剪切板内容显示在候选栏
             uiState.value = uiState.value.copy(
                 candidates = recentClipboardItemsState.value.map { it.text }.toTypedArray(),
@@ -569,9 +569,10 @@ class KimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             Log.e(TAG, "Failed to get recent clipboard items", e)
         }
 
-        // 监听recentClipboardItems变化，更新候选栏
+        // 监听clipboardItems变化，更新候选栏
         serviceScope.launch {
-            clipboardManager.recentItems.collect { items ->
+            clipboardManager.clipboardItems.collect { _ ->
+                val items = clipboardManager.getRecentItems(30)
                 recentClipboardItemsState.value = items
                 if (items.isNotEmpty()) {
                     // 清空Rime联想词等
