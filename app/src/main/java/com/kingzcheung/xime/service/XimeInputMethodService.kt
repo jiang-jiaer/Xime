@@ -209,6 +209,21 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             }
         }
         
+        if (RimeEngine.isInitialized()) {
+            Log.d(TAG, "initRimeEngine: Engine already initialized, setting up schema...")
+            serviceScope.launch(Dispatchers.Main) {
+                val currentSchema = rimeEngine.getCurrentSchema()
+                val savedSchema = SettingsPreferences.getCurrentSchema(this@XimeInputMethodService)
+                val availableSchemas = rimeEngine.getAvailableSchemas()
+                
+                if (savedSchema in availableSchemas && currentSchema != savedSchema) {
+                    rimeEngine.switchSchema(savedSchema)
+                }
+                updateSchemaName()
+            }
+            return
+        }
+        
         serviceScope.launch(Dispatchers.IO) {
             try {
                 KeysConfigHelper.loadConfig(this@XimeInputMethodService)

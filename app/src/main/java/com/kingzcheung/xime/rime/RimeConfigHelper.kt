@@ -62,31 +62,35 @@ object RimeConfigHelper {
     
     private fun checkAndCleanBuildDir(sharedDataDir: File, userDataDir: File) {
         val buildDir = File(userDataDir, "build")
-        val schemasNeedingDeploy = mutableListOf<String>()
-        
         val defaultYaml = File(sharedDataDir, "default.yaml")
-        if (defaultYaml.exists()) {
-            try {
-                val content = defaultYaml.readText()
-                val schemaListRegex = Regex("""schema:\s*(\S+)""")
-                val schemas = schemaListRegex.findAll(content).map { it.groupValues[1] }.toList()
-                Log.d(TAG, "Schemas in default.yaml: $schemas")
-                
-                for (schema in schemas) {
-                    val prismFile = File(buildDir, "$schema.prism.bin")
-                    if (!prismFile.exists()) {
-                        schemasNeedingDeploy.add(schema)
-                        Log.d(TAG, "Schema $schema needs deployment (missing ${prismFile.name})")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to parse default.yaml", e)
-            }
+        
+        if (!defaultYaml.exists() || !buildDir.exists()) {
+            Log.d(TAG, "default.yaml or build directory not found, skipping check")
+            return
         }
         
-        if (schemasNeedingDeploy.isNotEmpty() && buildDir.exists()) {
-            Log.d(TAG, "Schemas needing deploy: $schemasNeedingDeploy, cleaning build directory")
-            buildDir.deleteRecursively()
+        try {
+            val content = defaultYaml.readText()
+            val schemaListRegex = Regex("""schema:\s*(\S+)""")
+            val schemas = schemaListRegex.findAll(content).map { it.groupValues[1] }.toList()
+            Log.d(TAG, "Schemas in default.yaml: $schemas")
+            
+            for (schema in schemas) {
+                val schemaFile = File(sharedDataDir, "$schema.schema.yaml")
+                val prismFile = File(buildDir, "$schema.prism.bin")
+                
+                if (schemaFile.exists()) {
+                    if (prismFile.exists()) {
+                        Log.d(TAG, "Schema $schema already deployed")
+                    } else {
+                        Log.d(TAG, "Schema $schema needs deployment (missing prism.bin)")
+                    }
+                } else {
+                    Log.d(TAG, "Schema $schema schema file not found, skipping")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse default.yaml", e)
         }
     }
     
