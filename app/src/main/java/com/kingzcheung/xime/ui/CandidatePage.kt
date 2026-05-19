@@ -5,16 +5,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,6 +42,10 @@ fun CandidatePage(
     onAssociationSelect: ((Int) -> Unit)? = null,
     backgroundColor: Color,
     textColor: Color,
+    hasNextPage: Boolean = false,
+    hasPrevPage: Boolean = false,
+    onPageDown: (() -> Unit)? = null,
+    onPageUp: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -43,8 +54,69 @@ fun CandidatePage(
             .background(backgroundColor)
             .padding(8.dp)
     ) {
-        
         if (candidates.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = inputText,
+                    color = textColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                if (hasPrevPage && onPageUp != null) textColor.copy(alpha = 0.1f)
+                                else Color.Transparent
+                            )
+                            .clickable(
+                                enabled = hasPrevPage && onPageUp != null,
+                                onClick = { onPageUp?.invoke() }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowLeft,
+                            contentDescription = "上一页",
+                            tint = if (hasPrevPage) textColor else textColor.copy(alpha = 0.3f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                if (hasNextPage && onPageDown != null) textColor.copy(alpha = 0.1f)
+                                else Color.Transparent
+                            )
+                            .clickable(
+                                enabled = hasNextPage && onPageDown != null,
+                                onClick = { onPageDown?.invoke() }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = "下一页",
+                            tint = if (hasNextPage) textColor else textColor.copy(alpha = 0.3f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
             
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),

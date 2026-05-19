@@ -91,6 +91,8 @@ fun KeyboardView(
     voiceRecognizedText: String = "",
     voiceAmplitude: Float = 0f,
     uiStateProvider: () -> InputUIState,
+    onPageDown: (() -> Unit)? = null,
+    onPageUp: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isShifted by remember { mutableStateOf(false) }
@@ -290,6 +292,10 @@ onHideKeyboard = {
                         },
                         backgroundColor = candidateBarBg,
                         textColor = candidateTextColor,
+                        hasNextPage = state.hasNextPage,
+                        hasPrevPage = state.hasPrevPage,
+                        onPageDown = onPageDown,
+                        onPageUp = onPageUp,
                         modifier = Modifier.weight(1f)
                     )
                 }

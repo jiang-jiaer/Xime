@@ -236,6 +236,38 @@ public:
         if (!rime || !session_id_) return false;
         return rime->select_candidate_on_current_page(session_id_, index);
     }
+    
+    bool pageDown() {
+        if (!rime || !session_id_) return false;
+        return rime->process_key(session_id_, 0xFF56, 0);
+    }
+    
+    bool pageUp() {
+        if (!rime || !session_id_) return false;
+        return rime->process_key(session_id_, 0xFF55, 0);
+    }
+    
+    bool hasNextPage() {
+        if (!rime || !session_id_) return false;
+        RIME_STRUCT(RimeContext, context);
+        if (rime->get_context(session_id_, &context)) {
+            bool result = context.menu.page_no < context.menu.page_no + 1;
+            rime->free_context(&context);
+            return result;
+        }
+        return false;
+    }
+    
+    bool hasPrevPage() {
+        if (!rime || !session_id_) return false;
+        RIME_STRUCT(RimeContext, context);
+        if (rime->get_context(session_id_, &context)) {
+            bool result = context.menu.page_no > 0;
+            rime->free_context(&context);
+            return result;
+        }
+        return false;
+    }
 
     std::string commit() {
         std::string result;
@@ -611,6 +643,42 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeSelectCandidate(
     jint index
 ) {
     return Rime::Instance().selectCandidate(index) ? JNI_TRUE : JNI_FALSE;
+}
+
+// 翻页 - 下一页
+JNIEXPORT jboolean JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativePageDown(
+    JNIEnv* env,
+    jobject thiz
+) {
+    return Rime::Instance().pageDown() ? JNI_TRUE : JNI_FALSE;
+}
+
+// 翻页 - 上一页
+JNIEXPORT jboolean JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativePageUp(
+    JNIEnv* env,
+    jobject thiz
+) {
+    return Rime::Instance().pageUp() ? JNI_TRUE : JNI_FALSE;
+}
+
+// 是否有下一页
+JNIEXPORT jboolean JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativeHasNextPage(
+    JNIEnv* env,
+    jobject thiz
+) {
+    return Rime::Instance().hasNextPage() ? JNI_TRUE : JNI_FALSE;
+}
+
+// 是否有上一页
+JNIEXPORT jboolean JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativeHasPrevPage(
+    JNIEnv* env,
+    jobject thiz
+) {
+    return Rime::Instance().hasPrevPage() ? JNI_TRUE : JNI_FALSE;
 }
 
 // 提交文本

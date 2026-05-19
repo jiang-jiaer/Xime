@@ -35,7 +35,9 @@ data class InputUIState(
     val stretchFactor: Float = 1f,
     val isShowingRecentClipboard: Boolean = false,
     val isDeploying: Boolean = false,
-    val deploymentMessage: String = ""
+    val deploymentMessage: String = "",
+    val hasNextPage: Boolean = false,
+    val hasPrevPage: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -75,6 +77,8 @@ if (showBottomButtons != other.showBottomButtons) return false
         if (isShowingRecentClipboard != other.isShowingRecentClipboard) return false
         if (isDeploying != other.isDeploying) return false
         if (deploymentMessage != other.deploymentMessage) return false
+        if (hasNextPage != other.hasNextPage) return false
+        if (hasPrevPage != other.hasPrevPage) return false
 
         return true
     }
@@ -112,6 +116,8 @@ result = 31 * result + showBottomButtons.hashCode()
         result = 31 * result + isShowingRecentClipboard.hashCode()
         result = 31 * result + isDeploying.hashCode()
         result = 31 * result + deploymentMessage.hashCode()
+        result = 31 * result + hasNextPage.hashCode()
+        result = 31 * result + hasPrevPage.hashCode()
         return result
     }
 }

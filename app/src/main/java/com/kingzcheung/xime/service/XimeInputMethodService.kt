@@ -471,6 +471,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                     }
                                 }
                             },
+                            onPageDown = { pageDown() },
+                            onPageUp = { pageUp() },
                             onCommitImage = { imagePath ->
                                 val success = commitImage(imagePath)
                                 if (!success) {
@@ -718,6 +720,8 @@ if (state.showKeyboardResize) {
         val inputText = rimeEngine.getInput()
         val candidatesWithComments = rimeEngine.getCandidatesWithComments()
         val isAsciiMode = rimeEngine.isAsciiMode()
+        val hasNextPage = rimeEngine.hasNextPage()
+        val hasPrevPage = rimeEngine.hasPrevPage()
         
         val pendingEnglish = uiState.value.pendingEnglishText
         
@@ -737,7 +741,9 @@ if (state.showKeyboardResize) {
             isComposing = inputText.isNotEmpty(),
             isAsciiMode = isAsciiMode,
             associationCandidates = if (isAsciiMode && pendingEnglish.isEmpty()) emptyArray() else uiState.value.associationCandidates,
-            isShowingRecentClipboard = false
+            isShowingRecentClipboard = false,
+            hasNextPage = hasNextPage,
+            hasPrevPage = hasPrevPage
         )
         
         if (pendingEnglish.isNotEmpty()) {
@@ -1042,6 +1048,26 @@ if (state.showKeyboardResize) {
         } else {
             serviceScope.launch(Dispatchers.Default) {
                 selectCandidateAsync(index)
+            }
+        }
+    }
+    
+    private fun pageDown() {
+        serviceScope.launch(Dispatchers.Default) {
+            if (rimeEngine.pageDown()) {
+                withContext(Dispatchers.Main) {
+                    updateUI()
+                }
+            }
+        }
+    }
+    
+    private fun pageUp() {
+        serviceScope.launch(Dispatchers.Default) {
+            if (rimeEngine.pageUp()) {
+                withContext(Dispatchers.Main) {
+                    updateUI()
+                }
             }
         }
     }

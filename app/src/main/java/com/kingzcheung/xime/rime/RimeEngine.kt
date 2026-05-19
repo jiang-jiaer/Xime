@@ -145,6 +145,26 @@ class RimeEngine {
         return nativeSelectCandidate(index)
     }
     
+    fun pageDown(): Boolean {
+        if (!isInitialized) return false
+        return nativePageDown()
+    }
+    
+    fun pageUp(): Boolean {
+        if (!isInitialized) return false
+        return nativePageUp()
+    }
+    
+    fun hasNextPage(): Boolean {
+        if (!isInitialized) return false
+        return nativeHasNextPage()
+    }
+    
+    fun hasPrevPage(): Boolean {
+        if (!isInitialized) return false
+        return nativeHasPrevPage()
+    }
+    
     fun commit(): String {
         return nativeCommit() ?: ""
     }
@@ -219,6 +239,10 @@ class RimeEngine {
     private external fun nativeGetCandidatesWithComments(): Array<Array<String>>?
     private external fun nativeGetInput(): String?
     private external fun nativeSelectCandidate(index: Int): Boolean
+    private external fun nativePageDown(): Boolean
+    private external fun nativePageUp(): Boolean
+    private external fun nativeHasNextPage(): Boolean
+    private external fun nativeHasPrevPage(): Boolean
     private external fun nativeCommit(): String?
     private external fun nativeClearComposition()
     private external fun nativeToggleAsciiMode(): Boolean
