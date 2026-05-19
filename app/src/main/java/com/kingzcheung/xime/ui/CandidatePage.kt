@@ -43,24 +43,8 @@ fun CandidatePage(
             .background(backgroundColor)
             .padding(8.dp)
     ) {
-        if (inputText.isNotEmpty()) {
-            Text(
-                text = "编码: $inputText",
-                color = textColor,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
         
         if (candidates.isNotEmpty()) {
-            Text(
-                text = "候选词",
-                color = textColor.copy(alpha = 0.7f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
             
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
