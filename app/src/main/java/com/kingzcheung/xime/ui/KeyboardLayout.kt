@@ -55,6 +55,7 @@ fun KeyboardLayout(
     isShifted: Boolean,
     isAsciiMode: Boolean = false,
     schemaName: String = "",
+    currentSchemaId: String = "",
     enterKeyText: String = "发送",
     isDarkTheme: Boolean = false,
     keyBackgroundColor: Color,
@@ -68,6 +69,7 @@ fun KeyboardLayout(
 ) {
     val context = LocalContext.current
     val swipeDownShowRootsEnabled = SettingsPreferences.isSwipeDownShowRootsEnabled(context)
+    val shouldShowRadicals = swipeDownShowRootsEnabled && KeysConfigHelper.hasSchemaRadicals(currentSchemaId)
     
     LaunchedEffect(Unit) {
         SubcharHelper.init(context)
@@ -126,7 +128,8 @@ fun KeyboardLayout(
                     keyboardBackgroundColor = keyboardBackgroundColor,
                     onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
                     onKeyPressDown = onKeyPressDown,
-                    swipeDownShowRootsEnabled = swipeDownShowRootsEnabled
+                    swipeDownShowRootsEnabled = shouldShowRadicals,
+                    currentSchemaId = currentSchemaId
                 )
             }
             
@@ -150,7 +153,8 @@ fun KeyboardLayout(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
                     onKeyPressDown = onKeyPressDown,
-                    swipeDownShowRootsEnabled = swipeDownShowRootsEnabled
+                    swipeDownShowRootsEnabled = shouldShowRadicals,
+                    currentSchemaId = currentSchemaId
                 )
             }
             
@@ -200,8 +204,8 @@ fun KeyboardLayout(
                             val swipeUpText = KeysConfigHelper.getSwipeUpText(key)
                             val swipeDownText = if (isAsciiMode) {
                                 KeysConfigHelper.getSwipeDownEnglishText(key)
-                            } else if (swipeDownShowRootsEnabled) {
-                                KeysConfigHelper.getSwipeDownWubiText(key)
+                            } else if (shouldShowRadicals) {
+                                KeysConfigHelper.getSwipeDownWubiText(key, currentSchemaId)
                             } else null
                             
                             SwipeableKeyButton(
@@ -495,7 +499,8 @@ fun KeyboardRowWithConfig(
     modifier: Modifier = Modifier,
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
     onKeyPressDown: ((String) -> Unit)? = null,
-    swipeDownShowRootsEnabled: Boolean = false
+    swipeDownShowRootsEnabled: Boolean = false,
+    currentSchemaId: String = ""
 ) {
     Row(
         modifier = modifier
@@ -508,7 +513,7 @@ fun KeyboardRowWithConfig(
             val swipeDownText = if (isAsciiMode) {
                 KeysConfigHelper.getSwipeDownEnglishText(key)
             } else if (swipeDownShowRootsEnabled) {
-                KeysConfigHelper.getSwipeDownWubiText(key)
+                KeysConfigHelper.getSwipeDownWubiText(key, currentSchemaId)
             } else null
             
             SwipeableKeyButton(

@@ -314,6 +314,7 @@ onHideKeyboard = {
                                 isShifted = isShifted,
                                 isAsciiMode = isAsciiMode,
                                 schemaName = schemaName,
+                                currentSchemaId = currentSchemaId,
                                 enterKeyText = enterKeyText,
                                 isDarkTheme = isDarkTheme,
                                 keyBackgroundColor = keyBgColor,

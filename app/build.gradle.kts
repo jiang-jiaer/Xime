@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 val onnxVersion = "1.20.0"
@@ -441,6 +442,9 @@ dependencies {
     
     // Apache Commons Compress for tar.bz2 extraction
     implementation("org.apache.commons:commons-compress:1.26.0")
+    
+    // Kaml for YAML parsing
+    implementation(libs.kaml)
     
     debugImplementation(libs.androidx.compose.ui.tooling)
     
