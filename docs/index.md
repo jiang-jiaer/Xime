@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: "Xime (曦码)"
-  text: "安卓五笔输入法"
+  text: "安卓五笔/拼音输入法"
   tagline: 基于 Rime 引擎构建，专注于简洁高效的中文输入体验
   actions:
     - theme: brand
@@ -15,8 +15,8 @@ hero:
 
 features:
   - icon: ⌨️
-    title: 五笔86输入方案
-    details: 支持五笔86及五笔拼音混输方案，成熟稳定的输入体验
+    title: 多方案
+    details: 支持五笔86、五笔98及五笔拼音混输方案，成熟稳定的输入体验
   - icon: 🔧
     title: Rime 引擎
     details: 使用 Rime 输入法引擎，高度可定制化
