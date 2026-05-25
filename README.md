@@ -2,9 +2,9 @@
   <img src="docs/logo.jpg" alt="Xime Logo" width="600">
 </p>
 
-<h1 align="center">Xime（曦码） - 五笔输入法</h1>
+<h1 align="center">Xime（曦码） - 五笔/拼音输入法</h1>
 
-[Xime 五笔输入法 (Windows)](https://github.com/ximeiorg/winxime)
+[Xime 输入法 (Windows)](https://github.com/ximeiorg/winxime)
 
 
 ---
@@ -13,7 +13,7 @@
 > 本输入法支持五笔/拼音输入，只是本人以五笔为主，拼音为辅，因此资源会倾向于五笔为主。
 
 <p align="center">
-  一款基于 <a href="https://rime.im/">Rime</a> 引擎构建的 Android 五笔输入法，专注于简洁高效的中文输入体验。
+  一款基于 <a href="https://rime.im/">Rime</a> 引擎构建的 Android 五笔/拼音输入法，专注于简洁高效的中文输入体验。
 </p>
 
 <table align="center">
@@ -53,7 +53,7 @@
 
 ## 功能特点
 
-- **五笔86输入方案** - 支持五笔86及五笔拼音混输方案
+- **多种输入方案** - 支持五笔86、五笔98、拼音、及五笔拼音混输方案
 - **Rime 引擎** - 使用成熟稳定的 Rime 输入法引擎
 - **语音转文本** - 内置语音识别功能（支持阿里百炼 FunAsr）
 - **表情插件** - 支持扩展表情插件（颜文字、表情包等）
