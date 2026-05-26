@@ -223,7 +223,7 @@ fun KeyboardLayout(
                             )
                         }
                     }
-                    
+
                     SwipeableIconKeyButton(
                         icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                         onClick = { onKeyPress("delete") },
@@ -287,46 +287,56 @@ fun KeyboardLayout(
                     modifier = Modifier
                         .weight(3f)
                         .height((44 * LocalStretchFactor.current).dp)
-                        .shadow(1.dp, RoundedCornerShape(8.dp), ambientColor = Color(0x80000000), spotColor = Color(0x80000000))
+                        .shadow(
+                            1.dp,
+                            RoundedCornerShape(8.dp),
+                            ambientColor = Color(0x80000000),
+                            spotColor = Color(0x80000000)
+                        )
                         .clip(RoundedCornerShape(8.dp))
                         .background(keyBackgroundColor)
                         .pointerInput(onKeyPress) {
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false)
                                 onKeyPressDown?.invoke("space")
-                                
+
                                 // 启动长按检测
                                 var longPressTriggered = false
                                 val longPressJob = scope.launch {
                                     delay(400)
                                     longPressTriggered = true
-                                    
+
                                     // 检查麦克风权限
                                     if (!PermissionHelper.hasRecordAudioPermission(context)) {
-                                        Toast.makeText(context, "需要麦克风权限才能使用语音输入", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            "需要麦克风权限才能使用语音输入",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                         PermissionHelper.requestRecordAudioPermission(context)
                                     } else {
                                         // 触发语音模式切换，外部状态变化后会显示 VoiceKeyboardLayout
                                         onVoiceModeChange?.invoke(true)
                                     }
                                 }
-                                
+
                                 // 跟踪水平滑动控制光标
                                 var dragX = 0f
                                 var isHorizontalSwipe = false
                                 val cursorThreshold = 60f
-                                
+
                                 do {
                                     val event = awaitPointerEvent()
                                     val change = event.changes.firstOrNull() ?: break
-                                    
+
                                     if (change.pressed) {
                                         val dx = change.position.x - down.position.x
                                         val dy = change.position.y - down.position.y
-                                        
+
                                         // 判断是否为水平滑动（水平位移远大于垂直位移）
                                         if (kotlin.math.abs(dx) > cursorThreshold &&
-                                            kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2f) {
+                                            kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2f
+                                        ) {
                                             if (!isHorizontalSwipe) {
                                                 isHorizontalSwipe = true
                                                 longPressJob.cancel()
@@ -337,15 +347,15 @@ fun KeyboardLayout(
                                                 dragX -= steps * cursorThreshold
                                             }
                                         }
-                                        
+
                                         // 更新累积偏移
                                         dragX = dx
                                         change.consume()
                                     } else break
                                 } while (true)
-                                
+
                                 longPressJob.cancel()
-                                
+
                                 // 非滑动操作视为点击空格
                                 if (!longPressTriggered && !isHorizontalSwipe) {
                                     onKeyPress("space")
