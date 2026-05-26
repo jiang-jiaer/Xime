@@ -131,10 +131,11 @@ fun CandidateBar(
 
     Column(
         modifier = modifier
+            .padding(vertical = 0.dp)
             .fillMaxWidth()
-            .height(44.dp)
+            .height(46.dp)
             .background(backgroundColor)
-            .padding(horizontal = 8.dp).padding(vertical = 0.dp)
+            .padding(horizontal = 8.dp)
     ) {
         // 上方行：输入编码（拼音），仅在打字时显示
         if (!showClipboardTabs && isComposing && inputText.isNotEmpty()) {
@@ -143,14 +144,15 @@ fun CandidateBar(
 
             Box(
                 modifier = Modifier
+                    .padding(vertical = 0.dp)
                     .fillMaxWidth()
-                    .height(16.dp),
-                contentAlignment = Alignment.CenterStart
+                    .height(18.dp),
+                contentAlignment = Alignment.TopStart
             ) {
                 Text(
                     text = inputText,
-                    color = textColor.copy(alpha = 0.6f),
-                    fontSize = 11.sp,
+                    color = textColor.copy(alpha = 0.8f),
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Normal,
                     maxLines = 1,
                     modifier = Modifier
@@ -168,7 +170,7 @@ fun CandidateBar(
                             interactionSource = inputTextInteractionSource,
                             indication = null
                         ) { onInputTextClick?.invoke() }
-                        .padding(horizontal = 4.dp)
+                        .padding(horizontal = 0.dp)
                 )
             }
         }

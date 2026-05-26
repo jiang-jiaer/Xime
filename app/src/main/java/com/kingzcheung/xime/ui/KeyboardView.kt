@@ -106,7 +106,7 @@ fun KeyboardView(
     var showEmoji by remember { mutableStateOf(false) }
     var showSchemaList by remember { mutableStateOf(false) }
     var clipboardTab by remember { mutableStateOf(0) }
-    
+
     val keyBgColor = if (isDarkTheme) KeyBackgroundDark else KeyBackground
     val keyboardBgColor = if (isDarkTheme) KeyboardBackgroundDark else KeyboardBackground
     val keyTextColor = if (isDarkTheme) KeyTextColorDark else KeyTextColor
@@ -160,16 +160,16 @@ fun KeyboardView(
                         showMenu = false
                     }
                 },
-onHideKeyboard = {
-                        onHideKeyboard?.invoke()
-                        keyboardMode = KeyboardMode.FULL
-                        showMenu = false
-                        showCandidatePage = false
-                        showClipboard = false
-                        showSchemaList = false
-                        showEmoji = false
-                        isShifted = false
-                    },
+                onHideKeyboard = {
+                    onHideKeyboard?.invoke()
+                    keyboardMode = KeyboardMode.FULL
+                    showMenu = false
+                    showCandidatePage = false
+                    showClipboard = false
+                    showSchemaList = false
+                    showEmoji = false
+                    isShifted = false
+                },
                 onShowMoreCandidates = { showCandidatePage = true },
                 showClipboardTabs = showClipboard,
                 clipboardTab = clipboardTab,
@@ -182,7 +182,7 @@ onHideKeyboard = {
                 associationCandidates = associationCandidates.toList(),
                 onAssociationSelect = onAssociationSelect
             )
-            
+
             // 显示菜单、剪切板、候选词页面或键盘
             when {
                 isVoiceMode -> {
@@ -203,42 +203,44 @@ onHideKeyboard = {
                         amplitude = voiceAmplitude
                     )
                 }
+
                 showMenu -> {
                     MenuBar(
                         isVisible = true,
                         isDarkTheme = isDarkTheme,
                         backgroundColor = keyboardBgColor,
                         onDismiss = { showMenu = false },
-                        onClipboard = { 
+                        onClipboard = {
                             showClipboard = true
                             clipboardTab = 0
                             showMenu = false
-                            onClipboard?.invoke() 
+                            onClipboard?.invoke()
                         },
-                        onQuickSend = { 
+                        onQuickSend = {
                             showClipboard = true
                             clipboardTab = 1
                             showMenu = false
-                            onQuickSend?.invoke() 
+                            onQuickSend?.invoke()
                         },
-                        onKeyboardResize = { 
-                            showMenu = false 
+                        onKeyboardResize = {
+                            showMenu = false
                             onKeyboardResize?.invoke()
                         },
-                        onEmoji = { 
+                        onEmoji = {
                             showEmoji = true
-                            showMenu = false 
+                            showMenu = false
                         },
                         onReloadConfig = { onReloadConfig?.invoke(); showMenu = false },
                         onSettings = { onSettings?.invoke(); showMenu = false },
-                        onSchemaList = { 
+                        onSchemaList = {
                             showSchemaList = true
-                            showMenu = false 
+                            showMenu = false
                         },
                         onToggleDarkMode = { onToggleDarkMode?.invoke() },
                         modifier = Modifier.weight(1f)
                     )
                 }
+
                 showClipboard -> {
                     ClipboardView(
                         clipboardItems = clipboardItems,
@@ -257,6 +259,7 @@ onHideKeyboard = {
                         modifier = Modifier.weight(1f)
                     )
                 }
+
                 showSchemaList -> {
                     SchemaListView(
                         schemas = schemas,
@@ -271,6 +274,7 @@ onHideKeyboard = {
                         modifier = Modifier.weight(1f)
                     )
                 }
+
                 showEmoji -> {
                     EmojiKeyboardLayout(
                         onEmojiSelect = { emoji ->
@@ -287,6 +291,7 @@ onHideKeyboard = {
                         modifier = Modifier.weight(1f)
                     )
                 }
+
                 showCandidatePage -> {
                     CandidatePage(
                         candidates = candidates.toList(),
@@ -310,6 +315,7 @@ onHideKeyboard = {
                         modifier = Modifier.weight(1f)
                     )
                 }
+
                 else -> {
                     when (keyboardMode) {
                         KeyboardMode.FULL -> {
@@ -338,41 +344,43 @@ onHideKeyboard = {
                                 onKeyPressDown = onKeyPressDown
                             )
                         }
+
                         KeyboardMode.NUMBER -> {
-                                NumberKeyboardLayout(
-                                    onKeyPress = { key ->
-                                        when (key) {
-                                            "abc" -> keyboardMode = KeyboardMode.FULL
-                                            "symbol" -> keyboardMode = KeyboardMode.SYMBOL
-                                            "emoji" -> showEmoji = true
-                                            else -> onKeyPress(key, false)
-                                        }
-                                    },
-                                    keyBackgroundColor = keyBgColor,
-                                    keyTextColor = keyTextColor,
-                                    specialKeyBackgroundColor = specialKeyBgColor,
-                                    keyboardBackgroundColor = keyboardBgColor,
-                                    modifier = Modifier.weight(1f),
-                                    onKeyPressDown = onKeyPressDown
-                                )
-                            }
-                            KeyboardMode.SYMBOL -> {
-                                SymbolKeyboardLayout(
-                                    onKeyPress = { key ->
-                                        when (key) {
-                                            "abc" -> keyboardMode = KeyboardMode.FULL
-                                            "123" -> keyboardMode = KeyboardMode.NUMBER
-                                            else -> onKeyPress(key, false)
-                                        }
-                                    },
-                                    keyBackgroundColor = keyBgColor,
-                                    keyTextColor = keyTextColor,
-                                    specialKeyBackgroundColor = specialKeyBgColor,
-                                    keyboardBackgroundColor = keyboardBgColor,
-                                    modifier = Modifier.weight(1f),
-                                    onKeyPressDown = onKeyPressDown
-                                )
-                            }
+                            NumberKeyboardLayout(
+                                onKeyPress = { key ->
+                                    when (key) {
+                                        "abc" -> keyboardMode = KeyboardMode.FULL
+                                        "symbol" -> keyboardMode = KeyboardMode.SYMBOL
+                                        "emoji" -> showEmoji = true
+                                        else -> onKeyPress(key, false)
+                                    }
+                                },
+                                keyBackgroundColor = keyBgColor,
+                                keyTextColor = keyTextColor,
+                                specialKeyBackgroundColor = specialKeyBgColor,
+                                keyboardBackgroundColor = keyboardBgColor,
+                                modifier = Modifier.weight(1f),
+                                onKeyPressDown = onKeyPressDown
+                            )
+                        }
+
+                        KeyboardMode.SYMBOL -> {
+                            SymbolKeyboardLayout(
+                                onKeyPress = { key ->
+                                    when (key) {
+                                        "abc" -> keyboardMode = KeyboardMode.FULL
+                                        "123" -> keyboardMode = KeyboardMode.NUMBER
+                                        else -> onKeyPress(key, false)
+                                    }
+                                },
+                                keyBackgroundColor = keyBgColor,
+                                keyTextColor = keyTextColor,
+                                specialKeyBackgroundColor = specialKeyBgColor,
+                                keyboardBackgroundColor = keyboardBgColor,
+                                modifier = Modifier.weight(1f),
+                                onKeyPressDown = onKeyPressDown
+                            )
+                        }
                     }
                 }
             }
@@ -410,7 +418,7 @@ onHideKeyboard = {
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                    
+
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -429,7 +437,7 @@ onHideKeyboard = {
                 Spacer(modifier = Modifier.height(40.dp))
             }
         }
-        
+
         if (isDeploying) {
             val isError = deploymentMessage.contains("超时") || deploymentMessage.contains("失败")
             Box(
