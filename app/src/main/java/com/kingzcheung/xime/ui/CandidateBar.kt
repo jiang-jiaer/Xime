@@ -76,7 +76,7 @@ fun CandidateBar(
     onAssociationSelect: ((Int) -> Unit)? = null,
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
-    val displayCandidates = candidates.take(5)
+    val displayCandidates = candidates.take(20)
     val hasMoreCandidates = candidates.size >= 5
     val hasMoreAssociation = associationCandidates.size >= 5
     val hasAnyMore = hasMoreCandidates || hasMoreAssociation
