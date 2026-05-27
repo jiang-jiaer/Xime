@@ -2,11 +2,14 @@ package com.kingzcheung.xime.service
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.media.AudioAttributes
 import android.media.AudioManager
+import android.media.SoundPool
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import com.kingzcheung.xime.R
 import com.kingzcheung.xime.settings.SettingsPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,11 +18,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class FeedbackManager(private val context: Context) {
-    
-    private val audioManager: AudioManager by lazy { 
-        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager 
-    }
-    
+
+    private var soundPool: SoundPool? = null
+    private val soundIds = mutableMapOf<String, Int>()
+
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -29,34 +31,55 @@ class FeedbackManager(private val context: Context) {
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
     }
-    
+
     private val feedbackScope = CoroutineScope(Dispatchers.Default)
-    
+
     private var soundEnabled = AtomicBoolean(true)
     private var soundVolume = AtomicInteger(50)
     private var vibrationEnabled = AtomicBoolean(true)
     private var vibrationIntensity = AtomicInteger(50)
-    
+
     private var prefsListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
-    
+
     fun initialize() {
+        initSoundPool()
         loadSettings()
         registerPrefsListener()
     }
-    
+
     fun release() {
         prefsListener?.let {
             SettingsPreferences.getPrefsPublic(context).unregisterOnSharedPreferenceChangeListener(it)
         }
+        soundPool?.release()
+        soundPool = null
     }
-    
+
+    private fun initSoundPool() {
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        soundPool = SoundPool.Builder()
+            .setMaxStreams(4)
+            .setAudioAttributes(attrs)
+            .build()
+
+        soundPool?.let { pool ->
+            soundIds["standard"] = pool.load(context, R.raw.kb_key_standard, 1)
+            soundIds["delete"] = pool.load(context, R.raw.kb_key_delete, 1)
+            soundIds["space"] = pool.load(context, R.raw.kb_key_space, 1)
+            soundIds["enter"] = pool.load(context, R.raw.kb_key_enter, 1)
+        }
+    }
+
     private fun loadSettings() {
         soundEnabled.set(SettingsPreferences.isSoundEnabled(context))
         soundVolume.set(SettingsPreferences.getSoundVolume(context))
         vibrationEnabled.set(SettingsPreferences.isVibrationEnabled(context))
         vibrationIntensity.set(SettingsPreferences.getVibrationIntensity(context))
     }
-    
+
     private fun registerPrefsListener() {
         val prefs = SettingsPreferences.getPrefsPublic(context)
         prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -69,32 +92,25 @@ class FeedbackManager(private val context: Context) {
         }
         prefs.registerOnSharedPreferenceChangeListener(prefsListener)
     }
-    
+
     fun playKeySound(keyType: String = "standard") {
         if (!soundEnabled.get()) return
-        
-        feedbackScope.launch {
-            val volume = soundVolume.get() / 100f
-            
-            val effectType = when (keyType) {
-                "delete" -> AudioManager.FX_KEYPRESS_DELETE
-                "enter" -> AudioManager.FX_KEYPRESS_RETURN
-                "space" -> AudioManager.FX_KEYPRESS_SPACEBAR
-                else -> AudioManager.FX_KEYPRESS_STANDARD
-            }
-            
-            audioManager.playSoundEffect(effectType, volume)
-        }
+
+        val pool = soundPool ?: return
+        val soundId = soundIds[keyType] ?: soundIds["standard"] ?: return
+        val volume = soundVolume.get() / 100f
+
+        pool.play(soundId, volume, volume, 1, 0, 1.0f)
     }
-    
+
     fun performVibration() {
         if (!vibrationEnabled.get()) return
         if (!vibrator.hasVibrator()) return
-        
+
         feedbackScope.launch {
             val intensity = vibrationIntensity.get()
             val duration = 10L + (intensity * 0.4).toLong()
-            
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val amplitude = (intensity * 2.55).toInt().coerceIn(1, 255)
                 vibrator.vibrate(VibrationEffect.createOneShot(duration, amplitude))
@@ -104,12 +120,12 @@ class FeedbackManager(private val context: Context) {
             }
         }
     }
-    
+
     fun performKeyPressEffect(keyType: String = "standard") {
         playKeySound(keyType)
         performVibration()
     }
-    
+
     fun performKeyPressDownEffect(key: String) {
         val keyType = when (key) {
             "delete", "clear_composition" -> "delete"
