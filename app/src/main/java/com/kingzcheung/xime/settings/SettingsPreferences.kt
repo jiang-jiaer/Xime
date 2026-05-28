@@ -30,6 +30,7 @@ object SettingsPreferences {
     private const val KEY_SWIPE_DOWN_SHOW_ROOTS = "swipe_down_show_roots"
     
     private const val KEY_KEYBOARD_HEIGHT_DP = "keyboard_height_dp"
+    private const val KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE = "keyboard_height_dp_landscape"
     private const val DEFAULT_KEYBOARD_HEIGHT_DP = 290
     
     private const val KEY_KEYBOARD_BOTTOM_PADDING_DP = "keyboard_bottom_padding_dp"
@@ -199,9 +200,21 @@ object SettingsPreferences {
     fun getKeyboardHeightDp(context: Context): Int {
         return getPrefs(context).getInt(KEY_KEYBOARD_HEIGHT_DP, DEFAULT_KEYBOARD_HEIGHT_DP)
     }
-    
+
+    fun getKeyboardHeightDp(context: Context, isLandscape: Boolean): Int {
+        val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
+        val alt = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP else KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE
+        // 先读本方向的值，如果没有则用另一个方向的，最后用默认值
+        return getPrefs(context).getInt(key, getPrefs(context).getInt(alt, DEFAULT_KEYBOARD_HEIGHT_DP))
+    }
+
     fun setKeyboardHeightDp(context: Context, heightDp: Int) {
         getPrefs(context).edit().putInt(KEY_KEYBOARD_HEIGHT_DP, heightDp).apply()
+    }
+
+    fun setKeyboardHeightDp(context: Context, heightDp: Int, isLandscape: Boolean) {
+        val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
+        getPrefs(context).edit().putInt(key, heightDp).apply()
     }
     
     fun getDefaultKeyboardHeightDp(): Int = DEFAULT_KEYBOARD_HEIGHT_DP

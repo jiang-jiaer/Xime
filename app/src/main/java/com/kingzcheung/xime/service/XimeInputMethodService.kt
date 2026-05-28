@@ -114,11 +114,12 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private val feedbackManager = FeedbackManager(this)
     
     private fun loadDarkModePreference() {
+        val isLandscape = resources.configuration.screenWidthDp > resources.configuration.screenHeightDp
         uiState.value = uiState.value.copy(
             darkMode = SettingsPreferences.getDarkMode(this),
             themeId = SettingsPreferences.getKeyboardTheme(this),
             showBottomButtons = SettingsPreferences.showBottomButtons(this),
-            keyboardHeightDp = SettingsPreferences.getKeyboardHeightDp(this),
+            keyboardHeightDp = SettingsPreferences.getKeyboardHeightDp(this, isLandscape),
             keyboardBottomPaddingDp = SettingsPreferences.getKeyboardBottomPaddingDp(this)
         )
     }
@@ -364,10 +365,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 val isDarkTheme = isDarkTheme()
                 val screenHeightDp = resources.configuration.screenHeightDp
                 val maxHeightDp = (screenHeightDp * 3) / 5
+                val isLandscape = resources.configuration.screenWidthDp > screenHeightDp
+                val orientationHeight = SettingsPreferences.getKeyboardHeightDp(this@XimeInputMethodService, isLandscape)
+                val displayHeight = minOf(orientationHeight, maxHeightDp)
                 val keyboardHeight = if (state.showKeyboardResize) {
-                    maxHeightDp + 100
+                    if (isLandscape) (screenHeightDp * 7) / 10 else maxHeightDp + 100
                 } else {
-                    minOf(state.keyboardHeightDp, maxHeightDp)
+                    displayHeight
                 }
                 
                 XimeTheme(darkTheme = isDarkTheme, themeId = state.themeId) {
@@ -457,15 +461,20 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 Log.d(TAG, "QuickSend clicked")
                             },
                             onKeyboardResize = {
-                                val currentHeight = uiState.value.keyboardHeightDp
+                                val config = resources.configuration
+                                val isLandscape = config.screenWidthDp > config.screenHeightDp
+                                val currentHeight = SettingsPreferences.getKeyboardHeightDp(this@XimeInputMethodService, isLandscape)
                                 val currentPadding = uiState.value.keyboardBottomPaddingDp
+                                val maxHeightDp = (config.screenHeightDp * 3) / 5
+                                val displayHeight = minOf(currentHeight, maxHeightDp)
                                 uiState.value = uiState.value.copy(
                                     showKeyboardResize = true,
-                                    resizePreviewHeightDp = currentHeight,
+                                    keyboardHeightDp = currentHeight,
+                                    resizePreviewHeightDp = displayHeight,
                                     resizePreviewBottomPaddingDp = currentPadding,
-                                    originalKeyboardHeightDp = currentHeight,
+                                    originalKeyboardHeightDp = displayHeight,
                                     originalKeyboardBottomPaddingDp = currentPadding,
-                                    stretchFactor = ((currentHeight - 126f) / (SettingsPreferences.getDefaultKeyboardHeightDp() - 126f)).coerceAtLeast(0f)
+                                    stretchFactor = ((displayHeight - 126f) / (SettingsPreferences.getDefaultKeyboardHeightDp() - 126f)).coerceAtLeast(0f)
                                 )
                             },
                             onReloadConfig = {
@@ -562,16 +571,13 @@ onVoiceModeChange = { enabled ->
                          }
                      }
                      
-if (state.showKeyboardResize) {
-                          val screenHeightDp = resources.configuration.screenHeightDp
-                          val maxContainerHeightDp = screenHeightDp / 2
-                          
-                          KeyboardResizeOverlay(
-                              initialHeightDp = state.resizePreviewHeightDp,
-                              initialBottomPaddingDp = state.resizePreviewBottomPaddingDp,
-                              defaultHeightDp = SettingsPreferences.getDefaultKeyboardHeightDp(),
-                               defaultBottomPaddingDp = SettingsPreferences.getDefaultKeyboardBottomPaddingDp(),
-                              maxContainerHeightDp = maxContainerHeightDp,
+                         if (state.showKeyboardResize) {
+                           KeyboardResizeOverlay(
+                               initialHeightDp = state.resizePreviewHeightDp,
+                               initialBottomPaddingDp = state.resizePreviewBottomPaddingDp,
+                               defaultHeightDp = SettingsPreferences.getDefaultKeyboardHeightDp(),
+                                 defaultBottomPaddingDp = SettingsPreferences.getDefaultKeyboardBottomPaddingDp(),
+                               maxContainerHeightDp = keyboardHeight,
                               onHeightChange = { newHeight ->
                                   uiState.value = uiState.value.copy(
                                       resizePreviewHeightDp = newHeight
@@ -598,6 +604,7 @@ if (state.showKeyboardResize) {
                               },
                               onConfirm = { newHeight, newPadding ->
                                   setKeyboardHeight(newHeight)
+                                  SettingsPreferences.setKeyboardBottomPaddingDp(this@XimeInputMethodService, newPadding)
                                   uiState.value = uiState.value.copy(
                                       showKeyboardResize = false,
                                       keyboardHeightDp = newHeight,
@@ -1328,7 +1335,8 @@ if (state.showKeyboardResize) {
     
     private fun setKeyboardHeight(heightDp: Int) {
         Log.d(TAG, "Setting keyboard height to: $heightDp")
-        SettingsPreferences.setKeyboardHeightDp(this, heightDp)
+        val isLandscape = resources.configuration.screenWidthDp > resources.configuration.screenHeightDp
+        SettingsPreferences.setKeyboardHeightDp(this, heightDp, isLandscape)
         uiState.value = uiState.value.copy(keyboardHeightDp = heightDp)
         Toast.makeText(this, "键盘高度已调整", Toast.LENGTH_SHORT).show()
     }
