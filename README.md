@@ -4,15 +4,16 @@
 
 <h1 align="center">Xime（曦码） - 五笔/拼音输入法</h1>
 
-[Xime 输入法 (Windows 版)](https://github.com/ximeiorg/winxime) [Xime 输入法 (Linux 版)](https://github.com/ximeiorg/xime-wayland)
+[Xime 输入法 (Windows 版)](https://github.com/ximeiorg/winxime) | [Xime 输入法 (Linux 版)](https://github.com/ximeiorg/xime-wayland)
+
+一款基于 <a href="https://rime.im/">Rime</a> 引擎构建的 Android 五笔/拼音输入法，专注于简洁高效的中文输入体验。
+
+**这个输入法也是我在 AI 深度学习文本方向(NLP) 方向的试验田。**
 
 ---
 
 > 本输入法支持五笔/拼音输入，只是本人以五笔为主，拼音为辅，因此资源会倾向于五笔为主。
 
-<p align="center">
-  一款基于 <a href="https://rime.im/">Rime</a> 引擎构建的 Android 五笔/拼音输入法，专注于简洁高效的中文输入体验。
-</p>
 
 <table align="center">
   <tr>
