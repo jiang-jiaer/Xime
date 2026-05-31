@@ -75,6 +75,9 @@ reverse_lookup:
   preedit_format:
     - xlit/hspnz/一丨丿丶乙/
 
+menu:
+  page_size: 20
+
 punctuator:
   import_preset: default
 
