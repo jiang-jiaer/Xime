@@ -173,7 +173,7 @@ object RimeConfigHelper {
 
     private fun copyAssetFile(context: Context, assetPath: String, targetFile: File) {
         try {
-            if (targetFile.exists() && targetFile.name != "default.yaml") {
+            if (targetFile.exists() && targetFile.name.contains("custom")) {
                 return
             }
 
