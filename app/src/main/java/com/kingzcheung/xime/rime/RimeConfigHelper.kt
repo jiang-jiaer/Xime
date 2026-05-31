@@ -173,10 +173,10 @@ object RimeConfigHelper {
 
     private fun copyAssetFile(context: Context, assetPath: String, targetFile: File) {
         try {
-            if (targetFile.exists()) {
+            if (targetFile.exists() && targetFile.name != "default.yaml") {
                 return
             }
-            
+
             targetFile.parentFile?.mkdirs()
             context.assets.open(assetPath).use { input ->
                 val text = input.bufferedReader().readText()

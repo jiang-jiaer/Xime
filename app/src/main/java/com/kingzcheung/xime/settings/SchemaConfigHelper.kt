@@ -17,7 +17,7 @@ object SchemaConfigHelper {
         "wubi86_pinyin" to "https://s.ximei.me/rime-wubi",
         "pinyin_simp" to "https://s.ximei.me/rime-wubi"
     )
-    
+
     fun parseSchemaListFromDefault(context: Context): List<String> {
         val schemas = mutableListOf<String>()
         try {
@@ -45,7 +45,7 @@ object SchemaConfigHelper {
     }
 
     fun needsDownload(context: Context, schemaId: String): Boolean {
-        val (schemaExists, _) = checkSchemaFilesExist(context, schemaId)
+        val (schemaExists, dictExists) = checkSchemaFilesExist(context, schemaId)
         return !schemaExists
     }
 

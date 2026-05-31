@@ -23,7 +23,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
-import com.kingzcheung.xime.ui.InputMode
 import com.kingzcheung.xime.ui.LocalStretchFactor
 import androidx.compose.ui.unit.dp
 import com.kingzcheung.xime.ui.KeyboardResizeOverlay
@@ -57,8 +56,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
@@ -87,8 +84,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private lateinit var keyboardContainer: VoiceKeyboardContainer
     
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    /** 序列化 rimeEngine JNI 调用（非线程安全） */
-    private val rimeMutex = Mutex()
     
     private val mainHandler = Handler(Looper.getMainLooper())
     
@@ -219,9 +214,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         // 导致按键上的符号不显示、上滑/下滑手势不触发。
         KeysConfigHelper.loadConfig(this)
         
-        // 每次启动同步 assets 中的 .yaml 文件到共享目录（确保新 schema 生效）
-        RimeConfigHelper.syncAssets(this)
-        
         RimeEngine.setDeploymentCallback { isDeploying, message ->
             serviceScope.launch(Dispatchers.Main) {
                 uiState.value = uiState.value.copy(
@@ -231,7 +223,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             }
         }
         
-
         val initJob = serviceScope.launch(Dispatchers.IO) {
             try {
                 notifyDeploymentStatus(true, "正在初始化...")
@@ -465,16 +456,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             },
                             onKeyPressDown = { key ->
                                 feedbackManager.performKeyPressDownEffect(key)
-                            },
-                            onSchemaSwitch = { schemaId ->
-                                serviceScope.launch(Dispatchers.Default) {
-                                    rimeMutex.withLock {
-                                        rimeEngine.switchSchema(schemaId)
-                                    }
-                                }
-                            },
-                            onT9ReplaceFullPinyin = { pinyin ->
-                                commitT9PinyinFull(pinyin)
                             },
                             onCursorMove = { direction ->
                                 serviceScope.launch(Dispatchers.Main) {
@@ -735,9 +716,9 @@ onVoiceModeChange = { enabled ->
                 val availableSchemas = rimeEngine.getAvailableSchemas()
                 if (savedSchema in availableSchemas) {
                     rimeEngine.switchSchema(savedSchema)
-                    updateSchemaName()
                 }
             }
+            updateSchemaName()
         }
 
         // 标记新一轮输入会话，用于 KeyboardView 重置导航状态
@@ -854,9 +835,7 @@ onVoiceModeChange = { enabled ->
     }
     
     private fun updateUI() {
-        val rawInput = rimeEngine.getInput()
-        val currentSchema = rimeEngine.getCurrentSchema()
-        val inputText = if (InputMode.keyboardModeFor(currentSchema) == com.kingzcheung.xime.ui.KeyboardMode.NINEKEY) rawInput.lowercase() else rawInput
+        val inputText = rimeEngine.getInput()
         val candidatesWithComments = rimeEngine.getCandidatesWithComments()
         val isAsciiMode = rimeEngine.isAsciiMode()
         val hasNextPage = rimeEngine.hasNextPage()
@@ -933,22 +912,6 @@ onVoiceModeChange = { enabled ->
         }
     }
 
-    /**
-     * 从 schema 文件中读取方案显示名称
-     */
-    private fun readSchemaName(schemaId: String): String {
-        val content = try {
-            assets.open("rime/$schemaId.schema.yaml")
-                .bufferedReader().readText()
-        } catch (_: Exception) {
-            val sharedFile = File(filesDir, "rime/shared/$schemaId.schema.yaml")
-            if (sharedFile.exists()) sharedFile.readText() else return schemaId
-        }
-        val nameRegex = Regex("""^\s*name:\s*"([^"]*)"|^\s*name:\s*'([^']*)'|^\s*name:\s*(.*)""", RegexOption.MULTILINE)
-        val match = nameRegex.find(content)
-        return match?.groupValues?.firstOrNull { it.isNotEmpty() }?.trim('"', '\'', ' ') ?: schemaId
-    }
-
     private fun handleKeyPress(key: String, isShifted: Boolean) {
         serviceScope.launch(Dispatchers.Default) {
             val state = uiState.value
@@ -970,7 +933,7 @@ onVoiceModeChange = { enabled ->
                         needsUIUpdate = true
                         Log.d(TAG, "Delete English pending: '$newPending'")
                     } else if (state.isComposing || state.inputText.isNotEmpty()) {
-                        rimeMutex.withLock { rimeEngine.processKey(0xff08, 0) }
+                        rimeEngine.processKey(0xff08, 0)
                         
                         val currentInput = rimeEngine.getInput()
                         if (currentInput.isEmpty()) {
@@ -1175,10 +1138,10 @@ onVoiceModeChange = { enabled ->
                         }
                     } else {
                         val char = if (isShifted) key.uppercase() else key
-                        val keyCode = key[0].code
+                        val keyCode = key.lowercase()[0].code
                         val mask = if (isShifted) KeyEvent.META_SHIFT_ON else 0
                         
-                        val processed = rimeMutex.withLock { rimeEngine.processKey(keyCode, mask) }
+                        val processed = rimeEngine.processKey(keyCode, mask)
                         
                         if (processed) {
                             needsUIUpdate = true
@@ -1242,12 +1205,11 @@ onVoiceModeChange = { enabled ->
                         Log.d(TAG, "Learned: '$lastChar' + '$selectedCandidate'")
                     }
                 }
-            withContext(Dispatchers.Main) {
-                commitText(committedText)
-                uiState.value = uiState.value.copy(inputSessionId = System.nanoTime())
+                withContext(Dispatchers.Main) {
+                    commitText(committedText)
+                }
             }
-        }
-        withContext(Dispatchers.Main) {
+            withContext(Dispatchers.Main) {
                 updateUI()
             }
         }
@@ -1373,23 +1335,6 @@ onVoiceModeChange = { enabled ->
         }
     }
     
-
-
-    private fun commitT9PinyinFull(pinyin: String) {
-        serviceScope.launch(Dispatchers.Default) {
-            rimeMutex.withLock {
-                rimeEngine.clearComposition()
-                for (ch in pinyin) {
-                    val keyCode = ch.lowercase()[0].code
-                    rimeEngine.processKey(keyCode, 0)
-                }
-            }
-            withContext(Dispatchers.Main) {
-                updateUI()
-            }
-        }
-    }
-
     private fun switchSchema(schemaId: String) {
         Log.d(TAG, "Switching schema to: $schemaId")
         try {
@@ -1433,6 +1378,7 @@ onVoiceModeChange = { enabled ->
                 if (success) {
                     Toast.makeText(this@XimeInputMethodService, "部署成功", Toast.LENGTH_SHORT).show()
                     updateUI()
+                    updateSchemaName()
                 } else {
                     Toast.makeText(this@XimeInputMethodService, "部署失败", Toast.LENGTH_SHORT).show()
                 }
