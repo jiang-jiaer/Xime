@@ -236,20 +236,25 @@ fun SwipeBubble(
         Color.White
     } else if (isDarkTheme) Color(0xFFE8EAED) else Color(0xFF202124)
     
-    var actualBodyWidth by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
     val bodyHeightPx = with(density) { BubbleBodyHeight.toPx() }
     val pointerHeightPx = with(density) { BubblePointerHeight.toPx() }
     val cornerRadiusPx = with(density) { BubbleCornerRadius.toPx() }
     val thresholdPx = with(density) { 5.dp.toPx() }
     val screenMarginPx = with(density) { BubbleScreenMargin.toPx() }
+    // 预估最小宽度 (defaultMinSize 64dp + padding 20dp*2 = 104dp)
+    val minBodyWidthPx = with(density) { 104.dp.toPx() }
     
-    val layoutInfo = remember(actualBodyWidth, keyBounds, keyboardWidth) {
-        android.util.Log.d("SwipeBubble", "calculateBubbleLayout: actualBodyWidth=$actualBodyWidth, keyBounds=$keyBounds, keyboardWidth=$keyboardWidth")
-        if (actualBodyWidth > 0 && keyboardWidth > 0) {
+    var actualBodyWidth by remember { mutableStateOf(minBodyWidthPx) }
+    
+    val effectiveBodyWidth = maxOf(actualBodyWidth, minBodyWidthPx)
+    
+    val layoutInfo = remember(effectiveBodyWidth, keyBounds, keyboardWidth) {
+        android.util.Log.d("SwipeBubble", "calculateBubbleLayout: effectiveBodyWidth=$effectiveBodyWidth, keyBounds=$keyBounds, keyboardWidth=$keyboardWidth")
+        if (keyboardWidth > 0) {
             calculateBubbleLayout(
                 keyBounds = keyBounds,
-                bodyWidth = actualBodyWidth,
+                bodyWidth = effectiveBodyWidth,
                 bodyHeight = bodyHeightPx,
                 pointerHeight = pointerHeightPx,
                 keyboardWidth = keyboardWidth,
