@@ -22,11 +22,20 @@ class SpeechRecognitionManager(private val context: Context) {
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
         private const val BUFFER_SIZE_SECONDS = 0.1f
+        private const val SPEECH_THRESHOLD = 500
+        private const val SILENCE_CONTEXT_CHUNKS = 3
     }
 
     private var backend: AsrBackend? = null
     private var recordingThread: RecordingThread? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    // 预缓冲：手指按下时立即开始录音，AudioRecord 直接传给录音线程继续用，不留缺口
+    private var preBufferRecord: AudioRecord? = null
+    private var preBufferThread: PreBufferThread? = null
+    private var preBufferChunks = mutableListOf<ByteArray>()
+    private val preBufferLock = Any()
+    private var preBufferStartedRecording = false
 
     private var resultCallback: ((String) -> Unit)? = null
     private var partialResultCallback: ((String) -> Unit)? = null
@@ -50,6 +59,7 @@ class SpeechRecognitionManager(private val context: Context) {
 
     private var isPreloading = false
     private val preloadLock = Object()
+    private val preBufferTimeoutRunnable = Runnable { cancelPreBuffer() }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startRecognition() {
@@ -109,7 +119,10 @@ class SpeechRecognitionManager(private val context: Context) {
 
         val currentBackend = backend!!
 
-        recordingThread = RecordingThread(currentBackend)
+        // 取出预缓冲数据，传给录音线程在实时音频前处理
+        val preData = stopPreBuffer()
+
+        recordingThread = RecordingThread(currentBackend, preData)
         recordingThread!!.start()
     }
 
@@ -152,8 +165,102 @@ class SpeechRecognitionManager(private val context: Context) {
         }
     }
 
+    fun startPreBuffer() {
+        synchronized(preBufferLock) {
+            if (preBufferThread != null) return
+            preBufferChunks.clear()
+        }
+        val record = createAudioRecord() ?: return
+        synchronized(preBufferLock) {
+            preBufferRecord = record
+        }
+        preBufferThread = PreBufferThread()
+        preBufferThread?.start()
+        mainHandler.removeCallbacks(preBufferTimeoutRunnable)
+        mainHandler.postDelayed(preBufferTimeoutRunnable, 2000)
+    }
+
+    fun stopPreBuffer(): List<ByteArray> {
+        mainHandler.removeCallbacks(preBufferTimeoutRunnable)
+        preBufferThread?.interrupt()
+        try {
+            preBufferThread?.join(500)
+        } catch (_: InterruptedException) { }
+        preBufferThread = null
+        synchronized(preBufferLock) {
+            val data = preBufferChunks.toList()
+            preBufferChunks.clear()
+            return data
+        }
+    }
+
+    private fun releasePreBufferRecord() {
+        val record = preBufferRecord
+        preBufferRecord = null
+        if (record == null) return
+        try {
+            if (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                record.stop()
+            }
+        } catch (_: IllegalStateException) { }
+        record.release()
+    }
+
+    private inner class PreBufferThread : Thread("AsrPreBuffer") {
+        override fun run() {
+            val record: AudioRecord
+            synchronized(preBufferLock) {
+                record = preBufferRecord ?: return@run
+                preBufferRecord = null
+            }
+            record.startRecording()
+            val buffer = ShortArray((SAMPLE_RATE * BUFFER_SIZE_SECONDS).toInt())
+            val byteBuffer = ByteArray(buffer.size * 2)
+            try {
+                while (!interrupted()) {
+                    val nread = record.read(buffer, 0, buffer.size)
+                    if (nread > 0) {
+                        for (i in 0 until nread) {
+                            val s = buffer[i].toInt()
+                            byteBuffer[i * 2] = (s and 0xFF).toByte()
+                            byteBuffer[i * 2 + 1] = ((s shr 8) and 0xFF).toByte()
+                        }
+                        synchronized(preBufferLock) {
+                            preBufferChunks.add(byteBuffer.copyOf(nread * 2))
+                            if (preBufferChunks.size > 5) {
+                                preBufferChunks.removeAt(0)
+                            }
+                        }
+                    }
+                }
+            } finally {
+                try {
+                    if (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                        record.stop()
+                    }
+                } catch (_: IllegalStateException) { }
+                record.release()
+            }
+        }
+    }
+
+    fun cancelPreBuffer() {
+        mainHandler.removeCallbacks(preBufferTimeoutRunnable)
+        if (preBufferThread == null) return
+        preBufferThread?.interrupt()
+        try {
+            preBufferThread?.join(500)
+        } catch (_: InterruptedException) { }
+        preBufferThread = null
+        synchronized(preBufferLock) {
+            releasePreBufferRecord()
+            preBufferChunks.clear()
+        }
+    }
+
     fun release() {
         Log.d(TAG, "Releasing speech recognition")
+        cancelPreBuffer()
         cancelRecognition()
         backend?.release()
         backend = null
@@ -211,8 +318,8 @@ class SpeechRecognitionManager(private val context: Context) {
         }
     }
 
-    private fun createAudioRecord(): AudioRecord? {
-        val bufferSize = (SAMPLE_RATE * BUFFER_SIZE_SECONDS).toInt()
+    private fun createAudioRecord(bufferSecs: Float = 2.0f): AudioRecord? {
+        val bufferSize = (SAMPLE_RATE * bufferSecs).toInt()
         return try {
             val record = AudioRecord(
                 MediaRecorder.AudioSource.MIC,
@@ -234,19 +341,29 @@ class SpeechRecognitionManager(private val context: Context) {
     }
 
     private inner class RecordingThread(
-        private val currentBackend: AsrBackend
+        private val currentBackend: AsrBackend,
+        private val startChunks: List<ByteArray> = emptyList()
     ) : Thread("AsrRecording") {
 
         override fun run() {
-            val audioRecord = createAudioRecord() ?: run {
-                mainHandler.post {
-                    errorCallback?.invoke("无法启动录音")
-                    stateCallback?.invoke(RecognitionState.ERROR)
+            val audioRecord: AudioRecord
+            synchronized(preBufferLock) {
+                if (preBufferRecord != null) {
+                    audioRecord = preBufferRecord!!
+                    preBufferRecord = null
+                } else {
+                    audioRecord = createAudioRecord() ?: run {
+                        mainHandler.post {
+                            errorCallback?.invoke("无法启动录音")
+                            stateCallback?.invoke(RecognitionState.ERROR)
+                        }
+                        return
+                    }
                 }
-                return
             }
 
             if (!currentBackend.start()) {
+                audioRecord.stop()
                 audioRecord.release()
                 mainHandler.post {
                     errorCallback?.invoke("启动引擎失败")
@@ -255,27 +372,37 @@ class SpeechRecognitionManager(private val context: Context) {
                 return
             }
 
-            audioRecord.startRecording()
+            if (audioRecord.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                audioRecord.startRecording()
+            }
             mainHandler.post {
                 stateCallback?.invoke(RecognitionState.LISTENING)
             }
 
             val buffer = ShortArray((SAMPLE_RATE * BUFFER_SIZE_SECONDS).toInt())
             val byteBuffer = ByteArray(buffer.size * 2)
-            try {
-                // Feed the first 3 chunks quickly without waiting for results
-                // to give the decoder a running start
-                for (i in 0 until 3) {
-                    val nread = audioRecord.read(buffer, 0, buffer.size)
-                    if (nread <= 0) break
-                    for (j in 0 until nread) {
-                        val s = buffer[j].toInt()
-                        byteBuffer[j * 2] = (s and 0xFF).toByte()
-                        byteBuffer[j * 2 + 1] = ((s shr 8) and 0xFF).toByte()
-                    }
-                    currentBackend.processAudioChunk(byteBuffer.copyOf(nread * 2))
-                }
+            val silenceRing = ArrayDeque<ByteArray>()
+            var speechDetected = false
 
+            // 预缓冲数据先过静音检测：如果包含语音才喂给解码器
+            for (chunk in startChunks) {
+                if (!speechDetected) {
+                    silenceRing.addLast(chunk)
+                    if (silenceRing.size > SILENCE_CONTEXT_CHUNKS) {
+                        silenceRing.removeFirst()
+                    }
+                }
+                if (isSpeech(chunk)) {
+                    speechDetected = true
+                    for (c in silenceRing) {
+                        currentBackend.processAudioChunk(c)
+                    }
+                    silenceRing.clear()
+                }
+            }
+            if (!speechDetected) silenceRing.clear()
+
+            try {
                 while (!interrupted()) {
                     val nread = audioRecord.read(buffer, 0, buffer.size)
                     if (nread > 0) {
@@ -284,7 +411,22 @@ class SpeechRecognitionManager(private val context: Context) {
                             byteBuffer[i * 2] = (s and 0xFF).toByte()
                             byteBuffer[i * 2 + 1] = ((s shr 8) and 0xFF).toByte()
                         }
-                        currentBackend.processAudioChunk(byteBuffer.copyOf(nread * 2))
+                        val chunk = byteBuffer.copyOf(nread * 2)
+                        if (!speechDetected) {
+                            silenceRing.addLast(chunk)
+                            if (silenceRing.size > SILENCE_CONTEXT_CHUNKS) {
+                                silenceRing.removeFirst()
+                            }
+                            if (isSpeech(chunk)) {
+                                speechDetected = true
+                                for (c in silenceRing) {
+                                    currentBackend.processAudioChunk(c)
+                                }
+                                silenceRing.clear()
+                            }
+                        } else {
+                            currentBackend.processAudioChunk(chunk)
+                        }
                     } else if (nread < 0) {
                         break
                     }
@@ -296,8 +438,19 @@ class SpeechRecognitionManager(private val context: Context) {
             }
 
             currentBackend.stop()
-
             Log.d(TAG, "Recognition thread ended")
+        }
+
+        private fun isSpeech(chunk: ByteArray): Boolean {
+            var peak = 0
+            for (i in 0 until chunk.size / 2) {
+                val low = chunk[i * 2].toInt() and 0xFF
+                val high = chunk[i * 2 + 1].toInt()
+                val sample = ((high shl 8) or low).toShort().toInt()
+                val abs = kotlin.math.abs(sample)
+                if (abs > peak) peak = abs
+            }
+            return peak > SPEECH_THRESHOLD
         }
     }
 

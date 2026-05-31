@@ -270,28 +270,8 @@ class SherpaAsrEngine(private val context: Context) {
             currentRecognizer.decode(currentStream)
         }
         
-        val isEndpoint = currentRecognizer.isEndpoint(currentStream)
         val text = currentRecognizer.getResult(currentStream).text
-        
-        if (isEndpoint) {
-            val tailPaddings = FloatArray((0.8f * SAMPLE_RATE).toInt())
-            currentStream.acceptWaveform(tailPaddings, SAMPLE_RATE)
-            while (currentRecognizer.isReady(currentStream)) {
-                currentRecognizer.decode(currentStream)
-            }
-            val finalText = currentRecognizer.getResult(currentStream).text
-            
-            if (finalText.isNotEmpty()) {
-                coroutineScope.launch(Dispatchers.Main) {
-                    resultCallback?.invoke(finalText)
-                }
-            }
-            
-            currentRecognizer.reset(currentStream)
-            coroutineScope.launch(Dispatchers.Main) {
-                stateCallback?.invoke(RecognitionState.LISTENING)
-            }
-        } else if (text.isNotEmpty()) {
+        if (text.isNotEmpty()) {
             coroutineScope.launch(Dispatchers.Main) {
                 partialResultCallback?.invoke(text)
             }

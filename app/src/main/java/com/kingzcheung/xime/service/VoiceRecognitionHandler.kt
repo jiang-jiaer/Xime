@@ -97,6 +97,18 @@ class VoiceRecognitionHandler(
         }
     }
 
+    fun startPreBuffer() {
+        if (::speechRecognitionManager.isInitialized) {
+            speechRecognitionManager.startPreBuffer()
+        }
+    }
+
+    fun cancelPreBuffer() {
+        if (::speechRecognitionManager.isInitialized) {
+            speechRecognitionManager.cancelPreBuffer()
+        }
+    }
+
     fun startRecognition() {
         if (!::speechRecognitionManager.isInitialized) {
             Log.e(TAG, "speechRecognitionManager not initialized")

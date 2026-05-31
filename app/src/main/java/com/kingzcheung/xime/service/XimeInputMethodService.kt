@@ -50,6 +50,7 @@ import com.kingzcheung.xime.ui.KeyboardView
 import com.kingzcheung.xime.ui.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.XimeTheme
 import com.kingzcheung.xime.util.FileLogger
+import com.kingzcheung.xime.util.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -462,6 +463,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             },
                             onKeyPressDown = { key ->
                                 feedbackManager.performKeyPressDownEffect(key)
+                                if (key == "space" && PermissionHelper.hasRecordAudioPermission(this@XimeInputMethodService)) {
+                                    voiceRecognitionHandler.startPreBuffer()
+                                }
                             },
                             onT9ReplaceFullPinyin = { pinyin ->
                                 serviceScope.launch(Dispatchers.Default) {
