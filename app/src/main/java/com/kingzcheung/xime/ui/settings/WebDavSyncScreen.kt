@@ -363,7 +363,7 @@ fun WebDavSyncContent(
             }
 
             Text(
-                "同步内容：rime/shared/（方案文件、词典）和 rime/user/（用户配置），不含 build/ 目录。上传会覆盖远程文件，下载会覆盖本地文件。",
+                "同步内容：rime/ 目录下的方案文件、词典和用户配置，不含 build/ 目录。上传会覆盖远程文件，下载会覆盖本地文件。",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.padding(top = 4.dp)

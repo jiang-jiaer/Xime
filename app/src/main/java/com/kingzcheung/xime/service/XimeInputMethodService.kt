@@ -1343,7 +1343,7 @@ onVoiceModeChange = { enabled ->
             try {
                 KeysConfigHelper.loadConfig(this)
                 
-                val userDataDir = File(filesDir, "rime/user")
+                val userDataDir = File(filesDir, "rime")
                 
                 val customFile = File(userDataDir, "default.custom.yaml")
                 if (customFile.exists()) {

@@ -85,35 +85,18 @@ object WebDavSyncHelper {
             val base = normalizeUrl(baseUrl)
             val remoteBase = "$base/$remotePath/rime"
 
-            val sharedDir = File(context.filesDir, "rime/shared")
-            val userDir = File(context.filesDir, "rime/user")
+            val rimeDir = File(context.filesDir, "rime")
 
             ensureRemoteDir(client, remoteBase, headers)
-            ensureRemoteDir(client, "$remoteBase/shared", headers)
-            ensureRemoteDir(client, "$remoteBase/user", headers)
 
-            if (sharedDir.exists()) {
-                val files = sharedDir.listFiles() ?: emptyArray()
+            if (rimeDir.exists()) {
+                val files = rimeDir.listFiles() ?: emptyArray()
                 for (file in files) {
                     if (file.isFile && file.name.endsWith(".yaml")) {
-                        onProgress("上传 shared/${file.name}")
-                        val err = uploadFile(client, "$remoteBase/shared/${file.name}", file, headers)
+                        onProgress("上传 ${file.name}")
+                        val err = uploadFile(client, "$remoteBase/${file.name}", file, headers)
                         if (err != null) {
-                            onProgress("上传 shared/${file.name} 失败: $err")
-                            return@withContext false
-                        }
-                    }
-                }
-            }
-
-            if (userDir.exists()) {
-                val files = userDir.listFiles() ?: emptyArray()
-                for (file in files) {
-                    if (file.isFile && file.name in userConfigFiles) {
-                        onProgress("上传 user/${file.name}")
-                        val err = uploadFile(client, "$remoteBase/user/${file.name}", file, headers)
-                        if (err != null) {
-                            onProgress("上传 user/${file.name} 失败: $err")
+                            onProgress("上传 ${file.name} 失败: $err")
                             return@withContext false
                         }
                     }
@@ -143,31 +126,18 @@ object WebDavSyncHelper {
             val base = normalizeUrl(baseUrl)
             val remoteBase = "$base/$remotePath/rime"
 
-            val sharedDir = File(context.filesDir, "rime/shared")
-            val userDir = File(context.filesDir, "rime/user")
-            if (!sharedDir.exists()) sharedDir.mkdirs()
-            if (!userDir.exists()) userDir.mkdirs()
+            val rimeDir = File(context.filesDir, "rime")
+            if (!rimeDir.exists()) rimeDir.mkdirs()
 
             onProgress("读取远程文件列表...")
-            val remoteSharedFiles = listRemoteDir(client, "$remoteBase/shared", headers)
+            val remoteFiles = listRemoteDir(client, remoteBase, headers)
 
-            for (remoteFile in remoteSharedFiles.filter { !it.isDirectory && it.name.endsWith(".yaml") }) {
-                val localFile = File(sharedDir, remoteFile.name)
-                onProgress("下载 shared/${remoteFile.name}")
-                val err = downloadFile(client, "$remoteBase/shared/${remoteFile.name}", localFile, headers)
+            for (remoteFile in remoteFiles.filter { !it.isDirectory && it.name.endsWith(".yaml") }) {
+                val localFile = File(rimeDir, remoteFile.name)
+                onProgress("下载 ${remoteFile.name}")
+                val err = downloadFile(client, "$remoteBase/${remoteFile.name}", localFile, headers)
                 if (err != null) {
-                    onProgress("下载 shared/${remoteFile.name} 失败: $err")
-                    return@withContext false
-                }
-            }
-
-            val remoteUserFiles = listRemoteDir(client, "$remoteBase/user", headers)
-            for (remoteFile in remoteUserFiles.filter { !it.isDirectory && it.name in userConfigFiles }) {
-                val localFile = File(userDir, remoteFile.name)
-                onProgress("下载 user/${remoteFile.name}")
-                val err = downloadFile(client, "$remoteBase/user/${remoteFile.name}", localFile, headers)
-                if (err != null) {
-                    onProgress("下载 user/${remoteFile.name} 失败: $err")
+                    onProgress("下载 ${remoteFile.name} 失败: $err")
                     return@withContext false
                 }
             }

@@ -38,9 +38,9 @@ object SchemaConfigHelper {
     }
 
     fun checkSchemaFilesExist(context: Context, schemaId: String): Pair<Boolean, Boolean> {
-        val sharedDir = File(context.filesDir, "rime/shared")
-        val schemaFile = File(sharedDir, "$schemaId.schema.yaml")
-        val dictFile = File(sharedDir, "$schemaId.dict.yaml")
+        val rimeDir = File(context.filesDir, "rime")
+        val schemaFile = File(rimeDir, "$schemaId.schema.yaml")
+        val dictFile = File(rimeDir, "$schemaId.dict.yaml")
         return Pair(schemaFile.exists(), dictFile.exists())
     }
 
@@ -52,8 +52,8 @@ object SchemaConfigHelper {
     suspend fun downloadSchema(context: Context, schemaId: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val sharedDir = File(context.filesDir, "rime/shared")
-                if (!sharedDir.exists()) sharedDir.mkdirs()
+                val rimeDir = File(context.filesDir, "rime")
+                if (!rimeDir.exists()) rimeDir.mkdirs()
 
                 val baseUrl = schemaDownloadUrls[schemaId]
                 if (baseUrl == null) {
@@ -64,10 +64,10 @@ object SchemaConfigHelper {
                 Log.i(TAG, "Downloading schema: $schemaId from $baseUrl")
 
                 val schemaUrl = "$baseUrl/$schemaId.schema.yaml"
-                downloadFile(schemaUrl, File(sharedDir, "$schemaId.schema.yaml"))
+                downloadFile(schemaUrl, File(rimeDir, "$schemaId.schema.yaml"))
 
                 val dictUrl = "$baseUrl/$schemaId.dict.yaml"
-                downloadFile(dictUrl, File(sharedDir, "$schemaId.dict.yaml"))
+                downloadFile(dictUrl, File(rimeDir, "$schemaId.dict.yaml"))
 
                 Log.i(TAG, "Schema $schemaId downloaded successfully")
                 true

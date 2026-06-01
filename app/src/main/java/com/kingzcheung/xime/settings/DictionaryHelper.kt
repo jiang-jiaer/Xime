@@ -17,7 +17,7 @@ object DictionaryHelper {
 
     private fun getDictFile(context: Context, schemaId: String): File? {
         val dictName = SchemaManager.getReferencedDictName(context, schemaId) ?: schemaId
-        val f = File(SchemaManager.getSharedDir(context), "$dictName.dict.yaml")
+        val f = File(SchemaManager.getRimeDir(context), "$dictName.dict.yaml")
         return if (f.exists()) f else null
     }
 

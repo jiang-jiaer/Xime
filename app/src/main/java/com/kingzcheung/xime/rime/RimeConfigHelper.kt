@@ -15,21 +15,17 @@ object RimeConfigHelper {
     private const val ASSETS_RIME_DIR = "rime"
     
     suspend fun initializeRimeDataAsync(context: Context): Pair<String, String> {
-        val sharedDataDir = File(context.filesDir, "rime/shared")
-        val userDataDir = File(context.filesDir, "rime/user")
+        val rimeDir = File(context.filesDir, "rime")
         
-        Log.d(TAG, "initializeRimeData: sharedDataDir=${sharedDataDir.absolutePath}")
-        Log.d(TAG, "initializeRimeData: userDataDir=${userDataDir.absolutePath}")
+        // 迁移旧目录结构 (rime/shared/ + rime/user/) → 单一 rime/ 目录
+        migrateOldStructure(context, rimeDir)
         
-        if (!sharedDataDir.exists()) {
-            sharedDataDir.mkdirs()
-        }
-        if (!userDataDir.exists()) {
-            userDataDir.mkdirs()
+        if (!rimeDir.exists()) {
+            rimeDir.mkdirs()
         }
         
-        copyAssetsToRimeDir(context, sharedDataDir)
-        stripLuaTranslatorFromSchemas(sharedDataDir)
+        copyAssetsToRimeDir(context, rimeDir)
+        stripLuaTranslatorFromSchemas(rimeDir)
         
         Log.d(TAG, "Checking for missing schema files...")
         try {
@@ -43,35 +39,30 @@ object RimeConfigHelper {
             Log.w(TAG, "Schema download timed out, continuing with existing files")
         }
         
-        checkAndCleanBuildDir(sharedDataDir, userDataDir)
-        listFilesRecursively(sharedDataDir, TAG)
+        checkAndCleanBuildDir(rimeDir)
+        listFilesRecursively(rimeDir, TAG)
         
-        return Pair(userDataDir.absolutePath, sharedDataDir.absolutePath)
+        return Pair(rimeDir.absolutePath, rimeDir.absolutePath)
     }
     
     fun initializeRimeData(context: Context): Pair<String, String> {
-        val sharedDataDir = File(context.filesDir, "rime/shared")
-        val userDataDir = File(context.filesDir, "rime/user")
+        val rimeDir = File(context.filesDir, "rime")
         
-        Log.d(TAG, "initializeRimeData: sharedDataDir=${sharedDataDir.absolutePath}")
-        Log.d(TAG, "initializeRimeData: userDataDir=${userDataDir.absolutePath}")
+        migrateOldStructure(context, rimeDir)
         
-        if (!sharedDataDir.exists()) {
-            sharedDataDir.mkdirs()
-        }
-        if (!userDataDir.exists()) {
-            userDataDir.mkdirs()
+        if (!rimeDir.exists()) {
+            rimeDir.mkdirs()
         }
         
-        copyAssetsToRimeDir(context, sharedDataDir)
-        checkAndCleanBuildDir(sharedDataDir, userDataDir)
-        listFilesRecursively(sharedDataDir, TAG)
+        copyAssetsToRimeDir(context, rimeDir)
+        checkAndCleanBuildDir(rimeDir)
+        listFilesRecursively(rimeDir, TAG)
         
-        return Pair(userDataDir.absolutePath, sharedDataDir.absolutePath)
+        return Pair(rimeDir.absolutePath, rimeDir.absolutePath)
     }
     
     fun isDeploymentComplete(context: Context): Boolean {
-        val buildDir = File(File(context.filesDir, "rime/user"), "build")
+        val buildDir = File(File(context.filesDir, "rime"), "build")
         if (!buildDir.exists()) return false
 
         val enabledSchemas = SchemaManager.getEnabledSchemas(context)
@@ -83,9 +74,9 @@ object RimeConfigHelper {
         return true
     }
 
-    private fun checkAndCleanBuildDir(sharedDataDir: File, userDataDir: File) {
-        val buildDir = File(userDataDir, "build")
-        val defaultYaml = File(sharedDataDir, "default.yaml")
+    private fun checkAndCleanBuildDir(rimeDir: File) {
+        val buildDir = File(rimeDir, "build")
+        val defaultYaml = File(rimeDir, "default.yaml")
         
         if (!defaultYaml.exists() || !buildDir.exists()) {
             Log.d(TAG, "default.yaml or build directory not found, skipping check")
@@ -99,7 +90,7 @@ object RimeConfigHelper {
             Log.d(TAG, "Schemas in default.yaml: $schemas")
             
             for (schema in schemas) {
-                val schemaFile = File(sharedDataDir, "$schema.schema.yaml")
+                val schemaFile = File(rimeDir, "$schema.schema.yaml")
                 val prismFile = File(buildDir, "$schema.prism.bin")
                 
                 if (schemaFile.exists()) {
@@ -184,8 +175,8 @@ object RimeConfigHelper {
         }
     }
 
-    private fun stripLuaTranslatorFromSchemas(sharedDataDir: File) {
-        val schemaFiles = sharedDataDir.listFiles { f -> f.name.endsWith(".schema.yaml") } ?: return
+    private fun stripLuaTranslatorFromSchemas(rimeDir: File) {
+        val schemaFiles = rimeDir.listFiles { f -> f.name.endsWith(".schema.yaml") } ?: return
         for (file in schemaFiles) {
             try {
                 val lines = file.readLines()
@@ -198,6 +189,43 @@ object RimeConfigHelper {
                 Log.e(TAG, "Failed to process ${file.name}", e)
             }
         }
+    }
+
+    private fun migrateOldStructure(context: Context, rimeDir: File) {
+        val oldSharedDir = File(context.filesDir, "rime/shared")
+        val oldUserDir = File(context.filesDir, "rime/user")
+        
+        if (!oldSharedDir.exists() && !oldUserDir.exists()) return
+        
+        Log.i(TAG, "Migrating old rime directory structure to single rime/ dir...")
+        
+        if (!rimeDir.exists()) rimeDir.mkdirs()
+        
+        // 迁移 user 数据（用户配置、build 产物、userdb）
+        if (oldUserDir.exists()) {
+            oldUserDir.listFiles()?.forEach { file ->
+                val target = File(rimeDir, file.name)
+                if (!target.exists()) {
+                    file.renameTo(target)
+                }
+            }
+        }
+        
+        // 迁移 shared 数据（方案文件）
+        if (oldSharedDir.exists()) {
+            oldSharedDir.listFiles()?.forEach { file ->
+                val target = File(rimeDir, file.name)
+                if (!target.exists()) {
+                    file.renameTo(target)
+                }
+            }
+        }
+        
+        // 删除旧目录
+        oldSharedDir.deleteRecursively()
+        oldUserDir.deleteRecursively()
+        
+        Log.i(TAG, "Migration complete")
     }
 
     private fun listFilesRecursively(dir: File, tag: String, prefix: String = "") {
