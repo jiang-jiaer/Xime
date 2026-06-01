@@ -100,8 +100,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     
     private val calculatorEngine = com.kingzcheung.xime.calculator.CalculatorEngine()
     
-    private val calculatorEngine = com.kingzcheung.xime.calculator.CalculatorEngine()
-    
     private val predictionManager = PredictionManager(
         context = this,
         serviceScope = serviceScope,

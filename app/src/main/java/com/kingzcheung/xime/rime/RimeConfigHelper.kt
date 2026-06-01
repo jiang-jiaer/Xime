@@ -154,12 +154,12 @@ object RimeConfigHelper {
     }
     
     /**
-     * 每次启动时同步 assets 中的 .yaml 到共享目录（覆盖已有的，确保新 schema 生效）
+     * 每次启动时同步 assets 中的 .yaml 到 rime 目录（覆盖已有的，确保新 schema 生效）
      */
     fun syncAssets(context: Context) {
-        val sharedDataDir = File(context.filesDir, "rime/shared")
-        sharedDataDir.mkdirs()
-        copyAssetsToRimeDir(context, sharedDataDir)
+        val rimeDir = File(context.filesDir, "rime")
+        rimeDir.mkdirs()
+        copyAssetsToRimeDir(context, rimeDir)
     }
 
     private fun copyAssetFile(context: Context, assetPath: String, targetFile: File) {
