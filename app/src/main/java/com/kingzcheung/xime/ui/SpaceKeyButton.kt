@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -85,6 +84,7 @@ fun SpaceKeyButton(
                     
                     var dragTriggered = false
                     
+                    // drag 会在手指抬起后自动结束，无需额外等待
                     drag(down.id) { change ->
                         dragTriggered = true
                         longPressJob.cancel()
@@ -99,9 +99,6 @@ fun SpaceKeyButton(
                             onSwipeRight()
                         }
                     }
-                    
-                    // 等待手指抬起 - 这是关键
-                    val up = waitForUpOrCancellation()
                     
                     // 取消长按检测
                     longPressJob.cancel()

@@ -78,8 +78,8 @@ class WirelessImportHelper(private val context: Context) {
                 post("/upload") {
                     val bytes = call.receive<ByteArray>()
 
-                    val sharedDir = File(context.filesDir, "rime/shared")
-                    sharedDir.mkdirs()
+                    val rimeDir = File(context.filesDir, "rime")
+                    rimeDir.mkdirs()
 
                     val ctHeader = call.request.headers["Content-Type"] ?: ""
                     val boundary = ctHeader.split("boundary=").getOrNull(1)?.trim()
@@ -115,7 +115,7 @@ class WirelessImportHelper(private val context: Context) {
 
                         lastName = name
                         val contentBytes = partSlice.copyOfRange(hdrEnd + 6, partSlice.size - 2)
-                        File(sharedDir, name).writeBytes(contentBytes)
+                        File(rimeDir, name).writeBytes(contentBytes)
                         saved = true
 
                         _uploadResults.trySend(UploadResult(fileName = name, success = true))

@@ -29,24 +29,21 @@ object SchemaManager {
     private const val TAG = "SchemaManager"
     private const val CUSTOM_YAML = "default.custom.yaml"
 
-    fun getSharedDir(context: Context): File =
-        File(context.filesDir, "rime/shared")
-
-    private fun getUserDir(context: Context): File =
-        File(context.filesDir, "rime/user")
+    fun getRimeDir(context: Context): File =
+        File(context.filesDir, "rime")
 
     private fun getBuildDir(context: Context): File =
-        File(getUserDir(context), "build")
+        File(getRimeDir(context), "build")
 
     private fun getCustomYamlFile(context: Context): File =
-        File(getUserDir(context), CUSTOM_YAML)
+        File(getRimeDir(context), CUSTOM_YAML)
 
     fun isSchemaCompiled(context: Context, schemaId: String): Boolean {
         return File(getBuildDir(context), "$schemaId.prism.bin").exists()
     }
 
     fun getReferencedDictName(context: Context, schemaId: String): String? {
-        val schemaFile = File(getSharedDir(context), "$schemaId.schema.yaml")
+        val schemaFile = File(getRimeDir(context), "$schemaId.schema.yaml")
         if (!schemaFile.exists()) return null
         return try {
             val content = schemaFile.readText()
@@ -58,35 +55,35 @@ object SchemaManager {
 
     fun hasDictFile(context: Context, schemaId: String): Boolean {
         val dictName = getReferencedDictName(context, schemaId) ?: schemaId
-        val f = File(getSharedDir(context), "$dictName.dict.yaml")
+        val f = File(getRimeDir(context), "$dictName.dict.yaml")
         return f.exists()
     }
 
     fun schemaNeedsDict(context: Context, schemaId: String): Boolean {
         val dictName = getReferencedDictName(context, schemaId) ?: schemaId
-        return !File(getSharedDir(context), "$dictName.dict.yaml").exists()
+        return !File(getRimeDir(context), "$dictName.dict.yaml").exists()
     }
 
     fun getSchemaIssues(context: Context, schemaId: String): List<String> {
         val issues = mutableListOf<String>()
-        val schemaFile = File(getSharedDir(context), "$schemaId.schema.yaml")
+        val schemaFile = File(getRimeDir(context), "$schemaId.schema.yaml")
         if (!schemaFile.exists()) {
             issues.add("缺少 .schema.yaml 文件")
             return issues
         }
         val dictName = getReferencedDictName(context, schemaId) ?: schemaId
-        if (!File(getSharedDir(context), "$dictName.dict.yaml").exists()) {
+        if (!File(getRimeDir(context), "$dictName.dict.yaml").exists()) {
             issues.add("缺少 $dictName.dict.yaml 词典文件，无法编译")
         }
         return issues
     }
 
     fun discoverSchemas(context: Context): List<SchemaMeta> {
-        val sharedDir = getSharedDir(context)
-        if (!sharedDir.exists()) return emptyList()
+        val rimeDir = getRimeDir(context)
+        if (!rimeDir.exists()) return emptyList()
 
         val schemas = mutableListOf<SchemaMeta>()
-        val schemaFiles = sharedDir.listFiles { f -> f.name.endsWith(".schema.yaml") }
+        val schemaFiles = rimeDir.listFiles { f -> f.name.endsWith(".schema.yaml") }
             ?: return emptyList()
 
         for (file in schemaFiles) {
@@ -243,12 +240,12 @@ object SchemaManager {
     }
 
     fun deleteSchemaFiles(context: Context, schemaId: String) {
-        val sharedDir = getSharedDir(context)
-        val schemaFile = File(sharedDir, "$schemaId.schema.yaml")
+        val rimeDir = getRimeDir(context)
+        val schemaFile = File(rimeDir, "$schemaId.schema.yaml")
         if (schemaFile.exists()) schemaFile.delete()
 
         val dictName = getReferencedDictName(context, schemaId) ?: schemaId
-        val dictFile = File(sharedDir, "$dictName.dict.yaml")
+        val dictFile = File(rimeDir, "$dictName.dict.yaml")
         if (dictFile.exists()) dictFile.delete()
 
         val enabled = getEnabledSchemas(context).toMutableList()
@@ -260,16 +257,16 @@ object SchemaManager {
     suspend fun importSchemaFile(context: Context, uri: Uri): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val sharedDir = getSharedDir(context)
-                if (!sharedDir.exists()) sharedDir.mkdirs()
+                val rimeDir = getRimeDir(context)
+                if (!rimeDir.exists()) rimeDir.mkdirs()
 
                 val displayName = getFileName(context, uri) ?: return@withContext false
 
                 if (displayName.endsWith(".zip", ignoreCase = true)) {
-                    return@withContext importZip(context, uri, sharedDir)
+                    return@withContext importZip(context, uri, rimeDir)
                 }
 
-                val targetFile = File(sharedDir, displayName)
+                val targetFile = File(rimeDir, displayName)
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     FileOutputStream(targetFile).use { output ->
                         input.copyTo(output)
@@ -329,8 +326,8 @@ object SchemaManager {
 
     suspend fun importFromUrl(context: Context, url: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val sharedDir = getSharedDir(context)
-            if (!sharedDir.exists()) sharedDir.mkdirs()
+            val rimeDir = getRimeDir(context)
+            if (!rimeDir.exists()) rimeDir.mkdirs()
 
             val client = OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
@@ -349,9 +346,9 @@ object SchemaManager {
 
             when {
                 url.endsWith(".zip", ignoreCase = true) ->
-                    importZipFromStream(body.byteStream(), sharedDir)
+                    importZipFromStream(body.byteStream(), rimeDir)
                 url.endsWith(".tar.gz", ignoreCase = true) || url.endsWith(".tgz", ignoreCase = true) ->
-                    importTarGzFromStream(body.byteStream(), sharedDir)
+                    importTarGzFromStream(body.byteStream(), rimeDir)
                 else -> {
                     Log.e(TAG, "Unsupported format: $url")
                     false
