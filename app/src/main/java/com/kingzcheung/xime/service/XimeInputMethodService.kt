@@ -123,7 +123,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             themeId = SettingsPreferences.getKeyboardTheme(this),
             showBottomButtons = SettingsPreferences.showBottomButtons(this),
             keyboardHeightDp = SettingsPreferences.getKeyboardHeightDp(this, isLandscape),
-            keyboardBottomPaddingDp = SettingsPreferences.getKeyboardBottomPaddingDp(this)
+            keyboardBottomPaddingDp = SettingsPreferences.getKeyboardBottomPaddingDp(this),
+            toolbarButtons = SettingsPreferences.getToolbarButtons(this)
         )
     }
     
@@ -594,12 +595,17 @@ onVoiceModeChange = { enabled ->
                                     isTrackingVoiceButtons = false
 }
  },
-                              isDeploying = state.isDeploying,
-                              deploymentMessage = state.deploymentMessage,
-                              onDismissDeploying = {
-                                  notifyDeploymentStatus(false, "")
-                              }
-                               )
+                               isDeploying = state.isDeploying,
+                               deploymentMessage = state.deploymentMessage,
+                               onDismissDeploying = {
+                                   notifyDeploymentStatus(false, "")
+                               },
+                               toolbarButtons = state.toolbarButtons,
+                               onUpdateToolbarButtons = { buttons ->
+                                   SettingsPreferences.setToolbarButtons(this@XimeInputMethodService, buttons)
+                                   uiState.value = uiState.value.copy(toolbarButtons = buttons)
+                               }
+                                )
                          }
                      }
                      

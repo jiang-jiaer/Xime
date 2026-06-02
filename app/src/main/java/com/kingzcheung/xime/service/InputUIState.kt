@@ -3,6 +3,7 @@ package com.kingzcheung.xime.service
 import com.kingzcheung.xime.settings.SchemaInfo
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.speech.RecognitionState
+import com.kingzcheung.xime.ui.ToolbarButton
 
 data class InputUIState(
     val candidates: Array<String> = emptyArray(),
@@ -39,7 +40,8 @@ data class InputUIState(
     val deploymentMessage: String = "",
     val hasNextPage: Boolean = false,
     val hasPrevPage: Boolean = false,
-    val inputSessionId: Long = 0
+    val inputSessionId: Long = 0,
+    val toolbarButtons: List<String> = ToolbarButton.DEFAULT_VISIBLE.map { it.id }
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -82,6 +84,7 @@ if (showBottomButtons != other.showBottomButtons) return false
         if (hasNextPage != other.hasNextPage) return false
         if (hasPrevPage != other.hasPrevPage) return false
         if (inputSessionId != other.inputSessionId) return false
+        if (toolbarButtons != other.toolbarButtons) return false
 
         return true
     }
@@ -121,6 +124,7 @@ result = 31 * result + showBottomButtons.hashCode()
         result = 31 * result + deploymentMessage.hashCode()
         result = 31 * result + hasNextPage.hashCode()
         result = 31 * result + hasPrevPage.hashCode()
+        result = 31 * result + toolbarButtons.hashCode()
         return result
     }
 }

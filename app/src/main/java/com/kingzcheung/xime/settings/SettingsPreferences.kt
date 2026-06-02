@@ -37,6 +37,18 @@ object SettingsPreferences {
     private const val KEY_KEYBOARD_BOTTOM_PADDING_DP = "keyboard_bottom_padding_dp"
     private const val DEFAULT_KEYBOARD_BOTTOM_PADDING_DP = 0
 
+    private const val KEY_TOOLBAR_BUTTONS = "toolbar_buttons"
+    private val DEFAULT_TOOLBAR_BUTTONS = com.kingzcheung.xime.ui.ToolbarButton.DEFAULT_VISIBLE.joinToString(",") { it.id }
+
+    fun getToolbarButtons(context: Context): List<String> {
+        val raw = getPrefs(context).getString(KEY_TOOLBAR_BUTTONS, DEFAULT_TOOLBAR_BUTTONS) ?: DEFAULT_TOOLBAR_BUTTONS
+        return raw.split(",").filter { it.isNotEmpty() }
+    }
+
+    fun setToolbarButtons(context: Context, buttons: List<String>) {
+        getPrefs(context).edit().putString(KEY_TOOLBAR_BUTTONS, buttons.joinToString(",")).apply()
+    }
+
     private const val KEY_WEBDAV_URL = "webdav_url"
     private const val KEY_WEBDAV_USERNAME = "webdav_username"
     private const val KEY_WEBDAV_PASSWORD = "webdav_password"
