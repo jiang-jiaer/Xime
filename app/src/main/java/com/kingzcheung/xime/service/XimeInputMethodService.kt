@@ -775,7 +775,11 @@ onVoiceModeChange = { enabled ->
         // 作为 onStartInput 的补充，某些 ROM/Android 版本可能不保证 onStartInput 中 EditorInfo 完整
         info?.let { updateEnterKeyText(it) }
     }
-    
+
+    override fun onEvaluateFullscreenMode(): Boolean {
+        return false
+    }
+
     private fun updateEnterKeyText(editorInfo: EditorInfo) {
         val imeOptions = editorInfo.imeOptions
         val action = imeOptions and EditorInfo.IME_MASK_ACTION
