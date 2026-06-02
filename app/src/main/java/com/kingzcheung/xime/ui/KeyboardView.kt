@@ -214,30 +214,6 @@ fun KeyboardView(
                     )
                 }
 
-                currentRoute is KeyboardRoute.CandidatePage -> {
-                    CandidatePage(
-                        candidates = candidates.toList(),
-                        candidateComments = candidateComments.toList(),
-                        associationCandidates = associationCandidates.toList(),
-                        inputText = inputText,
-                        onCandidateSelect = { index ->
-                            onCandidateSelect(index)
-                            currentRoute = KeyboardRoute.Keyboard
-                        },
-                        onAssociationSelect = { index ->
-                            onAssociationSelect?.invoke(index)
-                            currentRoute = KeyboardRoute.Keyboard
-                        },
-                        backgroundColor = candidateBarBg,
-                        textColor = candidateTextColor,
-                        hasNextPage = state.hasNextPage,
-                        hasPrevPage = state.hasPrevPage,
-                        onPageDown = onPageDown,
-                        onPageUp = onPageUp,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
                 else -> {
                     val cursorMod = if (!isComposing && inputText.isEmpty() && onCursorMove != null)
                         Modifier.pointerInput(Unit) {
@@ -448,7 +424,7 @@ fun KeyboardView(
         }
 
         // 菜单覆盖层：覆盖整个键盘视图（包括候选栏）
-        if (currentRoute !is KeyboardRoute.Keyboard && currentRoute !is KeyboardRoute.CandidatePage && !isVoiceMode) {
+        if (currentRoute !is KeyboardRoute.Keyboard && !isVoiceMode) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -511,6 +487,29 @@ fun KeyboardView(
                     accentColor = accentColor,
                     onUpdateToolbarButtons = onUpdateToolbarButtons,
                     onDismiss = { currentRoute = KeyboardRoute.Keyboard },
+                    bottomPaddingDp = keyboardBottomPaddingDp,
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                )
+                is KeyboardRoute.CandidatePage -> CandidatePage(
+                    candidates = candidates.toList(),
+                    candidateComments = candidateComments.toList(),
+                    associationCandidates = associationCandidates.toList(),
+                    inputText = inputText,
+                    onCandidateSelect = { index ->
+                        onCandidateSelect(index)
+                        currentRoute = KeyboardRoute.Keyboard
+                    },
+                    onAssociationSelect = { index ->
+                        onAssociationSelect?.invoke(index)
+                        currentRoute = KeyboardRoute.Keyboard
+                    },
+                    backgroundColor = candidateBarBg,
+                    textColor = candidateTextColor,
+                    hasNextPage = state.hasNextPage,
+                    hasPrevPage = state.hasPrevPage,
+                    onPageDown = onPageDown,
+                    onPageUp = onPageUp,
+                    onBack = { currentRoute = KeyboardRoute.Keyboard },
                     bottomPaddingDp = keyboardBottomPaddingDp,
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
