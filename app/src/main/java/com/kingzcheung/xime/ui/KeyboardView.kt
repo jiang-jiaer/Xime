@@ -112,6 +112,7 @@ fun KeyboardView(
     voiceLeftActive: Boolean = false,
     voiceRightActive: Boolean = false,
     onVoiceModeChange: ((Boolean) -> Unit)? = null,
+    isSttEnabled: Boolean = true,
     voicePluginName: String = "",
     voiceRecognitionState: RecognitionState = RecognitionState.IDLE,
     voiceRecognizedText: String = "",
@@ -292,6 +293,7 @@ fun KeyboardView(
                                     keyboardBackgroundColor = keyboardBgColor,
                                     modifier = Modifier.weight(1f).then(cursorMod),
                                     onVoiceModeChange = onVoiceModeChange,
+                                    isSttEnabled = isSttEnabled,
                                     isVoiceMode = isVoiceMode,
                                     onKeyPressDown = onKeyPressDown,
                                     onCursorMove = onCursorMove

@@ -64,6 +64,7 @@ fun KeyboardLayout(
     specialKeyBackgroundColor: Color,
     keyboardBackgroundColor: Color = Color.Transparent,
     onVoiceModeChange: ((Boolean) -> Unit)? = null,
+    isSttEnabled: Boolean = true,
     isVoiceMode: Boolean = false,
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
@@ -324,17 +325,25 @@ fun KeyboardLayout(
                                     delay(400)
                                     longPressTriggered = true
 
-                                    // 检查麦克风权限
-                                    if (!PermissionHelper.hasRecordAudioPermission(context)) {
-                                        Toast.makeText(
-                                            context,
-                                            "需要麦克风权限才能使用语音输入",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                        PermissionHelper.requestRecordAudioPermission(context)
+                                    if (isSttEnabled) {
+                                        // 检查麦克风权限
+                                        if (!PermissionHelper.hasRecordAudioPermission(context)) {
+                                            Toast.makeText(
+                                                context,
+                                                "需要麦克风权限才能使用语音输入",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            PermissionHelper.requestRecordAudioPermission(context)
+                                        } else {
+                                            // 触发语音模式切换，外部状态变化后会显示 VoiceKeyboardLayout
+                                            currentOnVoiceModeChange?.invoke(true)
+                                        }
                                     } else {
-                                        // 触发语音模式切换，外部状态变化后会显示 VoiceKeyboardLayout
-                                        currentOnVoiceModeChange?.invoke(true)
+                                        // STT 关闭：长按空格连续输出空格，手指抬起后 longPressJob.cancel() 会取消此协程
+                                        while (true) {
+                                            currentOnKeyPress("space")
+                                            delay(80)
+                                        }
                                     }
                                 }
 

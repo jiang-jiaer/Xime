@@ -478,6 +478,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                              recentClipboardItems = recentClipboardItemsState.value,
                             candidateComments = state.candidateComments,
                             isVoiceMode = state.isVoiceMode,
+                            isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
                             voiceBottomActive = state.voiceButtonState.bottomActive,
                             voiceLeftActive = state.voiceButtonState.leftActive,
                             voiceRightActive = state.voiceButtonState.rightActive,
