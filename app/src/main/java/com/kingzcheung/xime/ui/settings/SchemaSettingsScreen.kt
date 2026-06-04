@@ -497,7 +497,7 @@ private fun SchemaToggleItem(
             containerColor = if (isCurrent)
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
             else
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
