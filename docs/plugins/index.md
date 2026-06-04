@@ -10,7 +10,7 @@
 
 **说明：** 预定义颜文字数据，包含丰富的日式颜文字表情如 `(^_^)`、`(T_T)`、`(≧▽≦)`、`(╯°□°)╯︵ ┻━┻`
 
-![表情键盘插件](/Screenshot/表情键盘_插件_light.jpg)
+![表情键盘插件](/Screenshot/plugin_light.jpg)
 
 **下载：** [APK](https://github.com/ximeiorg/Xime/releases) | **源码：** [GitHub](https://github.com/ximeiorg/Xime/tree/main/plugins/kaomoji)
 

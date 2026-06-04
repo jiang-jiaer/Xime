@@ -19,34 +19,23 @@
 
 <table align="center">
   <tr>
-    <td><img src="docs/Screenshot/全键盘_light.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/全键盘_dark.jpg" width="180"></td>
+    <td><img src="docs/Screenshot/keyboard_light.jpg" width="180"></td>
+    <td><img src="docs/Screenshot/keyboard_dark.jpg" width="180"></td>
     <td><img src="docs/Screenshot/全键盘_下滑_light.jpg" width="180"></td>
     <td><img src="docs/Screenshot/全键盘_下滑_dark.jpg" width="180"></td>
   </tr>
   <tr>
-    <td><img src="docs/Screenshot/数字键盘_light.jpg" width="180"></td>
     <td><img src="docs/Screenshot/数字键盘_dark.jpg" width="180"></td>
     <td><img src="docs/Screenshot/符号键盘_light.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/符号键盘_dark.jpg" width="180"></td>
+        <td><img src="docs/Screenshot/emoji_light.jpg" width="180"></td>
+    <td><img src="docs/Screenshot/shotcut_light.jpg" width="180"></td>
   </tr>
-  <tr>
-    <td><img src="docs/Screenshot/表情键盘_light.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/表情键盘_dark.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/表情键盘_插件_light.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/表情键盘_插件_dark.jpg" width="180"></td>
-  </tr>
+
   <tr>
     <td><img src="docs/Screenshot/theme_light.jpg" width="180"></td>
     <td><img src="docs/Screenshot/theme_dark.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/菜单_light.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/菜单_dark.jpg" width="180"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/Screenshot/plugin_light.jpg" width="180"></td>
+        <td><img src="docs/Screenshot/plugin_light.jpg" width="180"></td>
     <td><img src="docs/Screenshot/plugin_dark.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/setting_dark.jpg" width="180"></td>
-    <td><img src="docs/Screenshot/setting_light.jpg" width="180"></td>
   </tr>
 </table>
 

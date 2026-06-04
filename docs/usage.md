@@ -57,7 +57,7 @@
 
 ### 键盘界面
 
-![全键盘](./Screenshot/全键盘_light.jpg)
+![全键盘](./Screenshot/keyboard_light.jpg)
 
 ### 候选栏
 
@@ -71,7 +71,7 @@
 
 ### 功能菜单
 
-![菜单](./Screenshot/菜单_light.jpg)
+![菜单](./Screenshot/shotcut_light.jpg)
 
 点击 Logo 打开菜单，包含以下功能：
 
