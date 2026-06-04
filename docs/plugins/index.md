@@ -22,8 +22,6 @@
 
 **说明：** 恶搞兔表情包，从 APK assets 加载表情图片
 
-![Meme Bunny](/Screenshot/MemeBunny.jpg)
-
 **下载：** [APK](https://github.com/ximeiorg/Xime/releases) | **源码：** [GitHub](https://github.com/ximeiorg/Xime/tree/main/plugins/meme-bunny)
 
 ---
