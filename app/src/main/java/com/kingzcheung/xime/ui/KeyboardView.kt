@@ -554,6 +554,7 @@ fun KeyboardView(
                     onBack = { currentRoute = KeyboardRoute.Keyboard },
                     backgroundColor = candidateBarBg,
                     textColor = keyTextColor,
+                    accentColor = accentColor,
                     bottomPaddingDp = keyboardBottomPaddingDp,
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
