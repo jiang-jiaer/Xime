@@ -317,7 +317,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     }
                 }
 
-                val sessionReady = rimeEngine.ensureSession()
+                val sessionReady = rimeEngine.ensureSession(180_000L) // 最长等 3 分钟（含编译时间）
                 if (sessionReady) {
                     Log.d(TAG, "initRimeEngine: Session ready")
                     // 确保部署成功后才标记完成，避免首次部署超时后误标记

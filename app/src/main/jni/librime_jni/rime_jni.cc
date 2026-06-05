@@ -2,6 +2,7 @@
 // 基于 trime 的实现
 
 #include <rime_api.h>
+#include <rime/setup.h>
 #include <jni.h>
 #include <android/log.h>
 #include <memory>
@@ -34,6 +35,9 @@ public:
             LOGE("Rime API not available");
             return;
         }
+        
+        user_data_dir_ = user_data_dir;
+        shared_data_dir_ = shared_data_dir;
 
         std::string log_dir = std::string(user_data_dir) + "/logs";
         
@@ -77,7 +81,11 @@ public:
     bool createSession() {
         if (!rime) return false;
         session_id_ = rime->create_session();
-        LOGI("Session created: %lu", (unsigned long)session_id_);
+        if (session_id_ != 0) {
+            LOGI("Session created: %lu", (unsigned long)session_id_);
+        } else {
+            LOGD("Session creation failed (engine may be maintaining)");
+        }
         return session_id_ != 0;
     }
 
@@ -438,13 +446,36 @@ public:
         return true;
     }
     
-    bool deploySchema(const char* schemaFile) {
+    bool deploySchema(const char* schemaId) {
         if (!rime) {
             LOGE("deploySchema: rime not available");
             return false;
         }
         
-        LOGI("Deploying single schema: %s", schemaFile);
+        // 确保部署模块已加载（schema_update 等任务注册在 levers 模块中）
+        rime::LoadModules(rime::kDeployerModules);
+        
+        // 构造 .schema.yaml 文件名
+        std::string schemaFile(schemaId);
+        if (schemaFile.find(".schema.yaml") == std::string::npos) {
+            schemaFile += ".schema.yaml";
+        }
+        
+        // 在 user_data_dir 和 shared_data_dir 中查找 schema 文件
+        std::string schemaPath;
+        std::string userPath = user_data_dir_ + "/" + schemaFile;
+        std::string sharedPath = shared_data_dir_ + "/" + schemaFile;
+        if (access(userPath.c_str(), F_OK) == 0) {
+            schemaPath = userPath;
+        } else if (access(sharedPath.c_str(), F_OK) == 0) {
+            schemaPath = sharedPath;
+        } else {
+            LOGE("deploySchema: schema file not found at %s or %s",
+                 userPath.c_str(), sharedPath.c_str());
+            return false;
+        }
+        
+        LOGI("Deploying single schema: %s", schemaPath.c_str());
         
         // 先销毁旧session
         if (session_id_) {
@@ -452,9 +483,9 @@ public:
             session_id_ = 0;
         }
         
-        Bool result = rime->deploy_schema(schemaFile);
+        Bool result = rime->deploy_schema(schemaPath.c_str());
         if (!result) {
-            LOGE("deploy_schema failed for: %s", schemaFile);
+            LOGE("deploy_schema failed for: %s", schemaPath.c_str());
             // 回退：启动完整维护等待完成
             rime->start_maintenance(true);
             while (rime->is_maintenance_mode()) {
@@ -464,7 +495,7 @@ public:
         
         // 重新创建session
         session_id_ = rime->create_session();
-        LOGI("Deploy schema completed: %s", schemaFile);
+        LOGI("Deploy schema completed: %s", schemaId);
         return true;
     }
 
@@ -492,6 +523,8 @@ public:
 private:
     RimeApi* rime;
     RimeSessionId session_id_ = 0;
+    std::string user_data_dir_;
+    std::string shared_data_dir_;
 };
 
 extern "C" {

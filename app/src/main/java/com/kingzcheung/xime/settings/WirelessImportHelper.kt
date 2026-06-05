@@ -17,9 +17,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.jvm.javaio.*
 import kotlinx.coroutines.channels.Channel
+import java.io.ByteArrayInputStream
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
-import java.io.File
 
 data class UploadResult(
     val fileName: String,
@@ -109,23 +110,42 @@ class WirelessImportHelper(private val context: Context) {
                         val fnMatch = Regex("""filename="([^"]*)"""").find(partHeaders)
                         val name = fnMatch?.groupValues?.getOrNull(1)
                         if (name.isNullOrEmpty() || name == "blob") { pos = partEnd + boundaryMarker.size; continue }
-                        if (!name.endsWith(".yaml") && !name.endsWith(".schema.yaml") && !name.endsWith(".dict.yaml")) {
-                            pos = partEnd + boundaryMarker.size; continue
-                        }
 
                         lastName = name
                         val contentBytes = partSlice.copyOfRange(hdrEnd + 6, partSlice.size - 2)
-                        File(rimeDir, name).writeBytes(contentBytes)
-                        saved = true
 
-                        _uploadResults.trySend(UploadResult(fileName = name, success = true))
+                        when {
+                            name.endsWith(".zip", ignoreCase = true) || name.endsWith(".tar.gz", ignoreCase = true) || name.endsWith(".tgz", ignoreCase = true) -> {
+                                val isTarGz = name.endsWith(".tar.gz", ignoreCase = true) || name.endsWith(".tgz", ignoreCase = true)
+                                val ok = if (isTarGz) {
+                                    SchemaManager.importTarGzFromStream(ByteArrayInputStream(contentBytes), rimeDir)
+                                } else {
+                                    SchemaManager.importZipFromStream(ByteArrayInputStream(contentBytes), rimeDir)
+                                }
+                                if (ok) {
+                                    saved = true
+                                    _uploadResults.trySend(UploadResult(fileName = name, success = true))
+                                } else {
+                                    _uploadResults.trySend(UploadResult(fileName = name, success = false, error = "解压失败"))
+                                }
+                            }
+                            name.endsWith(".yaml") || name.endsWith(".schema.yaml") || name.endsWith(".dict.yaml") -> {
+                                File(rimeDir, name).writeBytes(contentBytes)
+                                saved = true
+                                _uploadResults.trySend(UploadResult(fileName = name, success = true))
+                            }
+                            else -> {
+                                _uploadResults.trySend(UploadResult(fileName = name, success = false, error = "不支持的文件类型"))
+                            }
+                        }
+
                         pos = partEnd + boundaryMarker.size
                     }
 
                     if (saved) {
                         call.respondText("""{"success":true,"file":"$lastName"}""", ContentType.Application.Json)
                     } else {
-                        call.respondText("""{"success":false,"error":"No valid .yaml file"}""",
+                        call.respondText("""{"success":false,"error":"No valid file (supported: .yaml, .zip, .tar.gz)"}""",
                             ContentType.Application.Json, HttpStatusCode.BadRequest)
                     }
                 }
@@ -215,16 +235,17 @@ button:disabled{background:#c7c7cc;cursor:default}
 <div class=drop-zone id=dz onclick="document.getElementById('fi').click()">
 <div class=drop-zone-icon>&#128196;</div>
 <div class=drop-zone-text>拖拽文件到此处</div>
-<div class=drop-zone-hint>支持 .schema.yaml / .dict.yaml</div>
+<div class=drop-zone-hint>支持 .schema.yaml / .dict.yaml / .zip / .tar.gz</div>
+<div style='color:#8e8e93;font-size:12px;margin-top:12px;padding:10px;background:#f5f5f7;border-radius:8px;line-height:1.5'>💡 多文件或复杂目录结构，请打包为 .zip 或 .tar.gz 上传</div>
 </div>
-<input type=file id=fi accept='.yaml' multiple style='display:none'>
+<input type=file id=fi accept='.yaml,.zip,.tar.gz,.tgz' multiple style='display:none'>
 <div id=fl></div>
 <button id=ub disabled onclick=up()>上传</button>
 <div id=sm></div>
 </div>
 <script>
 var dz=document.getElementById('dz'),fi=document.getElementById('fi'),fl=document.getElementById('fl'),ub=document.getElementById('ub'),sm=document.getElementById('sm'),fs=[]
-function ok(n){return n.endsWith('.schema.yaml')||n.endsWith('.dict.yaml')||n.endsWith('.yaml')}
+function ok(n){return n.endsWith('.schema.yaml')||n.endsWith('.dict.yaml')||n.endsWith('.yaml')||n.endsWith('.zip')||n.endsWith('.tar.gz')||n.endsWith('.tgz')}
 function r(){var h='';for(var i=0;i<fs.length;i++){h+='<div class=file-item><div class=bar id=b'+i+' style=width:0%></div><div class=z><span class=name>'+fs[i].name+'</span><span class=s id=s'+i+'>待上传</span></div></div>'}fl.innerHTML=h;ub.disabled=fs.length===0;dz.className='drop-zone'+(fs.length?' has-file':'')}
 dz.ondragover=function(e){e.preventDefault();dz.classList.add('dragover')}
 dz.ondragleave=function(){dz.classList.remove('dragover')}

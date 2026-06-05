@@ -403,7 +403,7 @@ object SchemaManager {
         }
     }
 
-    private fun importZipFromStream(inputStream: InputStream, targetDir: File): Boolean {
+    internal fun importZipFromStream(inputStream: InputStream, targetDir: File): Boolean {
         return try {
             // 保存到临时文件，以便两趟处理（检测共同根目录 + 解压）
             val tempFile = File.createTempFile("rime_import_", ".zip", targetDir)
@@ -459,7 +459,7 @@ object SchemaManager {
         }
     }
 
-    private fun importTarGzFromStream(inputStream: InputStream, targetDir: File): Boolean {
+    internal fun importTarGzFromStream(inputStream: InputStream, targetDir: File): Boolean {
         return try {
             // 保存到临时文件，以便两趟处理
             val tempFile = File.createTempFile("rime_import_", ".tar.gz", targetDir)
