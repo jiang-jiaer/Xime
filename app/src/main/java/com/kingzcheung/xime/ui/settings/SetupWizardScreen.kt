@@ -38,7 +38,6 @@ import kotlinx.coroutines.withContext
 enum class SetupStep {
     EnableIme,
     SelectSchemas,
-    Compiling,
     SwitchToIme
 }
 
@@ -50,10 +49,8 @@ fun SetupWizardScreen(
     onCompleted: () -> Unit
 ) {
     var currentStep by remember { mutableStateOf(SetupStep.EnableIme) }
-    var compileProgress by remember { mutableStateOf("") }
-    var compileDone by remember { mutableStateOf(false) }
-    var compileError by remember { mutableStateOf(false) }
     var hasBeenToSettings by remember { mutableStateOf(false) }
+    var deployReminder by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
 
@@ -102,28 +99,21 @@ fun SetupWizardScreen(
                         )
                         SetupStep.SelectSchemas -> SelectSchemasStep(
                         enabledSchemas = enabledSchemas.value,
+                        deployReminder = deployReminder,
                         onNavigateToSchemaSettings = {
                             hasBeenToSettings = true
+                            deployReminder = null
                             onNavigateToSchemaSettings()
                         },
                         onNext = {
-                            // 从设置返回后刷新方案列表
                             enabledSchemas.value = SchemaManager.getEnabledSchemas(context)
-                            currentStep = SetupStep.Compiling
+                            if (enabledSchemas.value.isNotEmpty() && !RimeConfigHelper.isDeploymentComplete(context)) {
+                                deployReminder = "方案已选择，但尚未部署。请前往设置点击「部署」按钮编译词库"
+                            } else {
+                                deployReminder = null
+                                currentStep = SetupStep.SwitchToIme
+                            }
                         }
-                    )
-                    SetupStep.Compiling -> CompilingStep(
-                        context = context,
-                        enabledSchemas = enabledSchemas.value,
-                        progress = compileProgress,
-                        done = compileDone,
-                        error = compileError,
-                        onProgress = { compileProgress = it },
-                        onDone = {
-                            compileDone = true
-                            currentStep = SetupStep.SwitchToIme
-                        },
-                        onError = { compileError = true }
                     )
                     SetupStep.SwitchToIme -> SwitchToImeStep(
                         onCompleted = {
@@ -179,7 +169,6 @@ private fun StepIndicator(currentStep: SetupStep) {
                     text = when (step) {
                         SetupStep.EnableIme -> "启用"
                         SetupStep.SelectSchemas -> "选方案"
-                        SetupStep.Compiling -> "编译"
                         SetupStep.SwitchToIme -> "切换"
                     },
                     fontSize = 11.sp,
@@ -301,6 +290,7 @@ private fun checkImeEnabled(context: Context): Boolean {
 @Composable
 private fun SelectSchemasStep(
     enabledSchemas: List<String>,
+    deployReminder: String? = null,
     onNavigateToSchemaSettings: () -> Unit,
     onNext: () -> Unit
 ) {
@@ -317,7 +307,7 @@ private fun SelectSchemasStep(
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "点击下方按钮前往设置，选择您需要的输入方案",
+            text = "点击下方按钮前往设置，选择您需要的输入方案并点击「部署」",
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -345,12 +335,21 @@ private fun SelectSchemasStep(
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold
             )
+            if (deployReminder != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = deployReminder,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
+            }
             Spacer(Modifier.height(16.dp))
             Button(
                 onClick = onNext,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("下一步，开始编译")
+                Text("下一步")
             }
         }
 
@@ -444,33 +443,9 @@ private suspend fun doCompile(
             val engine = RimeEngine.getInstance()
             engine.initialize(userDataDir, sharedDataDir)
 
-            // 2. 启动完整维护编译（deploySchema 单个编译可能不生成 prism.bin，
-            //    导致键盘启动时 isDeploymentComplete() 返回 false 而重新编译）
+            // 2. 部署 = 编译词库 + 创建 session（一步完成）
             onProgress("正在编译词库...")
-            val maintenanceStarted = engine.startMaintenance(true)
-            if (maintenanceStarted) {
-                var waited = 0L
-                val timeoutMs = 120_000L
-                while (engine.isMaintaining() && waited < timeoutMs) {
-                    Thread.sleep(100)
-                    waited += 100
-                    if (waited % 5000 == 0L) {
-                        onProgress("正在编译词库...（${waited / 1000}s）")
-                    }
-                }
-                if (engine.isMaintaining()) {
-                    Log.w("SetupWizard", "Maintenance still running after timeout")
-                } else {
-                    Log.d("SetupWizard", "Maintenance completed in ${waited}ms")
-                    engine.updateLastBuildTime()
-                }
-            } else {
-                Log.w("SetupWizard", "startMaintenance returned false")
-            }
-
-            // 3. 创建并验证 session（确保键盘打开时立即可用）
-            onProgress("正在创建会话...")
-            engine.ensureSession(300_000L)
+            engine.deploy()
 
             onDone()
         } catch (e: Exception) {
