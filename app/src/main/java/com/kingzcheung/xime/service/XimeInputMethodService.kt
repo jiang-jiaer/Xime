@@ -1097,12 +1097,19 @@ onVoiceModeChange = { enabled ->
                         withContext(Dispatchers.Main) {
                             val imeOptions = currentInputEditorInfo?.imeOptions ?: 0
                             val action = imeOptions and EditorInfo.IME_MASK_ACTION
-                            when (action) {
-                                EditorInfo.IME_ACTION_GO,
-                                EditorInfo.IME_ACTION_SEARCH,
-                                EditorInfo.IME_ACTION_SEND,
-                                EditorInfo.IME_ACTION_NEXT,
-                                EditorInfo.IME_ACTION_DONE -> {
+                            val noEnterAction = imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
+                            when {
+                                // 如果设置了 IME_FLAG_NO_ENTER_ACTION，必须插入换行符
+                                // 不能走 performEditorAction，否则某些应用收到 Done/Send 等
+                                // 动作后会收起键盘，但按键标签显示的是"换行"
+                                noEnterAction -> {
+                                    sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
+                                }
+                                action == EditorInfo.IME_ACTION_GO ||
+                                action == EditorInfo.IME_ACTION_SEARCH ||
+                                action == EditorInfo.IME_ACTION_SEND ||
+                                action == EditorInfo.IME_ACTION_NEXT ||
+                                action == EditorInfo.IME_ACTION_DONE -> {
                                     currentInputConnection?.performEditorAction(action)
                                 }
                                 else -> {
