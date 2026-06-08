@@ -293,6 +293,7 @@ fun KeyboardView(
                                     keyboardBackgroundColor = keyboardBgColor,
                                     modifier = Modifier.weight(1f).then(cursorMod),
                                     onVoiceModeChange = onVoiceModeChange,
+                                    onCommitText = onCommitText,
                                     isSttEnabled = isSttEnabled,
                                     isVoiceMode = isVoiceMode,
                                     onKeyPressDown = onKeyPressDown,

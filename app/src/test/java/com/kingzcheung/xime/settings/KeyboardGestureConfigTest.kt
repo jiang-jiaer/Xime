@@ -62,10 +62,10 @@ class KeyboardGestureConfigTest {
                 - { label: "Ä",    action: "commit", value: "ä" }
         """.trimIndent())
         val lp = keys["a"]!!.longPress!!
-        assertEquals(2, lp.size)
-        assertEquals("大写", lp[0].label)
-        assertEquals("A", lp[0].value)
-        assertEquals("Ä", lp[1].label)
+        assertEquals(2, lp.values.size)
+        assertEquals("大写", lp.values[0].label)
+        assertEquals("A", lp.values[0].value)
+        assertEquals("Ä", lp.values[1].label)
     }
 
     @Test
@@ -76,8 +76,8 @@ class KeyboardGestureConfigTest {
                 - { label: "清空", action: "command", value: "clear_composition" }
         """.trimIndent())
         val lp = keys["backspace"]!!.longPress!!
-        assertEquals(1, lp.size)
-        assertEquals("command", lp[0].action)
+        assertEquals(1, lp.values.size)
+        assertEquals("command", lp.values[0].action)
     }
 
     @Test
@@ -125,13 +125,14 @@ class KeyboardGestureConfigTest {
             q: { tap: "q", swipe_up: "1", swipe_down: "Q", long_press: ["q", "Q"] }
         """.trimIndent())
         val lp = keys["q"]!!.longPress!!
-        assertEquals(2, lp.size)
-        assertEquals("q", lp[0].label)
-        assertEquals("commit", lp[0].action)
-        assertEquals("q", lp[0].value)
-        assertEquals("Q", lp[1].label)
-        assertEquals("commit", lp[1].action)
-        assertEquals("Q", lp[1].value)
+        assertEquals(2, lp.values.size)
+        assertEquals("q", lp.values[0].label)
+        assertEquals("commit", lp.values[0].action)
+        assertEquals("q", lp.values[0].value)
+        assertEquals("Q", lp.values[1].label)
+        assertEquals("commit", lp.values[1].action)
+        assertEquals("Q", lp.values[1].value)
+        assertEquals("bubble", lp.display)
     }
 
     @Test
@@ -140,18 +141,18 @@ class KeyboardGestureConfigTest {
             a: { tap: "a", swipe_up: "!", swipe_down: "A", long_press: [{ label: "全选", action: "select_all" }, "a", "A"] }
         """.trimIndent())
         val lp = keys["a"]!!.longPress!!
-        assertEquals(3, lp.size)
+        assertEquals(3, lp.values.size)
         // 对象格式
-        assertEquals("全选", lp[0].label)
-        assertEquals("select_all", lp[0].action)
-        assertEquals("", lp[0].value) // 未指定 value 时默认为空字符串
+        assertEquals("全选", lp.values[0].label)
+        assertEquals("select_all", lp.values[0].action)
+        assertEquals("", lp.values[0].value)
         // 字符串简写
-        assertEquals("a", lp[1].label)
-        assertEquals("commit", lp[1].action)
-        assertEquals("a", lp[1].value)
-        assertEquals("A", lp[2].label)
-        assertEquals("commit", lp[2].action)
-        assertEquals("A", lp[2].value)
+        assertEquals("a", lp.values[1].label)
+        assertEquals("commit", lp.values[1].action)
+        assertEquals("a", lp.values[1].value)
+        assertEquals("A", lp.values[2].label)
+        assertEquals("commit", lp.values[2].action)
+        assertEquals("A", lp.values[2].value)
     }
 
     @Test
@@ -160,13 +161,13 @@ class KeyboardGestureConfigTest {
             u: { tap: "u", swipe_up: "7", swipe_down: "U", long_press: ["u", "U", "ù", "ú", "û", "ü"] }
         """.trimIndent())
         val lp = keys["u"]!!.longPress!!
-        assertEquals(6, lp.size)
-        assertEquals("u", lp[0].value)
-        assertEquals("U", lp[1].value)
-        assertEquals("ù", lp[2].value)
-        assertEquals("ú", lp[3].value)
-        assertEquals("û", lp[4].value)
-        assertEquals("ü", lp[5].value)
+        assertEquals(6, lp.values.size)
+        assertEquals("u", lp.values[0].value)
+        assertEquals("U", lp.values[1].value)
+        assertEquals("ù", lp.values[2].value)
+        assertEquals("ú", lp.values[3].value)
+        assertEquals("û", lp.values[4].value)
+        assertEquals("ü", lp.values[5].value)
     }
 
     @Test
@@ -175,7 +176,7 @@ class KeyboardGestureConfigTest {
             p: { tap: "p", swipe_up: "0", swipe_down: "P", long_press: ["p", "P"] }
         """.trimIndent())
         val lp = keys["p"]!!.longPress!!
-        assertEquals(2, lp.size)
+        assertEquals(2, lp.values.size)
     }
 
     @Test
@@ -184,10 +185,10 @@ class KeyboardGestureConfigTest {
             c: { tap: "c", swipe_up: "\\", swipe_down: "C", long_press: ["c", "C", "ç"] }
         """.trimIndent())
         val lp = keys["c"]!!.longPress!!
-        assertEquals(3, lp.size)
-        assertEquals("c", lp[0].value)
-        assertEquals("C", lp[1].value)
-        assertEquals("ç", lp[2].value)
+        assertEquals(3, lp.values.size)
+        assertEquals("c", lp.values[0].value)
+        assertEquals("C", lp.values[1].value)
+        assertEquals("ç", lp.values[2].value)
         assertEquals("\\", keys["c"]!!.swipeUp!!.value)
     }
 
@@ -196,32 +197,32 @@ class KeyboardGestureConfigTest {
     @Test
     fun `完整 26 键全键盘配置解析`() {
         val yaml = """
-            q: { tap: "q", swipe_up: "1", swipe_down: "Q", long_press: ["q", "Q"] }
-            w: { tap: "w", swipe_up: "2", swipe_down: "W", long_press: ["w", "W"] }
-            e: { tap: "e", swipe_up: "3", swipe_down: "E", long_press: ["e", "E", "è", "é", "ê", "ë"] }
-            r: { tap: "r", swipe_up: "4", swipe_down: "R", long_press: ["r", "R"] }
-            t: { tap: "t", swipe_up: "5", swipe_down: "T", long_press: ["t", "T"] }
-            y: { tap: "y", swipe_up: "6", swipe_down: "Y", long_press: ["y", "Y", "ÿ"] }
-            u: { tap: "u", swipe_up: "7", swipe_down: "U", long_press: ["u", "U", "ù", "ú", "û", "ü"] }
-            i: { tap: "i", swipe_up: "8", swipe_down: "I", long_press: ["i", "I", "ì", "í", "î", "ï"] }
-            o: { tap: "o", swipe_up: "9", swipe_down: "O", long_press: ["o", "O", "ò", "ó", "ô", "õ", "ö", "ø"] }
-            p: { tap: "p", swipe_up: "0", swipe_down: "P", long_press: ["p", "P"] }
-            a: { tap: "a", swipe_up: "!", swipe_down: "A", long_press: ["a", "A", "à", "á", "â", "ã", "ä", "å", "æ"] }
-            s: { tap: "s", swipe_up: "@", swipe_down: "S", long_press: ["s", "S", "ß"] }
-            d: { tap: "d", swipe_up: "#", swipe_down: "D", long_press: ["d", "D"] }
-            f: { tap: "f", swipe_up: "$", swipe_down: "F", long_press: ["f", "F"] }
-            g: { tap: "g", swipe_up: "%", swipe_down: "G", long_press: ["g", "G"] }
-            h: { tap: "h", swipe_up: "^", swipe_down: "H", long_press: ["h", "H"] }
-            j: { tap: "j", swipe_up: "&", swipe_down: "J", long_press: ["j", "J"] }
-            k: { tap: "k", swipe_up: "(", swipe_down: "K", long_press: ["k", "K"] }
-            l: { tap: "l", swipe_up: ")", swipe_down: "L", long_press: ["l", "L"] }
-            z: { tap: "z", swipe_up: "|", swipe_down: "Z", long_press: ["z", "Z"] }
-            x: { tap: "x", swipe_up: "*", swipe_down: "X", long_press: ["x", "X"] }
-            c: { tap: "c", swipe_up: "\\", swipe_down: "C", long_press: ["c", "C", "ç"] }
-            v: { tap: "v", swipe_up: "?", swipe_down: "V", long_press: ["v", "V"] }
-            b: { tap: "b", swipe_up: "_", swipe_down: "B", long_press: ["b", "B"] }
-            n: { tap: "n", swipe_up: "-", swipe_down: "N", long_press: ["n", "N", "ñ"] }
-            m: { tap: "m", swipe_up: "+", swipe_down: "M", long_press: ["m", "M"] }
+            q: { tap: "q", swipe_up: "1", swipe_down: "Q", long_press: [{ label: "q", display: "bubble" }, "Q"] }
+            w: { tap: "w", swipe_up: "2", swipe_down: "W", long_press: [{ label: "w", display: "bubble" }, "W"] }
+            e: { tap: "e", swipe_up: "3", swipe_down: "E", long_press: [{ label: "e", display: "bubble" }, "E", "è", "é", "ê", "ë"] }
+            r: { tap: "r", swipe_up: "4", swipe_down: "R", long_press: [{ label: "r", display: "bubble" }, "R"] }
+            t: { tap: "t", swipe_up: "5", swipe_down: "T", long_press: [{ label: "t", display: "bubble" }, "T"] }
+            y: { tap: "y", swipe_up: "6", swipe_down: "Y", long_press: [{ label: "y", display: "bubble" }, "Y", "ÿ"] }
+            u: { tap: "u", swipe_up: "7", swipe_down: "U", long_press: [{ label: "u", display: "bubble" }, "U", "ù", "ú", "û", "ü"] }
+            i: { tap: "i", swipe_up: "8", swipe_down: "I", long_press: [{ label: "i", display: "bubble" }, "I", "ì", "í", "î", "ï"] }
+            o: { tap: "o", swipe_up: "9", swipe_down: "O", long_press: [{ label: "o", display: "bubble" }, "O", "ò", "ó", "ô", "õ", "ö", "ø"] }
+            p: { tap: "p", swipe_up: "0", swipe_down: "P", long_press: [{ label: "p", display: "bubble" }, "P"] }
+            a: { tap: "a", swipe_up: "!", swipe_down: "A", long_press: [{ label: "a", display: "bubble" }, "A", "à", "á", "â", "ã", "ä", "å", "æ"] }
+            s: { tap: "s", swipe_up: "@", swipe_down: "S", long_press: [{ label: "s", display: "bubble" }, "S", "ß"] }
+            d: { tap: "d", swipe_up: "#", swipe_down: "D", long_press: [{ label: "d", display: "bubble" }, "D"] }
+            f: { tap: "f", swipe_up: "$", swipe_down: "F", long_press: [{ label: "f", display: "bubble" }, "F"] }
+            g: { tap: "g", swipe_up: "%", swipe_down: "G", long_press: [{ label: "g", display: "bubble" }, "G"] }
+            h: { tap: "h", swipe_up: "^", swipe_down: "H", long_press: [{ label: "h", display: "bubble" }, "H"] }
+            j: { tap: "j", swipe_up: "&", swipe_down: "J", long_press: [{ label: "j", display: "bubble" }, "J"] }
+            k: { tap: "k", swipe_up: "(", swipe_down: "K", long_press: [{ label: "k", display: "bubble" }, "K"] }
+            l: { tap: "l", swipe_up: ")", swipe_down: "L", long_press: [{ label: "l", display: "bubble" }, "L"] }
+            z: { tap: "z", swipe_up: "|", swipe_down: "Z", long_press: [{ label: "z", display: "bubble" }, "Z"] }
+            x: { tap: "x", swipe_up: "*", swipe_down: "X", long_press: [{ label: "x", display: "bubble" }, "X"] }
+            c: { tap: "c", swipe_up: "\\", swipe_down: "C", long_press: [{ label: "c", display: "bubble" }, "C", "ç"] }
+            v: { tap: "v", swipe_up: "?", swipe_down: "V", long_press: [{ label: "v", display: "bubble" }, "V"] }
+            b: { tap: "b", swipe_up: "_", swipe_down: "B", long_press: [{ label: "b", display: "bubble" }, "B"] }
+            n: { tap: "n", swipe_up: "-", swipe_down: "N", long_press: [{ label: "n", display: "bubble" }, "N", "ñ"] }
+            m: { tap: "m", swipe_up: "+", swipe_down: "M", long_press: [{ label: "m", display: "bubble" }, "M"] }
         """.trimIndent()
         val keys = parseKeys(yaml)
         assertEquals("应有 26 个字母键", 26, keys.size)
@@ -244,32 +245,32 @@ class KeyboardGestureConfigTest {
     @Test
     fun `完整 26 键 long_press 顺序正确`() {
         val yaml = """
-            q: { tap: "q", swipe_up: "1", swipe_down: "Q", long_press: ["q", "Q"] }
-            w: { tap: "w", swipe_up: "2", swipe_down: "W", long_press: ["w", "W"] }
-            e: { tap: "e", swipe_up: "3", swipe_down: "E", long_press: ["e", "E", "è", "é", "ê", "ë"] }
-            r: { tap: "r", swipe_up: "4", swipe_down: "R", long_press: ["r", "R"] }
-            t: { tap: "t", swipe_up: "5", swipe_down: "T", long_press: ["t", "T"] }
-            y: { tap: "y", swipe_up: "6", swipe_down: "Y", long_press: ["y", "Y", "ÿ"] }
-            u: { tap: "u", swipe_up: "7", swipe_down: "U", long_press: ["u", "U", "ù", "ú", "û", "ü"] }
-            i: { tap: "i", swipe_up: "8", swipe_down: "I", long_press: ["i", "I", "ì", "í", "î", "ï"] }
-            o: { tap: "o", swipe_up: "9", swipe_down: "O", long_press: ["o", "O", "ò", "ó", "ô", "õ", "ö", "ø"] }
-            p: { tap: "p", swipe_up: "0", swipe_down: "P", long_press: ["p", "P"] }
-            a: { tap: "a", swipe_up: "!", swipe_down: "A", long_press: ["a", "A", "à", "á", "â", "ã", "ä", "å", "æ"] }
-            s: { tap: "s", swipe_up: "@", swipe_down: "S", long_press: ["s", "S", "ß"] }
-            d: { tap: "d", swipe_up: "#", swipe_down: "D", long_press: ["d", "D"] }
-            f: { tap: "f", swipe_up: "$", swipe_down: "F", long_press: ["f", "F"] }
-            g: { tap: "g", swipe_up: "%", swipe_down: "G", long_press: ["g", "G"] }
-            h: { tap: "h", swipe_up: "^", swipe_down: "H", long_press: ["h", "H"] }
-            j: { tap: "j", swipe_up: "&", swipe_down: "J", long_press: ["j", "J"] }
-            k: { tap: "k", swipe_up: "(", swipe_down: "K", long_press: ["k", "K"] }
-            l: { tap: "l", swipe_up: ")", swipe_down: "L", long_press: ["l", "L"] }
-            z: { tap: "z", swipe_up: "|", swipe_down: "Z", long_press: ["z", "Z"] }
-            x: { tap: "x", swipe_up: "*", swipe_down: "X", long_press: ["x", "X"] }
-            c: { tap: "c", swipe_up: "\\", swipe_down: "C", long_press: ["c", "C", "ç"] }
-            v: { tap: "v", swipe_up: "?", swipe_down: "V", long_press: ["v", "V"] }
-            b: { tap: "b", swipe_up: "_", swipe_down: "B", long_press: ["b", "B"] }
-            n: { tap: "n", swipe_up: "-", swipe_down: "N", long_press: ["n", "N", "ñ"] }
-            m: { tap: "m", swipe_up: "+", swipe_down: "M", long_press: ["m", "M"] }
+            q: { tap: "q", swipe_up: "1", swipe_down: "Q", long_press: [{ label: "q", display: "bubble" }, "Q"] }
+            w: { tap: "w", swipe_up: "2", swipe_down: "W", long_press: [{ label: "w", display: "bubble" }, "W"] }
+            e: { tap: "e", swipe_up: "3", swipe_down: "E", long_press: [{ label: "e", display: "bubble" }, "E", "è", "é", "ê", "ë"] }
+            r: { tap: "r", swipe_up: "4", swipe_down: "R", long_press: [{ label: "r", display: "bubble" }, "R"] }
+            t: { tap: "t", swipe_up: "5", swipe_down: "T", long_press: [{ label: "t", display: "bubble" }, "T"] }
+            y: { tap: "y", swipe_up: "6", swipe_down: "Y", long_press: [{ label: "y", display: "bubble" }, "Y", "ÿ"] }
+            u: { tap: "u", swipe_up: "7", swipe_down: "U", long_press: [{ label: "u", display: "bubble" }, "U", "ù", "ú", "û", "ü"] }
+            i: { tap: "i", swipe_up: "8", swipe_down: "I", long_press: [{ label: "i", display: "bubble" }, "I", "ì", "í", "î", "ï"] }
+            o: { tap: "o", swipe_up: "9", swipe_down: "O", long_press: [{ label: "o", display: "bubble" }, "O", "ò", "ó", "ô", "õ", "ö", "ø"] }
+            p: { tap: "p", swipe_up: "0", swipe_down: "P", long_press: [{ label: "p", display: "bubble" }, "P"] }
+            a: { tap: "a", swipe_up: "!", swipe_down: "A", long_press: [{ label: "a", display: "bubble" }, "A", "à", "á", "â", "ã", "ä", "å", "æ"] }
+            s: { tap: "s", swipe_up: "@", swipe_down: "S", long_press: [{ label: "s", display: "bubble" }, "S", "ß"] }
+            d: { tap: "d", swipe_up: "#", swipe_down: "D", long_press: [{ label: "d", display: "bubble" }, "D"] }
+            f: { tap: "f", swipe_up: "$", swipe_down: "F", long_press: [{ label: "f", display: "bubble" }, "F"] }
+            g: { tap: "g", swipe_up: "%", swipe_down: "G", long_press: [{ label: "g", display: "bubble" }, "G"] }
+            h: { tap: "h", swipe_up: "^", swipe_down: "H", long_press: [{ label: "h", display: "bubble" }, "H"] }
+            j: { tap: "j", swipe_up: "&", swipe_down: "J", long_press: [{ label: "j", display: "bubble" }, "J"] }
+            k: { tap: "k", swipe_up: "(", swipe_down: "K", long_press: [{ label: "k", display: "bubble" }, "K"] }
+            l: { tap: "l", swipe_up: ")", swipe_down: "L", long_press: [{ label: "l", display: "bubble" }, "L"] }
+            z: { tap: "z", swipe_up: "|", swipe_down: "Z", long_press: [{ label: "z", display: "bubble" }, "Z"] }
+            x: { tap: "x", swipe_up: "*", swipe_down: "X", long_press: [{ label: "x", display: "bubble" }, "X"] }
+            c: { tap: "c", swipe_up: "\\", swipe_down: "C", long_press: [{ label: "c", display: "bubble" }, "C", "ç"] }
+            v: { tap: "v", swipe_up: "?", swipe_down: "V", long_press: [{ label: "v", display: "bubble" }, "V"] }
+            b: { tap: "b", swipe_up: "_", swipe_down: "B", long_press: [{ label: "b", display: "bubble" }, "B"] }
+            n: { tap: "n", swipe_up: "-", swipe_down: "N", long_press: [{ label: "n", display: "bubble" }, "N", "ñ"] }
+            m: { tap: "m", swipe_up: "+", swipe_down: "M", long_press: [{ label: "m", display: "bubble" }, "M"] }
         """.trimIndent()
         val keys = parseKeys(yaml)
 
@@ -292,13 +293,14 @@ class KeyboardGestureConfigTest {
         }
     }
 
-    private fun assertLongPressValues(kc: KeyGestureConfig, expectedValues: List<String>) {
+    private fun assertLongPressValues(kc: KeyGestureConfig, expectedLabels: List<String>) {
         val lp = kc.longPress!!
-        assertEquals("long_press 数量不匹配: 期望 $expectedValues 实际 ${lp.map { it.value }}",
-            expectedValues.size, lp.size)
-        for (i in expectedValues.indices) {
-            assertEquals("索引 $i 的值不匹配", expectedValues[i], lp[i].value)
-            assertEquals("索引 $i 的动作应为 commit", "commit", lp[i].action)
+        val actualLabels = lp.values.map { it.label }
+        assertEquals("long_press 数量不匹配: 期望 $expectedLabels 实际 $actualLabels",
+            expectedLabels.size, lp.values.size)
+        for (i in expectedLabels.indices) {
+            assertEquals("索引 $i 的 label 不匹配", expectedLabels[i], lp.values[i].label)
+            assertEquals("索引 $i 的动作应为 commit", "commit", lp.values[i].action)
         }
     }
 
@@ -322,17 +324,37 @@ class KeyboardGestureConfigTest {
         var tap: GestureDef? = null
         var swipeUp: GestureDef? = null
         var swipeDown: GestureDef? = null
-        var longPress: List<GestureDef>? = null
+        var longPress: LongPressConfig? = null
         for ((kNode, vNode) in map.entries) {
             val name = (kNode as com.charleskorn.kaml.YamlScalar).content
             when (name) {
                 "tap" -> tap = parseGestureNode(vNode)
                 "swipe_up" -> swipeUp = parseGestureNode(vNode)
                 "swipe_down" -> swipeDown = parseGestureNode(vNode)
-                "long_press" -> longPress = parseGestureList(vNode)
+                "long_press" -> longPress = parseLongPress(vNode)
             }
         }
         return KeyGestureConfig(tap, swipeUp, swipeDown, longPress)
+    }
+
+    private fun parseLongPress(node: com.charleskorn.kaml.YamlNode): LongPressConfig? {
+        if (node is com.charleskorn.kaml.YamlList) {
+            val values = node.items.map { parseGestureNode(it) }
+            return LongPressConfig(display = "bubble", values = values)
+        }
+        if (node is com.charleskorn.kaml.YamlMap) {
+            var display = "bubble"
+            var values: List<GestureDef> = emptyList()
+            for ((k, v) in node.entries) {
+                val key = (k as com.charleskorn.kaml.YamlScalar).content
+                when (key) {
+                    "display" -> display = (v as com.charleskorn.kaml.YamlScalar).content
+                    "values" -> if (v is com.charleskorn.kaml.YamlList) values = v.items.map { parseGestureNode(it) }
+                }
+            }
+            return LongPressConfig(display = display, values = values)
+        }
+        return null
     }
 
     private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
@@ -344,6 +366,7 @@ class KeyboardGestureConfigTest {
             var label = ""
             var action: String? = "commit"
             var value = ""
+            var display = "bubble"
             for ((k, v) in node.entries) {
                 val key = (k as com.charleskorn.kaml.YamlScalar).content
                 val vStr = (v as? com.charleskorn.kaml.YamlScalar)?.content
@@ -351,9 +374,10 @@ class KeyboardGestureConfigTest {
                     "label" -> if (vStr != null) label = vStr
                     "action" -> action = vStr // YAML null → null
                     "value" -> if (vStr != null) value = vStr
+                    "display" -> if (vStr != null) display = vStr
                 }
             }
-            return GestureDef(label = label, action = action, value = value)
+            return GestureDef(label = label, action = action, value = value, display = display)
         }
         return GestureDef()
     }

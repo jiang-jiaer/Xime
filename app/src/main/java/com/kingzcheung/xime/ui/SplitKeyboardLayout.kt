@@ -62,7 +62,7 @@ fun SplitKeyboardLayout(
 ) {
     val staggerStep = 10.dp
     val context = LocalContext.current
-    val swipeDownShowRootsEnabled = SettingsPreferences.isSwipeDownShowRootsEnabled(context)
+    val swipeDownHintsEnabled = SettingsPreferences.isSwipeDownHintsEnabled(context)
     val landscapeFontSize = 12.sp
     val landscapeSwipeFontSize = 7.sp
 
@@ -101,7 +101,7 @@ fun SplitKeyboardLayout(
                         fontSize = landscapeFontSize,
                         swipeFontSize = landscapeSwipeFontSize,
                         onKeyPressDown = onKeyPressDown,
-                        swipeDownShowRootsEnabled = swipeDownShowRootsEnabled
+                        swipeDownHintsEnabled = swipeDownHintsEnabled
                     )
                 }
 
@@ -118,7 +118,7 @@ fun SplitKeyboardLayout(
                         fontSize = landscapeFontSize,
                         swipeFontSize = landscapeSwipeFontSize,
                         onKeyPressDown = onKeyPressDown,
-                        swipeDownShowRootsEnabled = swipeDownShowRootsEnabled
+                        swipeDownHintsEnabled = swipeDownHintsEnabled
                     )
                 }
 
@@ -135,7 +135,7 @@ fun SplitKeyboardLayout(
                         fontSize = landscapeFontSize,
                         swipeFontSize = landscapeSwipeFontSize,
                         onKeyPressDown = onKeyPressDown,
-                        swipeDownShowRootsEnabled = swipeDownShowRootsEnabled
+                        swipeDownHintsEnabled = swipeDownHintsEnabled
                     )
                 }
 
@@ -194,7 +194,7 @@ fun SplitKeyboardLayout(
                         swipeFontSize = landscapeSwipeFontSize,
                         keyboardBackgroundColor = keyboardBackgroundColor,
                         onKeyPressDown = onKeyPressDown,
-                        swipeDownShowRootsEnabled = swipeDownShowRootsEnabled
+                        swipeDownHintsEnabled = swipeDownHintsEnabled
                     )
                 }
 
@@ -211,7 +211,7 @@ fun SplitKeyboardLayout(
                         swipeFontSize = landscapeSwipeFontSize,
                         keyboardBackgroundColor = keyboardBackgroundColor,
                         onKeyPressDown = onKeyPressDown,
-                        swipeDownShowRootsEnabled = swipeDownShowRootsEnabled
+                        swipeDownHintsEnabled = swipeDownHintsEnabled
                     )
                 }
 
@@ -235,7 +235,7 @@ fun SplitKeyboardLayout(
                             fontSize = landscapeFontSize,
                             swipeFontSize = landscapeSwipeFontSize,
                             onKeyPressDown = onKeyPressDown,
-                            swipeDownShowRootsEnabled = swipeDownShowRootsEnabled
+                            swipeDownHintsEnabled = swipeDownHintsEnabled
                         )
                     }
                     SwipeableIconKeyButton(
@@ -485,7 +485,9 @@ fun CompactKeyboardRowWithConfig(
     keyboardBackgroundColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
-    swipeDownShowRootsEnabled: Boolean = false,
+    swipeDownHintsEnabled: Boolean = true,
+    swipeUpHintsEnabled: Boolean = true,
+    onCommitText: ((String) -> Unit)? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
     swipeFontSize: androidx.compose.ui.unit.TextUnit = 9.sp
 ) {
@@ -496,14 +498,19 @@ fun CompactKeyboardRowWithConfig(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         keys.forEach { key ->
-            val swipeUpText = KeysConfigHelper.getSwipeUpText(key)
-            val swipeDownText = if (swipeDownShowRootsEnabled) {
-                KeysConfigHelper.getSwipeDownEnglishText(key)
-            } else null
-            val swipeDownAction = if (swipeDownText != null) KeysConfigHelper.getSwipeDownAction(key) else null
+            val rawSwipeUpText = KeysConfigHelper.getSwipeUpText(key)
+            val swipeUpText = if (swipeUpHintsEnabled) rawSwipeUpText else null
+            val swipeDownRaw = KeysConfigHelper.getKeyGesture(key)?.swipeDown
+            val swipeDownLabel = swipeDownRaw?.label?.takeIf { it.isNotEmpty() }
+            val swipeDownAction = swipeDownRaw?.action
+            val swipeDownDisplay = swipeDownRaw?.display ?: "key"
+            val swipeDownBubbleText = if (swipeDownDisplay != "key" && swipeDownHintsEnabled) swipeDownLabel else null
             
-            val longPressGesture = KeysConfigHelper.getKeyGesture(key)?.longPress
-            val longPressLabels = longPressGesture?.map { it.label }?.filter { it.isNotEmpty() }?.ifEmpty { null }
+            val longPressConfig = KeysConfigHelper.getKeyGesture(key)?.longPress
+            val longPressDisplay = longPressConfig?.display ?: "key"
+            val longPressLabels = if (longPressDisplay == "bubble") {
+                longPressConfig?.values?.map { it.label }?.filter { it.isNotEmpty() }?.ifEmpty { null }
+            } else null
             
             CompactSwipeableKeyButton(
                 text = if (isShifted || !isAsciiMode) key.uppercase() else key,
@@ -512,11 +519,11 @@ fun CompactKeyboardRowWithConfig(
                 textColor = keyTextColor,
                 modifier = Modifier.weight(1f),
                 swipeText = swipeUpText,
-                swipeDownText = swipeDownText,
+                swipeDownText = swipeDownBubbleText,
                 onSwipe = if (swipeUpText != null) onKeyPress else null,
-                onSwipeDown = if (swipeDownAction == "commit" && swipeDownText != null) onKeyPress else null,
+                onSwipeDown = if (swipeDownAction == "commit" && swipeDownHintsEnabled && swipeDownLabel != null) onKeyPress else null,
                 onPress = { onKeyPressDown?.invoke(key) },
-                onLongPressSelect = onKeyPress,
+                onLongPressSelect = onCommitText ?: onKeyPress,
                 longPressItems = longPressLabels,
                 fontSize = fontSize,
                 swipeFontSize = swipeFontSize

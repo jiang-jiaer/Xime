@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -66,6 +67,7 @@ fun KeyboardLayout(
     specialKeyBackgroundColor: Color,
     keyboardBackgroundColor: Color = Color.Transparent,
     onVoiceModeChange: ((Boolean) -> Unit)? = null,
+    onCommitText: ((String) -> Unit)? = null,
     isSttEnabled: Boolean = true,
     isVoiceMode: Boolean = false,
     modifier: Modifier = Modifier,
@@ -73,8 +75,23 @@ fun KeyboardLayout(
     onCursorMove: ((Int) -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val swipeDownShowRootsEnabled = SettingsPreferences.isSwipeDownShowRootsEnabled(context)
-    val shouldShowRadicals = swipeDownShowRootsEnabled
+    var swipeUpHintsEnabled by remember { mutableStateOf(SettingsPreferences.isSwipeUpHintsEnabled(context)) }
+    var swipeDownHintsEnabled by remember { mutableStateOf(SettingsPreferences.isSwipeDownHintsEnabled(context)) }
+    
+    // 监听设置变化
+    DisposableEffect(context) {
+        val prefs = SettingsPreferences.getPrefsPublic(context)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            when (key) {
+                SettingsPreferences.KEY_SWIPE_UP_HINTS_ENABLED -> 
+                    swipeUpHintsEnabled = SettingsPreferences.isSwipeUpHintsEnabled(context)
+                SettingsPreferences.KEY_SWIPE_DOWN_HINTS_ENABLED -> 
+                    swipeDownHintsEnabled = SettingsPreferences.isSwipeDownHintsEnabled(context)
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     
     LaunchedEffect(Unit) {
         SubcharHelper.init(context)
@@ -136,7 +153,9 @@ fun KeyboardLayout(
                         keyboardBackgroundColor = keyboardBackgroundColor,
                         onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
                         onKeyPressDown = onKeyPressDown,
-                        swipeDownShowRootsEnabled = shouldShowRadicals
+                        swipeDownHintsEnabled = swipeDownHintsEnabled,
+                        swipeUpHintsEnabled = swipeUpHintsEnabled,
+                        onCommitText = onCommitText
                     )
                 }
             }
@@ -163,7 +182,9 @@ fun KeyboardLayout(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
                         onKeyPressDown = onKeyPressDown,
-                        swipeDownShowRootsEnabled = shouldShowRadicals
+                        swipeDownHintsEnabled = swipeDownHintsEnabled,
+                        swipeUpHintsEnabled = swipeUpHintsEnabled,
+                        onCommitText = onCommitText
                     )
                 }
             }
@@ -215,14 +236,19 @@ fun KeyboardLayout(
                     ) {
                         val bottomKeys = listOf("z", "x", "c", "v", "b", "n", "m")
                         bottomKeys.forEach { key ->
-                            val swipeUpText = KeysConfigHelper.getSwipeUpText(key)
-                            val swipeDownText = if (shouldShowRadicals) {
-                                KeysConfigHelper.getSwipeDownEnglishText(key)
-                            } else null
-                            val swipeDownAction = if (swipeDownText != null) KeysConfigHelper.getSwipeDownAction(key) else null
+                            val rawSwipeUpText = KeysConfigHelper.getSwipeUpText(key)
+                            val swipeUpText = if (swipeUpHintsEnabled) rawSwipeUpText else null
+                            val swipeDownRaw = KeysConfigHelper.getKeyGesture(key)?.swipeDown
+                            val swipeDownLabel = swipeDownRaw?.label?.takeIf { it.isNotEmpty() }
+                            val swipeDownAction = swipeDownRaw?.action
+                            val swipeDownDisplay = swipeDownRaw?.display ?: "key"
+                            val swipeDownBubbleText = if (swipeDownDisplay != "key") swipeDownLabel else null
                             
-                            val longPressGesture = KeysConfigHelper.getKeyGesture(key)?.longPress
-                            val longPressLabels = longPressGesture?.map { it.label }?.filter { it.isNotEmpty() }?.ifEmpty { null }
+                            val longPressConfig = KeysConfigHelper.getKeyGesture(key)?.longPress
+                            val longPressDisplay = longPressConfig?.display ?: "key"
+                            val longPressLabels = if (longPressDisplay == "bubble") {
+                                longPressConfig?.values?.map { it.label }?.filter { it.isNotEmpty() }?.ifEmpty { null }
+                            } else null
                             
                             SwipeableKeyButton(
                                 text = if (isShifted || !isAsciiMode) key.uppercase() else key,
@@ -231,12 +257,13 @@ fun KeyboardLayout(
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(1f),
                                 swipeText = swipeUpText,
-                                swipeDownText = swipeDownText,
+                                swipeDownText = swipeDownBubbleText,
+                                swipeDownKeyLabel = if (swipeDownDisplay == "key") swipeDownLabel else null,
                                 onSwipe = if (swipeUpText != null) onKeyPress else null,
-                                onSwipeDown = if (swipeDownAction == "commit" && swipeDownText != null) onKeyPress else null,
+                                onSwipeDown = if (swipeDownAction == "commit" && swipeDownLabel != null) onKeyPress else null,
                                 onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
                                 onPress = { onKeyPressDown?.invoke(key) },
-                                onLongPressSelect = onKeyPress,
+                                onLongPressSelect = onCommitText ?: onKeyPress,
                                 longPressItems = longPressLabels
                             )
                         }
@@ -574,7 +601,9 @@ fun KeyboardRowWithConfig(
     modifier: Modifier = Modifier,
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
     onKeyPressDown: ((String) -> Unit)? = null,
-    swipeDownShowRootsEnabled: Boolean = false,
+    swipeDownHintsEnabled: Boolean = true,
+    swipeUpHintsEnabled: Boolean = true,
+    onCommitText: ((String) -> Unit)? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
     swipeFontSize: androidx.compose.ui.unit.TextUnit = 9.sp
 ) {
@@ -585,15 +614,20 @@ fun KeyboardRowWithConfig(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         keys.forEach { key ->
-            val swipeUpText = KeysConfigHelper.getSwipeUpText(key)
-            val swipeDownText = if (swipeDownShowRootsEnabled) {
-                KeysConfigHelper.getSwipeDownEnglishText(key)
-            } else null
-            val swipeDownAction = if (swipeDownText != null) KeysConfigHelper.getSwipeDownAction(key) else null
+            val rawSwipeUpText = KeysConfigHelper.getSwipeUpText(key)
+            val swipeUpText = if (swipeUpHintsEnabled) rawSwipeUpText else null
+            val swipeDownRaw = KeysConfigHelper.getKeyGesture(key)?.swipeDown
+            val swipeDownLabel = swipeDownRaw?.label?.takeIf { it.isNotEmpty() }
+            val swipeDownAction = swipeDownRaw?.action
+            val swipeDownDisplay = swipeDownRaw?.display ?: "key"
+            val swipeDownBubbleText = if (swipeDownDisplay != "key" && swipeDownHintsEnabled) swipeDownLabel else null
             
             // 长按选项
-            val longPressGesture = KeysConfigHelper.getKeyGesture(key)?.longPress
-            val longPressLabels = longPressGesture?.map { it.label }?.filter { it.isNotEmpty() }?.ifEmpty { null }
+            val longPressConfig = KeysConfigHelper.getKeyGesture(key)?.longPress
+            val longPressDisplay = longPressConfig?.display ?: "key"
+            val longPressLabels = if (longPressDisplay == "bubble") {
+                longPressConfig?.values?.map { it.label }?.filter { it.isNotEmpty() }?.ifEmpty { null }
+            } else null
             
             SwipeableKeyButton(
                 text = if (isShifted || !isAsciiMode) key.uppercase() else key,
@@ -602,12 +636,13 @@ fun KeyboardRowWithConfig(
                 textColor = keyTextColor,
                 modifier = Modifier.weight(1f),
                 swipeText = swipeUpText,
-                swipeDownText = swipeDownText,
+                swipeDownText = swipeDownBubbleText,
+                swipeDownKeyLabel = if (swipeDownDisplay == "key" && swipeDownHintsEnabled) swipeDownLabel else null,
                 onSwipe = if (swipeUpText != null) onKeyPress else null,
-                onSwipeDown = if (swipeDownAction == "commit" && swipeDownText != null) onKeyPress else null,
+                onSwipeDown = if (swipeDownAction == "commit" && swipeDownHintsEnabled && swipeDownLabel != null) onKeyPress else null,
                 onSwipeStateChange = onSwipeStateChange,
                 onPress = { onKeyPressDown?.invoke(key) },
-                onLongPressSelect = onKeyPress,
+                onLongPressSelect = onCommitText ?: onKeyPress,
                 longPressItems = longPressLabels,
                 fontSize = fontSize,
                 swipeFontSize = swipeFontSize

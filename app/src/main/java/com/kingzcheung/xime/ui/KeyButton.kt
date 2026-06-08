@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.kingzcheung.xime.ui.LocalStretchFactor
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 
 data class SwipeState(
     val isSwiping: Boolean = false,
@@ -223,6 +223,8 @@ fun SwipeableKeyButton(
     isHighlighted: Boolean = false,
     swipeText: String? = null,
     swipeDownText: String? = null,
+    /** 下滑文本显示在按键上（气泡为空，用于 display:key） */
+    swipeDownKeyLabel: String? = null,
     onSwipe: ((String) -> Unit)? = null,
     onSwipeDown: ((String) -> Unit)? = null,
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
@@ -230,7 +232,7 @@ fun SwipeableKeyButton(
     onLongPressSelect: ((String) -> Unit)? = null,
     longPressItems: List<String>? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
-    swipeFontSize: androidx.compose.ui.unit.TextUnit = 9.sp
+    swipeFontSize: androidx.compose.ui.unit.TextUnit = 7.sp
 ) {
     var isPressed by remember { mutableStateOf(false) }
     var dragOffsetY by remember { mutableStateOf(0f) }
@@ -464,7 +466,7 @@ fun SwipeableKeyButton(
             maxLines = 1
         )
         
-        if (swipeText != null && swipeText.isNotEmpty()) {
+        if (!swipeText.isNullOrEmpty()) {
             Text(
                 text = swipeText,
                 color = textColor.copy(alpha = 0.5f),
@@ -473,6 +475,20 @@ fun SwipeableKeyButton(
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 modifier = Modifier.offset(y = (-14).dp)
+            )
+        }
+        
+        if (!swipeDownKeyLabel.isNullOrEmpty()) {
+            // display:key 时 label 最多显示 2 个字
+            val displayText = if (swipeDownKeyLabel.length <= 2) swipeDownKeyLabel else swipeDownKeyLabel.take(2)
+            Text(
+                text = displayText,
+                color = textColor.copy(alpha = 0.5f),
+                fontSize = swipeFontSize,
+                fontWeight = FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.offset(y = (14).dp)
             )
         }
     }

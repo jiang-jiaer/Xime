@@ -18,13 +18,19 @@ data class GestureDef(
     val label: String = "",
     val action: String? = "commit",
     val value: String = "",
+    val display: String = "key", // "key"（默认）显示在按键上, "bubble" 气泡显示
+)
+
+data class LongPressConfig(
+    val display: String = "key", // "key"（默认）显示在按键上, "bubble" 气泡弹出
+    val values: List<GestureDef> = emptyList(),
 )
 
 data class KeyGestureConfig(
     val tap: GestureDef? = null,
     val swipeUp: GestureDef? = null,
     val swipeDown: GestureDef? = null,
-    val longPress: List<GestureDef>? = null,
+    val longPress: LongPressConfig? = null,
 )
 
 data class KeyboardConfig(
@@ -54,17 +60,44 @@ private fun parseKeyGestureConfig(map: com.charleskorn.kaml.YamlMap): KeyGesture
     var tap: GestureDef? = null
     var swipeUp: GestureDef? = null
     var swipeDown: GestureDef? = null
-    var longPress: List<GestureDef>? = null
+    var longPress: LongPressConfig? = null
     for ((kNode, vNode) in map.entries) {
         val name = (kNode as? com.charleskorn.kaml.YamlScalar)?.content ?: continue
         when (name) {
             "tap" -> tap = parseGestureNode(vNode)
             "swipe_up" -> swipeUp = parseGestureNode(vNode)
             "swipe_down" -> swipeDown = parseGestureNode(vNode)
-            "long_press" -> longPress = parseGestureList(vNode)
+            "long_press" -> longPress = parseLongPress(vNode)
         }
     }
     return KeyGestureConfig(tap, swipeUp, swipeDown, longPress)
+}
+
+/**
+ * 解析 long_press，支持两种格式：
+ *   新格式（推荐）：{ display: "bubble", values: ["q", "Q"] }
+ *   旧格式（兼容）：["q", "Q"]
+ */
+private fun parseLongPress(node: com.charleskorn.kaml.YamlNode): LongPressConfig? {
+    // 旧格式：纯数组 → 默认 display="key"
+    if (node is YamlList) {
+        val values = node.items.map { parseGestureNode(it) }
+        return LongPressConfig(display = "key", values = values)
+    }
+    // 新格式：对象 { display, values }
+    if (node is com.charleskorn.kaml.YamlMap) {
+        var display = "key"
+        var values: List<GestureDef> = emptyList()
+        for ((k, v) in node.entries) {
+            val key = (k as? com.charleskorn.kaml.YamlScalar)?.content ?: continue
+            when (key) {
+                "display" -> display = (v as? com.charleskorn.kaml.YamlScalar)?.content ?: "key"
+                "values" -> if (v is YamlList) values = v.items.map { parseGestureNode(it) }
+            }
+        }
+        return LongPressConfig(display = display, values = values)
+    }
+    return null
 }
 
 private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
@@ -78,6 +111,7 @@ private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
         var label = ""
         var action: String? = "commit"
         var value = ""
+        var display = "key"
         for ((k, v) in node.entries) {
             val key = (k as? com.charleskorn.kaml.YamlScalar)?.content ?: continue
             val vStr = (v as? com.charleskorn.kaml.YamlScalar)?.content ?: continue
@@ -85,9 +119,10 @@ private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
                 "label" -> label = vStr
                 "action" -> action = if (vStr == "null") null else vStr
                 "value" -> value = vStr
+                "display" -> display = vStr
             }
         }
-        return GestureDef(label = label, action = action, value = value)
+        return GestureDef(label = label, action = action, value = value, display = display)
     }
     return GestureDef()
 }
@@ -227,7 +262,7 @@ object KeysConfigHelper {
             "tap" -> kc.tap?.label
             "swipe_up" -> kc.swipeUp?.label
             "swipe_down" -> kc.swipeDown?.label
-            "long_press" -> kc.longPress?.firstOrNull()?.label
+            "long_press" -> kc.longPress?.values?.firstOrNull()?.label
             else -> null
         }
     }
@@ -251,6 +286,11 @@ object KeysConfigHelper {
     /** 获取下滑动作类型：commit（默认上屏）或 none（仅显示） */
     fun getSwipeDownAction(key: String): String? {
         return keyGestureConfig[key.lowercase()]?.swipeDown?.action
+    }
+
+    /** 获取下滑显示位置：key（按键上）或 bubble（气泡） */
+    fun getSwipeDownDisplay(key: String): String {
+        return keyGestureConfig[key.lowercase()]?.swipeDown?.display ?: "key"
     }
     
 
