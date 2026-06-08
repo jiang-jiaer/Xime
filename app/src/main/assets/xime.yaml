@@ -100,3 +100,56 @@ color_schemes:
   teal_cyan:
     name: "青碧如水"
     primary_color: 0x00796B
+
+# ── 26 键全键盘手势配置 ──
+# 每个按键可定义 4 个手势：
+#   tap:        点按
+#   swipe_up:   上滑
+#   swipe_down: 下滑
+#   long_press: 长按（数组，支持多个值轮换）
+#
+# 每个手势的值格式：
+#   - 字符串 "a" → 上屏该文本，显示也是它
+#   - { label, action, value }
+#     label:  按键上显示的文字
+#     action: commit（上屏）, command（内置命令）, select_all, copy, cut,
+#             paste, clipboard, line_start, line_end, undo, none, repeat
+#     value:  上屏时的输出文本（不指定则用 label）
+#
+# long_press 示例（多值轮换）：
+#   long_press:
+#     - { label: "大写", action: "commit", value: "A" }
+#     - { label: "Ä",    action: "commit", value: "ä" }
+keyboard:
+  keys:
+    # ── 第一行 ──
+    q: { tap: "q", swipe_up: "1", swipe_down: "Q", long_press: [{ label: "Q" }] }
+    w: { tap: "w", swipe_up: "2", swipe_down: "W", long_press: [{ label: "W" }] }
+    e: { tap: "e", swipe_up: "3", swipe_down: "E", long_press: [{ label: "E" }] }
+    r: { tap: "r", swipe_up: "4", swipe_down: "R", long_press: [{ label: "R" }] }
+    t: { tap: "t", swipe_up: "5", swipe_down: "T", long_press: [{ label: "T" }] }
+    y: { tap: "y", swipe_up: "6", swipe_down: "Y", long_press: [{ label: "Y" }] }
+    u: { tap: "u", swipe_up: "7", swipe_down: "U", long_press: [{ label: "U" }] }
+    i: { tap: "i", swipe_up: "8", swipe_down: "I", long_press: [{ label: "I" }] }
+    o: { tap: "o", swipe_up: "9", swipe_down: "O", long_press: [{ label: "O" }] }
+    p: { tap: "p", swipe_up: "0", swipe_down: "P", long_press: [{ label: "P" }] }
+
+    # ── 第二行 ──
+    a: { tap: "a", swipe_up: "!", swipe_down: "A", long_press: [{ label: "全选", action: "select_all" }, { label: "A" }] }
+    s: { tap: "s", swipe_up: "@", swipe_down: "S", long_press: [{ label: "S" }] }
+    d: { tap: "d", swipe_up: "#", swipe_down: "D", long_press: [{ label: "D" }] }
+    f: { tap: "f", swipe_up: "$", swipe_down: "F", long_press: [{ label: "F" }] }
+    g: { tap: "g", swipe_up: "%", swipe_down: "G", long_press: [{ label: "G" }] }
+    h: { tap: "h", swipe_up: "^", swipe_down: "H", long_press: [{ label: "H" }] }
+    j: { tap: "j", swipe_up: "&", swipe_down: "J", long_press: [{ label: "J" }] }
+    k: { tap: "k", swipe_up: "(", swipe_down: "K", long_press: [{ label: "K" }] }
+    l: { tap: "l", swipe_up: ")", swipe_down: "L", long_press: [{ label: "L" }] }
+
+    # ── 第三行 ──
+    z: { tap: "z", swipe_up: "|", swipe_down: "Z", long_press: [{ label: "Z" }] }
+    x: { tap: "x", swipe_up: "*", swipe_down: "X", long_press: [{ label: "X" }] }
+    c: { tap: "c", swipe_up: "\\", swipe_down: "C", long_press: [{ label: "复制", action: "copy" }, { label: "C" }] }
+    v: { tap: "v", swipe_up: "?", swipe_down: "V", long_press: [{ label: "粘贴", action: "paste" }, { label: "V" }] }
+    b: { tap: "b", swipe_up: "_", swipe_down: "B", long_press: [{ label: "B" }] }
+    n: { tap: "n", swipe_up: "-", swipe_down: "N", long_press: [{ label: "N" }] }
+    m: { tap: "m", swipe_up: "+", swipe_down: "M", long_press: [{ label: "M" }] }
