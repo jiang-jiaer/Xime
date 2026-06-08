@@ -45,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.util.PermissionHelper
@@ -401,18 +402,30 @@ fun KeyboardLayout(
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             maxLines = 1
                         )
-                        
-                        Text(
-                            text = "空格",
-                            color = keyTextColor.copy(alpha = 0.3f),
-                            fontSize = 10.sp,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Start,
-                            maxLines = 1,
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(start = 6.dp, bottom = 2.dp)
-                        )
+
+                        if (isSttEnabled) {
+                            Icon(
+                                painter = painterResource(com.kingzcheung.xime.R.drawable.voice),
+                                contentDescription = "语音输入",
+                                tint = keyTextColor.copy(alpha = 0.3f),
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .align(Alignment.BottomStart)
+                                    .padding(start = 6.dp, bottom = 2.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "空格",
+                                color = keyTextColor.copy(alpha = 0.3f),
+                                fontSize = 10.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Start,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(start = 6.dp, bottom = 2.dp)
+                            )
+                        }
                     }
                 }
                 
