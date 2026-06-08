@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.settings
 
 import android.content.Context
 import android.util.Log
@@ -11,7 +11,16 @@ import java.io.InputStreamReader
 @Serializable
 data class XimeConfig(
     @SerialName("wubi_radicals")
-    val wubiRadicals: WubiRadicalsConfig? = null
+    val wubiRadicals: WubiRadicalsConfig? = null,
+    @SerialName("xime_index")
+    val ximeIndex: XimeIndexConfig? = null
+)
+
+@Serializable
+data class XimeIndexConfig(
+    /** 方案/插件/模型市场索引端点列表，下载器按顺序依次尝试。 */
+    @SerialName("base_urls")
+    val baseUrls: List<String> = listOf("https://index.ximei.me/")
 )
 
 @Serializable
@@ -39,6 +48,7 @@ data class KeysConfig(
 object KeysConfigHelper {
     private const val TAG = "KeysConfigHelper"
     private const val XIME_CONFIG_FILE = "xime.yaml"
+    private const val XIME_CUSTOM_CONFIG_FILE = "xime.custom.yaml"
     
     private val yaml = Yaml.default
     
@@ -60,20 +70,61 @@ object KeysConfigHelper {
     
     private fun loadXimeConfig(context: Context) {
         try {
-            val inputStream = context.assets.open(XIME_CONFIG_FILE)
+            val merged = loadMergedConfig(context)
+            val schemaRadicals = merged.wubiRadicals?.schemaRadicals ?: emptyMap()
+            config = config.copy(schemaRadicals = schemaRadicals)
+            Log.d(TAG, "Loaded schema radicals from $XIME_CONFIG_FILE + $XIME_CUSTOM_CONFIG_FILE: ${schemaRadicals.keys}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load xime config, use default", e)
+            config = config.copy(schemaRadicals = getDefaultSchemaRadicals())
+        }
+    }
+
+    /** 读取并合并 xime.yaml + xime.custom.yaml，custom 覆盖 default。 */
+    private fun loadMergedConfig(context: Context): XimeConfig {
+        val default = parseConfig(readAssetText(context, XIME_CONFIG_FILE))
+        val custom = parseConfig(readAssetText(context, XIME_CUSTOM_CONFIG_FILE))
+        return mergeConfig(default, custom)
+    }
+
+    private fun parseConfig(content: String?): XimeConfig? {
+        if (content == null) return null
+        return try {
+            yaml.decodeFromString(XimeConfig.serializer(), content)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse xime config", e)
+            null
+        }
+    }
+
+    /** 合并两个 XimeConfig：custom 中非 null 的字段覆盖 default。 */
+    private fun mergeConfig(default: XimeConfig?, custom: XimeConfig?): XimeConfig {
+        if (custom == null) return default ?: XimeConfig()
+        if (default == null) return custom
+        return XimeConfig(
+            wubiRadicals = custom.wubiRadicals ?: default.wubiRadicals,
+            ximeIndex = custom.ximeIndex ?: default.ximeIndex,
+        )
+    }
+
+    /** 读取 assets 中的 YAML 文件内容，文件不存在时返回 null。 */
+    private fun readAssetText(context: Context, fileName: String): String? {
+        return try {
+            val inputStream = context.assets.open(fileName)
             val reader = BufferedReader(InputStreamReader(inputStream))
             val content = reader.readText()
             reader.close()
             inputStream.close()
-            
-            val ximeConfig = yaml.decodeFromString(XimeConfig.serializer(), content)
-            val schemaRadicals = ximeConfig.wubiRadicals?.schemaRadicals ?: emptyMap()
-            config = config.copy(schemaRadicals = schemaRadicals)
-            Log.d(TAG, "Loaded schema radicals from $XIME_CONFIG_FILE: ${schemaRadicals.keys}")
+            content
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load $XIME_CONFIG_FILE: ${e.message}")
-            config = config.copy(schemaRadicals = getDefaultSchemaRadicals())
+            null // 文件不存在或读取失败
         }
+    }
+
+    /** 加载 xime-index 配置：从合并后的配置中提取 xime_index 段。 */
+    fun loadXimeIndexConfig(context: Context): XimeIndexConfig {
+        val merged = loadMergedConfig(context)
+        return merged.ximeIndex ?: XimeIndexConfig()
     }
     
     fun getConfig(): KeysConfig = config

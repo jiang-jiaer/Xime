@@ -2,6 +2,7 @@ package com.kingzcheung.xime.settings
 
 import android.content.Context
 import android.util.Log
+import com.kingzcheung.xime.settings.KeysConfigHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -29,23 +30,30 @@ data class SchemesFetch(
  * 方案市场数据源：读取 ximeiorg/xime-index 精选索引（根→子→逐方案，CDN 优先 + raw 回退），
  * 并按版本 sha256 安装；安装后用 [RimeDependencyResolver] 按索引声明的 dependencies 补齐编译依赖。
  * 网络/Android 依赖集中在此层；解析/版本/路径/兼容性逻辑都在 [XimeIndexParser] 纯函数里。
+ *
+ * 端点列表通过 [xime.yaml] 的 `xime_index.base_urls` 配置，用户可自定义镜像列表。
  */
 object XimeIndexSource {
     private const val TAG = "XimeIndexSource"
-    private const val REPO = "ximeiorg/xime-index"
-    private const val BRANCH = "main"
+    // 默认端点，会被 xime.yaml 中的值覆盖
+    private val defaultBaseUrls = listOf("https://index.ximei.me/")
 
-    // Xime 官方索引端点（代理 ximeiorg/xime-index，附正确 text/yaml + CORS，大陆可达性好）。
-    // 仅服务索引 .yaml（方案 zip 仍走各 version 的 downloadUrl，直连上游）。
-    private const val OFFICIAL_BASE = "https://index.ximei.me/"
+    private var baseUrls: List<String> = defaultBaseUrls
 
-    // 顺序即回退优先级：官方端点优先，失败回退 jsDelivr CDN，最后 raw。
-    private val MIRRORS = listOf(
-        OFFICIAL_BASE,
-        "https://fastly.jsdelivr.net/gh/$REPO@$BRANCH/",
-        "https://cdn.jsdelivr.net/gh/$REPO@$BRANCH/",
-        "https://raw.githubusercontent.com/$REPO/$BRANCH/",
-    )
+    /** 构建完整镜像列表：直接使用用户配置的 base_urls。 */
+    private fun buildMirrors(userUrls: List<String>): List<String> = userUrls
+
+    /** 从 xime.yaml 加载 xime-index 配置。每次网络请求前调用以确保使用最新配置。 */
+    private fun ensureConfigured(context: Context) {
+        val cfg = KeysConfigHelper.loadXimeIndexConfig(context)
+        if (cfg.baseUrls != baseUrls) {
+            baseUrls = cfg.baseUrls
+            mirrors = buildMirrors(baseUrls)
+            Log.d(TAG, "XimeIndex configured: baseUrls=$baseUrls")
+        }
+    }
+
+    private var mirrors: List<String> = buildMirrors(defaultBaseUrls)
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -59,7 +67,7 @@ object XimeIndexSource {
     /** 按镜像优先级取一个 repo 相对路径的文本；首个 2xx 即返回，全失败返回带原因的结果。 */
     private fun fetchTextWithSource(repoPath: String): TextFetch {
         var lastError = "网络不可用"
-        for (base in MIRRORS) {
+        for (base in mirrors) {
             val host = hostOf(base)
             try {
                 client.newCall(Request.Builder().url(base + repoPath).build()).execute().use { resp ->
@@ -95,8 +103,9 @@ object XimeIndexSource {
         base.substringAfter("://").substringBefore("/")
 
     /** 跟随索引跳转：根 → 子 → 逐方案（并行、部分失败容忍）。 */
-    suspend fun fetchSchemes(appVersion: String): Result<SchemesFetch> =
+    suspend fun fetchSchemes(context: Context, appVersion: String): Result<SchemesFetch> =
         withContext(Dispatchers.IO) {
+            ensureConfigured(context)
             try {
                 val rootFetch = fetchTextWithSource("index.yaml")
                 val rootText = rootFetch.text

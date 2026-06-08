@@ -52,7 +52,7 @@ class SchemaMarketViewModel(application: Application) : AndroidViewModel(applica
         if (_uiState.value.isLoading) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            val result = XimeIndexSource.fetchSchemes(BuildConfig.VERSION_NAME)
+            val result = XimeIndexSource.fetchSchemes(context, BuildConfig.VERSION_NAME)
             // 「已安装」用持久记录(市场主动安装过的 id)，不靠本地文件存在性
             // —— 方案可能仅作为依赖落盘，文件存在 ≠ 用户装过它。
             val installedRecord = SettingsPreferences.getInstalledMarketIds(context)

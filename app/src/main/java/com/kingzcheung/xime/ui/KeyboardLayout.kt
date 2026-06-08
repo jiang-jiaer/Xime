@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.kingzcheung.xime.ui.LocalStretchFactor
 import com.kingzcheung.xime.settings.SettingsPreferences
+import com.kingzcheung.xime.settings.KeysConfigHelper
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip

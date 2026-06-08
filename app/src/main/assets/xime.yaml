@@ -5,6 +5,16 @@ customization:
   modified_time: "2021-07-26"
   rime_version: 0.14.3
 
+xime_index:
+  # 方案/插件/模型市场索引端点（ximeiorg/xime-index）。
+  # 可替换为自建代理/镜像，下载器按顺序依次尝试，直到成功为止。
+  # 末尾需要 /。
+  base_urls:
+    - "https://cdn.jsdelivr.net/gh/ximeiorg/xime-index/"
+    - "https://fastly.jsdelivr.net/gh/ximeiorg/xime-index/"
+    - "https://index.ximei.me/"
+    - "https://raw.githubusercontent.com/ximeiorg/xime-index/refs/heads/main/"
+
 wubi_radicals:
   # 字根快捷键配置
   hotkeys:
