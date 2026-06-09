@@ -19,12 +19,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.twotone.EmojiEmotions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -271,26 +272,14 @@ fun KeyboardLayout(
                                 .background(keyboardBackgroundColor),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            if (isAsciiMode) {
-                                IconKeyButton(
-                                    icon = rememberVectorPainter(Icons.Default.ArrowUpward),
-                                    onClick = { onKeyPress("shift") },
-                                    backgroundColor = specialKeyBackgroundColor,
-                                    iconColor = keyTextColor,
-                                    modifier = Modifier.weight(1.2f),
-                                    isHighlighted = isShifted,
-                                    onPress = { onKeyPressDown?.invoke("shift") }
-                                )
-                            } else {
-                                IconKeyButton(
-                                    icon = rememberVectorPainter(Icons.Default.EmojiEmotions),
-                                    onClick = { onKeyPress("emoji") },
-                                    backgroundColor = specialKeyBackgroundColor,
-                                    iconColor = keyTextColor,
-                                    modifier = Modifier.weight(1.2f),
-                                    onPress = { onKeyPressDown?.invoke("emoji") }
-                                )
-                            }
+                            IconKeyButton(
+                                icon = rememberVectorPainter(Icons.TwoTone.EmojiEmotions),
+                                onClick = { onKeyPress("emoji") },
+                                backgroundColor = specialKeyBackgroundColor,
+                                iconColor = keyTextColor,
+                                modifier = Modifier.width(40.dp).fillMaxHeight(),
+                                onPress = { onKeyPressDown?.invoke("emoji") }
+                            )
 
                             Row(
                                 modifier = Modifier
@@ -377,7 +366,7 @@ fun KeyboardLayout(
                                 onClick = { onKeyPress("delete") },
                                 backgroundColor = specialKeyBackgroundColor,
                                 iconColor = keyTextColor,
-                                modifier = Modifier.weight(1.2f),
+                                modifier = Modifier.width(48.dp).fillMaxHeight(),
                                 swipeText = "清空",
                                 onSwipe = { onKeyPress("clear_composition") },
                                 onLongClick = { onKeyPress("delete") },
@@ -995,7 +984,7 @@ private fun LandscapeKeyboardContent(
                     onClick = { onKeyPress("delete") },
                     backgroundColor = specialKeyBackgroundColor,
                     iconColor = keyTextColor,
-                    modifier = Modifier.weight(1.2f),
+                    modifier = Modifier.width(48.dp).fillMaxHeight(),
                     onSwipe = { onKeyPress("clear_composition") },
                     onLongClick = { onKeyPress("delete") },
                     onPress = { onKeyPressDown?.invoke("delete") },

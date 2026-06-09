@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.KeyboardCapslock
 import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.twotone.KeyboardCapslock
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -180,11 +182,11 @@ fun EnglishKeyboardLayout(
                     ) {
                         // Shift 键
                         IconKeyButton(
-                            icon = rememberVectorPainter(Icons.Default.ArrowUpward),
+                            icon = rememberVectorPainter(Icons.TwoTone.KeyboardCapslock),
                             onClick = { onKeyPress("shift") },
                             backgroundColor = specialKeyBackgroundColor,
                             iconColor = keyTextColor,
-                            modifier = Modifier.weight(1.2f),
+                            modifier = Modifier.width(40.dp).fillMaxHeight(),
                             isHighlighted = isShifted,
                             onPress = { onKeyPressDown?.invoke("shift") }
                         )
@@ -211,7 +213,7 @@ fun EnglishKeyboardLayout(
                             onClick = { onKeyPress("delete") },
                             backgroundColor = specialKeyBackgroundColor,
                             iconColor = keyTextColor,
-                            modifier = Modifier.weight(1.2f),
+                            modifier = Modifier.width(48.dp).fillMaxHeight(),
                             swipeText = "清空",
                             onSwipe = { onKeyPress("clear_composition") },
                             onLongClick = { onKeyPress("delete") },
@@ -471,7 +473,7 @@ private fun LandscapeEnglishKeyboardContent(
                     onClick = { onKeyPress("delete") },
                     backgroundColor = specialKeyBackgroundColor,
                     iconColor = keyTextColor,
-                    modifier = Modifier.weight(1.2f),
+                    modifier = Modifier.width(48.dp).fillMaxHeight(),
                     onPress = { onKeyPressDown?.invoke("delete") }
                 )
             }
