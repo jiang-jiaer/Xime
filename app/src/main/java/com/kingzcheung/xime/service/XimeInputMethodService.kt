@@ -59,6 +59,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
@@ -117,6 +118,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     )
     
     private var sharedPrefsListener: android.content.SharedPreferences.OnSharedPreferenceChangeListener? = null
+    private var clipboardCollectorJob: kotlinx.coroutines.Job? = null
     
     private val feedbackManager = FeedbackManager(this)
     
@@ -239,7 +241,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         // 必须在任何异步操作之前同步加载键盘按键配置，
         // 否则 KeyboardLayout 组合时 swipeUp/swipeDown 配置可能尚未就绪，
         // 导致按键上的符号不显示、上滑/下滑手势不触发。
-        KeysConfigHelper.loadConfig(this)
+        runBlocking(Dispatchers.IO) {
+            KeysConfigHelper.loadConfig(this@XimeInputMethodService)
+        }
         
         RimeEngine.setDeploymentCallback { isDeploying, message ->
             serviceScope.launch(Dispatchers.Main) {
@@ -870,7 +874,8 @@ onVoiceModeChange = { enabled ->
         }
 
         // 监听clipboardItems变化，更新候选栏
-        serviceScope.launch {
+        clipboardCollectorJob?.cancel()
+        clipboardCollectorJob = serviceScope.launch {
             clipboardManager.clipboardItems.collect { _ ->
                 val items = clipboardManager.getRecentItems(30)
                 recentClipboardItemsState.value = items
@@ -956,6 +961,7 @@ onVoiceModeChange = { enabled ->
         sharedPrefsListener?.let {
             SettingsPreferences.getPrefsPublic(this).unregisterOnSharedPreferenceChangeListener(it)
         }
+        RimeEngine.setDeploymentCallback { _, _ -> }
         feedbackManager.release()
         rimeEngine.destroy()
         voiceRecognitionHandler.release()
@@ -1490,11 +1496,11 @@ onVoiceModeChange = { enabled ->
             android.widget.Toast.makeText(this, "方案部署中...", android.widget.Toast.LENGTH_SHORT).show()
         }
         
-        Thread {
+        serviceScope.launch(Dispatchers.IO) {
             try {
-                KeysConfigHelper.loadConfig(this)
+                KeysConfigHelper.loadConfig(this@XimeInputMethodService)
                 // 重新加载配色方案（用户可能在 xime.custom.yaml 中修改了 color_schemes）
-                KeyboardThemes.reload(this)
+                KeyboardThemes.reload(this@XimeInputMethodService)
                 
                 val userDataDir = File(filesDir, "rime")
                 
@@ -1517,7 +1523,7 @@ onVoiceModeChange = { enabled ->
                 val availableSchemas = rimeEngine.getAvailableSchemas()
                 Log.d(TAG, "Available schemas: ${availableSchemas.joinToString()}")
                 
-                val savedSchema = SettingsPreferences.getCurrentSchema(this)
+                val savedSchema = SettingsPreferences.getCurrentSchema(this@XimeInputMethodService)
                 Log.d(TAG, "Saved schema: $savedSchema")
                 if (savedSchema in availableSchemas) {
                     val switchResult = rimeEngine.switchSchema(savedSchema)
@@ -1526,16 +1532,16 @@ onVoiceModeChange = { enabled ->
                     Log.w(TAG, "Schema $savedSchema not found in available schemas")
                 }
                 
-                mainHandler.post {
+                withContext(Dispatchers.Main) {
                     updateSchemaName()
                     updateUI()
-                    android.widget.Toast.makeText(this, "方案部署完成", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this@XimeInputMethodService, "方案部署完成", android.widget.Toast.LENGTH_SHORT).show()
                     Log.d(TAG, "Schema deployed successfully")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to reload config", e)
             }
-        }.start()
+        }
     }
     
     private fun deploySchema() {

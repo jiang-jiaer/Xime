@@ -13,6 +13,7 @@ import com.kingzcheung.xime.R
 import com.kingzcheung.xime.settings.SettingsPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -53,6 +54,7 @@ class FeedbackManager(private val context: Context) {
         }
         soundPool?.release()
         soundPool = null
+        feedbackScope.cancel()
     }
 
     private fun initSoundPool() {

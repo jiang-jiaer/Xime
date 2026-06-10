@@ -11,6 +11,7 @@ import com.kingzcheung.xime.ui.EmojiCategory
 import com.kingzcheung.xime.ui.EmojiData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +26,8 @@ object ExtensionManager {
     private const val TAG = "ExtensionManager"
     
     private var initialized = false
-    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var managerJob: Job = SupervisorJob()
+    private val managerScope get() = CoroutineScope(managerJob + Dispatchers.IO)
     private val _emojiCategoriesFlow = MutableStateFlow<List<EmojiCategory>>(EmojiData.categories)
     val emojiCategoriesFlow: StateFlow<List<EmojiCategory>> = _emojiCategoriesFlow.asStateFlow()
     
@@ -33,6 +35,9 @@ object ExtensionManager {
         if (initialized) {
             Log.d(TAG, "Already initialized")
             return
+        }
+        if (!managerJob.isActive) {
+            managerJob = SupervisorJob()
         }
         Log.d(TAG, "Initialized")
         initialized = true
@@ -218,6 +223,6 @@ object ExtensionManager {
     
     fun release() {
         initialized = false
-        managerScope.cancel()
+        managerJob.cancel()
     }
 }

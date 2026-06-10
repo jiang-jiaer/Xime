@@ -253,7 +253,7 @@ fun DictionarySettingsContent(
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth().weight(1f)
                     ) {
-                        items(uiState.displayedEntries) { entry ->
+                        items(uiState.displayedEntries, key = { "${it.word}_${it.code}" }) { entry ->
                             DictEntryItem(entry = entry)
                         }
                     }

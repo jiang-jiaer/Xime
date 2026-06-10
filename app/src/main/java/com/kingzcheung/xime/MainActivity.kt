@@ -37,12 +37,18 @@ import com.kingzcheung.xime.util.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     
     companion object {
         private const val TAG = "MainActivity"
+    }
+
+    override fun onDestroy() {
+        prewarmScope.cancel()
+        super.onDestroy()
     }
     
     private val permissionLauncher = registerForActivityResult(

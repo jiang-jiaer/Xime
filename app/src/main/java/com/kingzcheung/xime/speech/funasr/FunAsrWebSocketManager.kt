@@ -151,6 +151,7 @@ class FunAsrWebSocketManager(
         webSocket = null
         client?.dispatcher?.executorService?.shutdown()
         client = null
+        coroutineScope.cancel()
         state = State.IDLE
         onStateChanged(state)
         Log.d(TAG, "WebSocket disconnected")

@@ -46,6 +46,7 @@ import androidx.compose.material.icons.twotone.SettingsOverscan
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,25 +91,39 @@ fun MenuBar(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     
-    val menuItems = listOf(
-        MenuItem(rememberVectorPainter(Icons.AutoMirrored.TwoTone.Assignment), "剪贴板", onClipboard),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.Quickreply), "快捷发送", onQuickSend),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.SettingsOverscan), "键盘调节", onKeyboardResize),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.EmojiEmotions), "表情", onEmoji),
-        MenuItem(rememberVectorPainter(when (darkMode) {
-                0 -> Icons.TwoTone.DarkMode
-                1 -> Icons.TwoTone.LightMode
-                else -> if (isDarkTheme) Icons.TwoTone.LightMode else Icons.TwoTone.DarkMode
-            }), when (darkMode) {
-                0 -> "深色模式"
-                1 -> "浅色模式"
-                else -> "跟随系统"
-            }, onToggleDarkMode),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.Rotate90DegreesCcw), "部署方案", onReloadConfig),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.Padding), "定制工具栏", onToolbarCustomize),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.Keyboard), "输入方案", onSchemaList),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.Settings), "设置", onSettings)
-    )
+    val clipboardIcon = rememberVectorPainter(Icons.AutoMirrored.TwoTone.Assignment)
+    val quickSendIcon = rememberVectorPainter(Icons.TwoTone.Quickreply)
+    val keyboardResizeIcon = rememberVectorPainter(Icons.TwoTone.SettingsOverscan)
+    val emojiIcon = rememberVectorPainter(Icons.TwoTone.EmojiEmotions)
+    val darkModeIcon = when (darkMode) {
+        0 -> rememberVectorPainter(Icons.TwoTone.DarkMode)
+        1 -> rememberVectorPainter(Icons.TwoTone.LightMode)
+        else -> rememberVectorPainter(if (isDarkTheme) Icons.TwoTone.LightMode else Icons.TwoTone.DarkMode)
+    }
+    val deployIcon = rememberVectorPainter(Icons.TwoTone.Rotate90DegreesCcw)
+    val customizeIcon = rememberVectorPainter(Icons.TwoTone.Padding)
+    val schemaIcon = rememberVectorPainter(Icons.TwoTone.Keyboard)
+    val settingsIcon = rememberVectorPainter(Icons.TwoTone.Settings)
+
+    val darkModeLabel = when (darkMode) {
+        0 -> "深色模式"
+        1 -> "浅色模式"
+        else -> "跟随系统"
+    }
+
+    val menuItems = remember(darkModeIcon, darkModeLabel) {
+        listOf(
+            MenuItem(clipboardIcon, "剪贴板", onClipboard),
+            MenuItem(quickSendIcon, "快捷发送", onQuickSend),
+            MenuItem(keyboardResizeIcon, "键盘调节", onKeyboardResize),
+            MenuItem(emojiIcon, "表情", onEmoji),
+            MenuItem(darkModeIcon, darkModeLabel, onToggleDarkMode),
+            MenuItem(deployIcon, "部署方案", onReloadConfig),
+            MenuItem(customizeIcon, "定制工具栏", onToolbarCustomize),
+            MenuItem(schemaIcon, "输入方案", onSchemaList),
+            MenuItem(settingsIcon, "设置", onSettings)
+        )
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()

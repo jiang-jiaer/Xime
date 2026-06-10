@@ -195,6 +195,9 @@ object KeysConfigHelper {
     private val _configVersion = MutableStateFlow(0)
     val configVersion: StateFlow<Int> = _configVersion.asStateFlow()
     
+    private var mergedConfigCache: XimeConfig? = null
+    private var mergedConfigVersion = 0
+    
     fun loadConfig(context: Context): KeysConfig {
         loadXimeConfig(context)
         config = config.copy(
@@ -242,13 +245,19 @@ object KeysConfigHelper {
     }
 
     private fun loadMergedConfig(context: Context): XimeConfig {
+        val currentVersion = _configVersion.value
+        if (mergedConfigCache != null && mergedConfigVersion == currentVersion) {
+            return mergedConfigCache!!
+        }
         val default = parseConfig(readAssetText(context, XIME_CONFIG_FILE))
-        // 先从用户数据目录读取自定义覆盖，没有则尝试 assets（兼容旧版）
         val customText = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
             ?: readAssetText(context, XIME_CUSTOM_CONFIG_FILE)
         Log.d(TAG, "loadMergedConfig: customText=${customText != null}, len=${customText?.length}")
         val custom = parseConfig(customText)
-        return mergeConfig(default, custom)
+        val config = mergeConfig(default, custom)
+        mergedConfigCache = config
+        mergedConfigVersion = currentVersion
+        return config
     }
 
     private fun parseConfig(content: String?): XimeConfig? {

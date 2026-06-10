@@ -90,6 +90,7 @@ class SpeechRecognitionManager(private val context: Context) {
                 FileLogger.e(TAG, "Backend initialization failed: $msg")
                 errorCallback?.invoke(msg)
                 stateCallback?.invoke(RecognitionState.ERROR)
+                backend = null
                 return
             }
             

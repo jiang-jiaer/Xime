@@ -24,8 +24,8 @@ data class WebDavFile(
 object WebDavSyncHelper {
     private const val TAG = "WebDavSyncHelper"
 
-    private fun buildClient(): OkHttpClient {
-        return OkHttpClient.Builder()
+    private val client by lazy {
+        OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .writeTimeout(120, TimeUnit.SECONDS)
@@ -46,7 +46,6 @@ object WebDavSyncHelper {
         remotePath: String = ""
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val client = buildClient()
             val headers = authHeaders(username, password)
             val url = normalizeUrl(baseUrl)
             val testUrl = if (remotePath.isNotBlank()) "$url/$remotePath" else url
@@ -84,7 +83,6 @@ object WebDavSyncHelper {
         onProgress: (String) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val client = buildClient()
             val headers = authHeaders(username, password)
             val base = normalizeUrl(baseUrl)
             val remoteBase = "$base/$remotePath/rime"
@@ -133,7 +131,6 @@ object WebDavSyncHelper {
         onProgress: (String) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val client = buildClient()
             val headers = authHeaders(username, password)
             val base = normalizeUrl(baseUrl)
             val remoteBase = "$base/$remotePath/rime"

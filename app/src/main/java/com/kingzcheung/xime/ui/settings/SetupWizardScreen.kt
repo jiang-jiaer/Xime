@@ -283,7 +283,11 @@ private fun EnableImeStep(onNext: () -> Unit) {
     LaunchedEffect(Unit) {
         while (!isEnabled) {
             delay(2000)
-            isEnabled = checkImeEnabled(context)
+            val enabled = checkImeEnabled(context)
+            if (enabled) {
+                isEnabled = true
+                break
+            }
         }
     }
 }

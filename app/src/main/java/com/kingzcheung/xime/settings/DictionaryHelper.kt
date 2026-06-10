@@ -3,6 +3,7 @@ package com.kingzcheung.xime.settings
 import android.content.Context
 import android.util.Log
 import java.io.File
+import java.util.Locale
 
 data class DictEntry(
     val word: String,
@@ -91,8 +92,9 @@ object DictionaryHelper {
 
     fun searchDictionary(entries: List<DictEntry>, query: String): List<DictEntry> {
         if (query.isEmpty()) return entries.take(100)
+        val lowerQuery = query.lowercase(Locale.ROOT)
         return entries.filter {
-            it.word.contains(query) || it.code.contains(query)
+            it.word.contains(query) || it.code.contains(query) || it.code.lowercase(Locale.ROOT).contains(lowerQuery)
         }.take(100)
     }
 }

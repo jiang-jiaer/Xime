@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -188,13 +189,13 @@ fun SwipeBubble(
         cellCount * keyWidthPx
     } else {
         // 单文本：测量文本宽度
-        val textWidthPx = with(density) {
-            val paint = android.graphics.Paint().apply {
-                textSize = 14.sp.toPx()
+        val textPaint = remember {
+            android.graphics.Paint().apply {
+                textSize = with(density) { 14.sp.toPx() }
                 isAntiAlias = true
             }
-            paint.measureText(displayText!!)
         }
+        val textWidthPx = textPaint.measureText(displayText!!)
         maxOf(textWidthPx + with(density) { 20.dp.toPx() }, minBodyWidthPx)
     }
 

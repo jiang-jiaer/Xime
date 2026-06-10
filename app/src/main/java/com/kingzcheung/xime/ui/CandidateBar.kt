@@ -239,7 +239,7 @@ fun CandidateBar(
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    itemsIndexed(displayCandidates) { index, candidate ->
+                    itemsIndexed(displayCandidates, key = { _, c -> c }) { index, candidate ->
                         CandidateItem(
                             text = candidate,
                             index = index,
@@ -252,7 +252,7 @@ fun CandidateBar(
                     }
 
                     if (displayAssociation.isNotEmpty()) {
-                        item {
+                        item(key = "divider") {
                             Box(
                                 modifier = Modifier
                                     .width(1.dp)
@@ -262,7 +262,7 @@ fun CandidateBar(
                             )
                         }
 
-                        itemsIndexed(displayAssociation) { index, candidate ->
+                        itemsIndexed(displayAssociation, key = { _, c -> c }) { index, candidate ->
                             CandidateItem(
                                 text = candidate,
                                 index = -1,

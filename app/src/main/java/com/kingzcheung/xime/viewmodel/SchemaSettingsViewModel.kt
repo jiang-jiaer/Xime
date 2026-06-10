@@ -65,8 +65,12 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
         } else {
             enabled.add(schema.schemaId)
         }
-        SchemaManager.setEnabledSchemas(context, enabled)
-        _uiState.update { it.copy(enabledSchemas = enabled) }
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                SchemaManager.setEnabledSchemas(context, enabled)
+            }
+            _uiState.update { it.copy(enabledSchemas = enabled) }
+        }
     }
 
     fun selectSchema(schema: SchemaMeta) {
@@ -109,15 +113,19 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun deleteSchema(schema: SchemaMeta) {
-        SchemaManager.deleteSchemaFiles(context, schema.schemaId)
-        if (_uiState.value.currentSchema == schema.schemaId) {
-            val remaining = _uiState.value.allSchemas.firstOrNull { it.schemaId != schema.schemaId }
-            if (remaining != null) {
-                selectSchema(remaining)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                SchemaManager.deleteSchemaFiles(context, schema.schemaId)
             }
+            if (_uiState.value.currentSchema == schema.schemaId) {
+                val remaining = _uiState.value.allSchemas.firstOrNull { it.schemaId != schema.schemaId }
+                if (remaining != null) {
+                    selectSchema(remaining)
+                }
+            }
+            refresh()
+            showToast("${schema.name} 已删除")
         }
-        refresh()
-        showToast("${schema.name} 已删除")
     }
 
     fun deploySchema() {

@@ -36,11 +36,12 @@ class DictionarySettingsViewModel(application: Application) : AndroidViewModel(a
 
     private fun loadSchemas() {
         viewModelScope.launch {
-            val schemas = withContext(Dispatchers.IO) {
-                SchemaManager.discoverSchemas(context)
+            val (schemas, enabledIds) = withContext(Dispatchers.IO) {
+                val allSchemas = SchemaManager.discoverSchemas(context)
+                val enabled = SchemaManager.getEnabledSchemas(context)
+                Pair(allSchemas, enabled)
             }
-            val enabledIds = SchemaManager.getEnabledSchemas(context)
-            val currentSchema = SchemaManager.getEnabledSchemas(context).firstOrNull()
+            val currentSchema = enabledIds.firstOrNull()
                 ?: schemas.firstOrNull()?.schemaId
                 ?: ""
 
