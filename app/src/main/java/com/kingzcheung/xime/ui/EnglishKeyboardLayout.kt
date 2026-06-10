@@ -261,6 +261,7 @@ fun EnglishKeyboardLayout(
                             backgroundColor = keyBackgroundColor,
                             textColor = keyTextColor,
                             modifier = Modifier.weight(3f),
+                            fontSize = 10.sp,
                             onPress = { onKeyPressDown?.invoke("space") }
                         )
 

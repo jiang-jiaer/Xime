@@ -239,7 +239,7 @@ fun CandidateBar(
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    itemsIndexed(displayCandidates, key = { _, c -> c }) { index, candidate ->
+                    itemsIndexed(displayCandidates, key = { index, candidate -> index }) { index, candidate ->
                         CandidateItem(
                             text = candidate,
                             index = index,
@@ -262,7 +262,7 @@ fun CandidateBar(
                             )
                         }
 
-                        itemsIndexed(displayAssociation, key = { _, c -> c }) { index, candidate ->
+                        itemsIndexed(displayAssociation, key = { index, _ -> "assoc-$index" }) { index, candidate ->
                             CandidateItem(
                                 text = candidate,
                                 index = -1,
