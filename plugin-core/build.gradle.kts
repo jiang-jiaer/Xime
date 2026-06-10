@@ -48,8 +48,6 @@ dependencies {
     api(libs.androidx.activity.compose)
     api(libs.androidx.compose.ui)
     api(libs.androidx.compose.ui.graphics)
-    api(libs.androidx.compose.material.icons.core)
-    api(libs.androidx.compose.material.icons.extended)
     api(libs.androidx.lifecycle.runtime.compose)
 
     api("com.android.tools.smali:smali-dexlib2:3.0.8")
