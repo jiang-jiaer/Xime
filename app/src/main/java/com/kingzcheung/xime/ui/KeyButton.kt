@@ -244,7 +244,7 @@ fun SwipeableKeyButton(
     onLongPressSelect: ((String) -> Unit)? = null,
     longPressItems: List<String>? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
-    swipeFontSize: androidx.compose.ui.unit.TextUnit = 7.sp
+    swipeFontSize: androidx.compose.ui.unit.TextUnit = 9.sp
 ) {
     var isPressed by remember { mutableStateOf(false) }
     var dragOffsetY by remember { mutableStateOf(0f) }
@@ -493,9 +493,9 @@ fun SwipeableKeyButton(
         if (!swipeText.isNullOrEmpty()) {
             Text(
                 text = swipeText,
-                color = textColor.copy(alpha = 0.5f),
+                color = textColor.copy(alpha = 0.6f),
                 fontSize = swipeFontSize,
-                fontWeight = FontWeight.Normal,
+                fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 modifier = Modifier.offset(y = (-14).dp)
