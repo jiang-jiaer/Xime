@@ -25,7 +25,6 @@ object RimeConfigHelper {
         }
         
         copyAssetsToRimeDir(context, rimeDir)
-        stripLuaTranslatorFromSchemas(rimeDir)
         // F1: assets 会用内置 default.yaml 覆盖，这里把启用方案重新写回 schema_list
         SchemaManager.applyEnabledSchemasToDefaultYaml(context)
         
@@ -66,20 +65,43 @@ object RimeConfigHelper {
     }
     
     fun isDeploymentComplete(context: Context): Boolean {
-        val buildDir = File(File(context.filesDir, "rime"), "build")
+        val rimeDir = File(context.filesDir, "rime")
+        val buildDir = File(rimeDir, "build")
         if (!buildDir.exists()) return false
 
         val enabledSchemas = SchemaManager.getEnabledSchemas(context)
         if (enabledSchemas.isEmpty()) return false
 
+        // 获取 build 目录中最早的编译产物时间戳
+        var buildTimestamp = Long.MAX_VALUE
         for (schemaId in enabledSchemas) {
-            // 优先检查 prism.bin（每个独立方案都会生成）
-            if (File(buildDir, "$schemaId.prism.bin").exists()) continue
-            // 没有 prism.bin 可能是共享词典的多翻译器方案（如 wubi86_pinyin），
-            // 检查 schema.yaml 是否已部署到 build 目录即可
-            if (File(buildDir, "$schemaId.schema.yaml").exists()) continue
+            val prismFile = File(buildDir, "$schemaId.prism.bin")
+            val schemaFile = File(buildDir, "$schemaId.schema.yaml")
+            if (prismFile.exists()) {
+                buildTimestamp = minOf(buildTimestamp, prismFile.lastModified())
+                continue
+            }
+            if (schemaFile.exists()) {
+                buildTimestamp = minOf(buildTimestamp, schemaFile.lastModified())
+                continue
+            }
+            return false  // 缺少编译产物，需要部署
+        }
+
+        // 检查源 schema 文件是否比编译产物更新（APK 升级后 schema 可能已变更）
+        for (schemaId in enabledSchemas) {
+            val sourceSchema = File(rimeDir, "$schemaId.schema.yaml")
+            if (sourceSchema.exists() && sourceSchema.lastModified() > buildTimestamp) {
+                Log.d(TAG, "Schema $schemaId has been updated since last deployment, re-deploy needed")
+                return false
+            }
+        }
+        val defaultYaml = File(rimeDir, "default.yaml")
+        if (defaultYaml.exists() && defaultYaml.lastModified() > buildTimestamp) {
+            Log.d(TAG, "default.yaml has been updated since last deployment, re-deploy needed")
             return false
         }
+
         return true
     }
 
@@ -150,7 +172,7 @@ object RimeConfigHelper {
                     if (copyAssetsRecursively(context, fullAssetPath, targetFile)) {
                         copiedAny = true
                     }
-                } else if (fileName.endsWith(".yaml")) {
+                } else if (fileName.endsWith(".yaml") || fileName.endsWith(".lua")) {
                     copyAssetFile(context, fullAssetPath, targetFile)
                     copiedAny = true
                 }
@@ -170,33 +192,13 @@ object RimeConfigHelper {
 
             targetFile.parentFile?.mkdirs()
             context.assets.open(assetPath).use { input ->
-                val text = input.bufferedReader().readText()
-                val cleaned = if (targetFile.name.endsWith(".schema.yaml")) {
-                    text.lines().filter { !it.trimStart().startsWith("- lua_translator") }.joinToString("\n")
-                } else text
                 FileOutputStream(targetFile).use { output ->
-                    output.write(cleaned.toByteArray())
+                    input.copyTo(output)
                 }
             }
             Log.d(TAG, "Copied: $assetPath -> ${targetFile.absolutePath}")
         } catch (e: IOException) {
             Log.e(TAG, "Failed to copy: $assetPath", e)
-        }
-    }
-
-    private fun stripLuaTranslatorFromSchemas(rimeDir: File) {
-        val schemaFiles = rimeDir.listFiles { f -> f.name.endsWith(".schema.yaml") } ?: return
-        for (file in schemaFiles) {
-            try {
-                val lines = file.readLines()
-                val filtered = lines.filter { !it.trimStart().startsWith("- lua_translator") }
-                if (filtered.size != lines.size) {
-                    file.writeText(filtered.joinToString("\n"))
-                    Log.d(TAG, "Stripped lua_translator from ${file.name}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to process ${file.name}", e)
-            }
         }
     }
 
