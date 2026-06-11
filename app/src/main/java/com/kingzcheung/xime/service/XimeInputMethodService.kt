@@ -1518,12 +1518,16 @@ onVoiceModeChange = { enabled ->
     
     /**
      * 更新计算器候选栏显示
+     * 显示两个候选：
+     * - index 0: 计算结果（如 "2"），点击直接替换为结果
+     * - index 1: 带公式的结果（如 "1+1=2"），点击显示公式和结果
      */
     private fun updateCalculatorCandidates() {
         val candidate = calculatorEngine.getCandidate()
-        uiState.value = if (candidate != null) {
+        val result = calculatorEngine.getResult()
+        uiState.value = if (candidate != null && result.isNotEmpty()) {
             uiState.value.copy(
-                candidates = arrayOf(candidate),
+                candidates = arrayOf(result, candidate),
                 candidateComments = emptyArray()
             )
         } else {
@@ -1540,24 +1544,35 @@ onVoiceModeChange = { enabled ->
     }
 
     private fun selectCandidate(index: Int) {
-        // 计算器模式：选择计算结果替换输入框
-        if (index == 0 && calculatorEngine.isActive()) {
+        // 计算器模式
+        if (calculatorEngine.isActive()) {
             val result = calculatorEngine.getResult()
             val expression = calculatorEngine.getExpression()
+            val formulaResult = calculatorEngine.getFormulaResult()
             if (result.isNotEmpty() && expression.isNotEmpty()) {
-                calculatorEngine.clear()
-                serviceScope.launch(Dispatchers.Main) {
-                    val ic = currentInputConnection
-                    if (ic != null) {
-                        // 删除输入框中已键入的表达式
-                        ic.deleteSurroundingText(expression.length, 0)
-                        // 提交计算结果
-                        ic.commitText(result, result.length)
+                val textToCommit: String
+                // index 0: 纯结果（如 "2"）
+                // index 1: 公式结果（如 "1+1=2"）
+                textToCommit = when (index) {
+                    0 -> result
+                    1 -> formulaResult
+                    else -> ""
+                }
+                if (textToCommit.isNotEmpty()) {
+                    calculatorEngine.clear()
+                    serviceScope.launch(Dispatchers.Main) {
+                        val ic = currentInputConnection
+                        if (ic != null) {
+                            // 删除输入框中已键入的表达式
+                            ic.deleteSurroundingText(expression.length, 0)
+                            // 提交选中的文本
+                            ic.commitText(textToCommit, textToCommit.length)
+                        }
+                        uiState.value = uiState.value.copy(
+                            candidates = emptyArray(),
+                            candidateComments = emptyArray()
+                        )
                     }
-                    uiState.value = uiState.value.copy(
-                        candidates = emptyArray(),
-                        candidateComments = emptyArray()
-                    )
                 }
             }
             return
