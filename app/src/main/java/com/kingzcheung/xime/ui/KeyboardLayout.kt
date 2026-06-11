@@ -390,7 +390,6 @@ fun KeyboardLayout(
                                 swipeDownLabel = "下滑撤回",
                                 onSwipeUp = { onKeyPress("clear_all") },
                                 onSwipeDown = { onKeyPress("undo_clear") },
-                                onSwipeLeft = { onKeyPress("clear_composition") },
                                 onSwipeStateChange = { state, bounds ->
                                     processSwipeState(
                                         state,
@@ -1036,7 +1035,6 @@ private fun LandscapeKeyboardContent(
                     swipeDownLabel = "下滑撤回",
                     onSwipeUp = { onKeyPress("clear_all") },
                     onSwipeDown = { onKeyPress("undo_clear") },
-                    onSwipeLeft = { onKeyPress("clear_composition") },
                     onSwipeStateChange = onSwipeStateChange,
                 )
             }
