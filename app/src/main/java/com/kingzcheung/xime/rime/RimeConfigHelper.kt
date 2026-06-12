@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.kingzcheung.xime.settings.SchemaConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
+import com.kingzcheung.xime.settings.SettingsPreferences
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import java.io.File
@@ -64,6 +65,14 @@ object RimeConfigHelper {
         return Pair(rimeDir.absolutePath, rimeDir.absolutePath)
     }
     
+    fun storeDeploymentHash(context: Context) {
+        val hash = computeDeploymentHash(context)
+        if (hash.isNotEmpty()) {
+            SettingsPreferences.setDeploymentHash(context, hash)
+            Log.d(TAG, "Deployment hash stored: $hash")
+        }
+    }
+
     fun isDeploymentComplete(context: Context): Boolean {
         val rimeDir = File(context.filesDir, "rime")
         val buildDir = File(rimeDir, "build")
@@ -72,37 +81,50 @@ object RimeConfigHelper {
         val enabledSchemas = SchemaManager.getEnabledSchemas(context)
         if (enabledSchemas.isEmpty()) return false
 
-        // 获取 build 目录中最早的编译产物时间戳
-        var buildTimestamp = Long.MAX_VALUE
         for (schemaId in enabledSchemas) {
-            val prismFile = File(buildDir, "$schemaId.prism.bin")
-            val schemaFile = File(buildDir, "$schemaId.schema.yaml")
-            if (prismFile.exists()) {
-                buildTimestamp = minOf(buildTimestamp, prismFile.lastModified())
-                continue
-            }
-            if (schemaFile.exists()) {
-                buildTimestamp = minOf(buildTimestamp, schemaFile.lastModified())
-                continue
-            }
-            return false  // 缺少编译产物，需要部署
-        }
-
-        // 检查源 schema 文件是否比编译产物更新（APK 升级后 schema 可能已变更）
-        for (schemaId in enabledSchemas) {
-            val sourceSchema = File(rimeDir, "$schemaId.schema.yaml")
-            if (sourceSchema.exists() && sourceSchema.lastModified() > buildTimestamp) {
-                Log.d(TAG, "Schema $schemaId has been updated since last deployment, re-deploy needed")
+            if (!File(buildDir, "$schemaId.prism.bin").exists() &&
+                !File(buildDir, "$schemaId.schema.yaml").exists()) {
                 return false
             }
         }
-        val defaultYaml = File(rimeDir, "default.yaml")
-        if (defaultYaml.exists() && defaultYaml.lastModified() > buildTimestamp) {
-            Log.d(TAG, "default.yaml has been updated since last deployment, re-deploy needed")
+
+        val currentHash = computeDeploymentHash(context)
+        if (currentHash.isEmpty()) return false
+
+        val storedHash = SettingsPreferences.getDeploymentHash(context)
+        if (storedHash.isEmpty()) {
+            SettingsPreferences.setDeploymentHash(context, currentHash)
+            return true
+        }
+
+        if (currentHash != storedHash) {
+            Log.d(TAG, "Schema files changed, re-deploy needed")
             return false
         }
 
         return true
+    }
+
+    private fun computeDeploymentHash(context: Context): String {
+        val rimeDir = File(context.filesDir, "rime")
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+
+        val enabledSchemas = SchemaManager.getEnabledSchemas(context)
+        for (schemaId in enabledSchemas.sorted()) {
+            val schemaFile = File(rimeDir, "$schemaId.schema.yaml")
+            if (schemaFile.exists()) {
+                digest.update(schemaId.toByteArray())
+                digest.update(schemaFile.readBytes())
+            }
+        }
+
+        val defaultYaml = File(rimeDir, "default.yaml")
+        if (defaultYaml.exists()) {
+            digest.update("default".toByteArray())
+            digest.update(defaultYaml.readBytes())
+        }
+
+        return digest.digest().joinToString("") { String.format("%02x", it) }
     }
 
     private fun checkAndCleanBuildDir(rimeDir: File) {
@@ -173,8 +195,20 @@ object RimeConfigHelper {
                         copiedAny = true
                     }
                 } else if (fileName.endsWith(".yaml") || fileName.endsWith(".lua")) {
-                    copyAssetFile(context, fullAssetPath, targetFile)
-                    copiedAny = true
+                    val needsCopy = try {
+                        if (targetFile.exists()) {
+                            val fd = context.assets.openFd(fullAssetPath)
+                            val sameSize = targetFile.length() == fd.length
+                            fd.close()
+                            !sameSize
+                        } else true
+                    } catch (_: Exception) {
+                        true
+                    }
+                    if (needsCopy) {
+                        copyAssetFile(context, fullAssetPath, targetFile)
+                        copiedAny = true
+                    }
                 }
             } catch (e: IOException) {
                 Log.e(TAG, "Failed to process: $fullAssetPath", e)

@@ -349,6 +349,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     // 确保部署成功后才标记完成，避免首次部署超时后误标记
                     if (needsDeployment) {
                         SettingsPreferences.setDeploymentDone(this@XimeInputMethodService, true)
+                        RimeConfigHelper.storeDeploymentHash(this@XimeInputMethodService)
                     }
                 } else {
                     Log.w(TAG, "initRimeEngine: Session not ready after 60s, continuing in background")

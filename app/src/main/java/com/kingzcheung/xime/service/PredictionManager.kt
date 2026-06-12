@@ -134,7 +134,7 @@ class PredictionManager(
                     }
                 }
                 
-                val candidates = AssociationManager.predict(contextText, 20)
+                val candidates = AssociationManager.predict(contextText, MAX_ASSOCIATION_COUNT)
                 
                 Log.d(TAG, "Prediction candidates: ${candidates.map { it.text }}")
                 
