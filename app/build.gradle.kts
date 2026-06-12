@@ -385,6 +385,7 @@ android {
         getByName("test") {
             resources.srcDirs("src/main/assets")
         }
+    }
     lint {
         checkReleaseBuilds = false
         checkGeneratedSources = false

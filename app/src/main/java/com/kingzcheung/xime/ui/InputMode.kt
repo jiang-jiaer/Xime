@@ -1,5 +1,7 @@
 package com.kingzcheung.xime.ui
 
+import com.kingzcheung.xime.keyboard.KeyboardMode
+
 /**
  * 输入模式——将键盘布局与 Rime 方案一对一绑定。
  *

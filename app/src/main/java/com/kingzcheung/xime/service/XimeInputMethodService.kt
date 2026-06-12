@@ -734,8 +734,19 @@ onVoiceModeChange = { enabled ->
                                onUpdateToolbarButtons = { buttons ->
                                    SettingsPreferences.setToolbarButtons(this@XimeInputMethodService, buttons)
                                    uiState.value = uiState.value.copy(toolbarButtons = buttons)
-                               },
-                                onKeyboardModeChange = { chineseMode ->
+                                },
+                                onT9ReplaceFullPinyin = { pinyin ->
+                                    if (pinyin.isEmpty()) {
+                                        rimeEngine.clearComposition()
+                                    } else {
+                                        rimeEngine.clearComposition()
+                                        for (char in pinyin) {
+                                            rimeEngine.processKey(char.code, 0)
+                                        }
+                                    }
+                                    updateUI()
+                                },
+                                 onKeyboardModeChange = { chineseMode ->
                                     isChineseMode = chineseMode
                                     if (!chineseMode) {
                                         uiState.value = uiState.value.copy(associationCandidates = emptyArray())
@@ -1776,6 +1787,7 @@ onVoiceModeChange = { enabled ->
         try {
             SettingsPreferences.setCurrentSchema(this, schemaId)
             rimeEngine.switchSchema(schemaId)
+            uiState.value = uiState.value.copy(currentSchemaId = schemaId)
             updateSchemaName()
             updateUI()
             Toast.makeText(this, "已切换输入方案", Toast.LENGTH_SHORT).show()

@@ -53,7 +53,6 @@ import com.kingzcheung.xime.keyboard.ToolbarAction
 import com.kingzcheung.xime.keyboard.ToolbarButton
 import com.kingzcheung.xime.service.InputUIState
 import com.kingzcheung.xime.settings.SchemaInfo
-import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
@@ -161,23 +160,9 @@ fun KeyboardView(
     val dividerColor = if (isDarkTheme) Color(0xFF3C4043) else Color(0xFFDADCE0)
     val state = uiStateProvider()
     val clipboardTab = (currentRoute as? KeyboardRoute.Clipboard)?.tab ?: 0
-    // 每次重新开始输入、切换方案或切换中英文时，重置面板状态
-    LaunchedEffect(state.inputSessionId, isAsciiMode) {
+    // 每次重新开始输入时（inputSessionId 变化），重置导航状态到全键盘
+    LaunchedEffect(state.inputSessionId) {
         currentRoute = KeyboardRoute.Keyboard
-        // 同步键盘模式——始终从偏好设置读取
-        keyboardMode = if (isAsciiMode || pendingAscii) {
-            KeyboardMode.FULL
-        } else {
-            val savedSchema = SettingsPreferences.getCurrentSchema(context)
-            InputMode.keyboardModeFor(savedSchema)
-        }
-    }
-
-    // 等待 ASCII 模式实际追上后清除乐观状态
-    LaunchedEffect(isAsciiMode) {
-        if (isAsciiMode && pendingAscii) {
-            pendingAscii = false
-        }
     }
 
     // isAsciiMode 变化时同步键盘状态（例如点击"英/中"键切换输入法）
@@ -263,8 +248,26 @@ fun KeyboardView(
                         amplitude = voiceAmplitude
                     )
                 }
-
-
+                !isAsciiMode && currentSchemaId == "t9_pinyin" -> {
+                    NineKeyKeyboardLayout(
+                        onReplaceFullPinyin = onT9ReplaceFullPinyin ?: {},
+                        onKeyPress = { key ->
+                            when (key) {
+                                "emoji" -> currentRoute = KeyboardRoute.Emoji
+                                "symbol" -> currentRoute = KeyboardRoute.Symbol
+                                else -> onKeyPress(key, false)
+                            }
+                        },
+                        keyBackgroundColor = keyBgColor,
+                        keyTextColor = keyTextColor,
+                        specialKeyBackgroundColor = specialKeyBgColor,
+                        keyboardBackgroundColor = keyboardBgColor,
+                        isDarkTheme = isDarkTheme,
+                        modifier = Modifier.weight(1f),
+                        onKeyPressDown = onKeyPressDown,
+                        resetSignal = state.t9ResetSignal
+                    )
+                }
                 else -> {
                     // 全局左右滑动控制光标
                     // 按键手势只使用垂直（上滑/下滑）和静止（长按），左右滑动没有用到

@@ -40,6 +40,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.rime.T9Decoder
+import com.kingzcheung.xime.util.CharInfo
+import com.kingzcheung.xime.util.SubcharHelper
 
 @Composable
 fun NineKeyKeyboardLayout(
@@ -255,12 +257,12 @@ fun NineKeyKeyboardLayout(
                             NineKeyButton2(digit = "3", letters = "DEF", onClick = { onDigitPressed("3") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("3") })
                             SwipeableIconKeyButton(
                                 icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
-                                onClick = { onKeyPress("delete") },
+                                onClick = { onDeleted() },
                                 backgroundColor = keyBackgroundColor, iconColor = keyTextColor,
                                 modifier = Modifier.weight(1f),
                                 swipeText = "清空",
                                 onSwipe = { onKeyPress("clear_composition") },
-                                onLongClick = { onKeyPress("delete") },
+                                onLongClick = { onDeleted() },
                                 onPress = { onKeyPressDown?.invoke("delete") },
                                 swipeUpLabel = "上滑清空",
                                 swipeDownLabel = "下滑撤回",

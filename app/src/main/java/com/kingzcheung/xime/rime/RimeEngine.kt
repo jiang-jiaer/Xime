@@ -115,44 +115,43 @@ class RimeEngine {
         synchronized(rimeLock) {
             if (nativeHasSession() && getAvailableSchemas().isNotEmpty()) return true
 
-        // 先等编译完成再创建 session（编译可能在后台进行）
-        var waited = 0L
-        while (nativeIsMaintaining() && waited < timeoutMs) {
-            try {
-                Thread.sleep(100)
-            } catch (_: InterruptedException) {
-                return false
+            // 先等编译完成再创建 session（编译可能在后台进行）
+            var waited = 0L
+            while (nativeIsMaintaining() && waited < timeoutMs) {
+                try {
+                    Thread.sleep(100)
+                } catch (_: InterruptedException) {
+                    return false
+                }
+                waited += 100
+                if (waited % 5000 == 0L) {
+                    Log.d(TAG, "ensureSession: waiting for maintenance... (${waited / 1000}s)")
+                }
             }
-            waited += 100
-            if (waited % 5000 == 0L) {
-                Log.d(TAG, "ensureSession: waiting for maintenance... (${waited / 1000}s)")
-            }
-        }
-        // 编译完成后尝试创建 session
-        waited = 0L
-        while (waited < timeoutMs) {
-            // 先创建 session（get_schema_list 需要 session 才能读取方案列表）
-            if (!nativeHasSession()) {
-                nativeCreateSession()
-            }
-            if (getAvailableSchemas().isNotEmpty()) {
-                Log.d(TAG, "ensureSession: schemas ready after ${waited}ms")
-                return true
-            }
-            try {
-                Thread.sleep(100)
-            } catch (_: InterruptedException) {
-                return false
-            }
-            waited += 100
-            if (waited % 5000 == 0L) {
-                Log.d(TAG, "ensureSession: waiting for schemas... (${waited / 1000}s)")
+            // 编译完成后尝试创建 session
+            waited = 0L
+            while (waited < timeoutMs) {
+                // 先创建 session（get_schema_list 需要 session 才能读取方案列表）
+                if (!nativeHasSession()) {
+                    nativeCreateSession()
+                }
+                if (getAvailableSchemas().isNotEmpty()) {
+                    Log.d(TAG, "ensureSession: schemas ready after ${waited}ms")
+                    return true
+                }
+                try {
+                    Thread.sleep(100)
+                } catch (_: InterruptedException) {
+                    return false
+                }
+                waited += 100
+                if (waited % 5000 == 0L) {
+                    Log.d(TAG, "ensureSession: waiting for schemas... (${waited / 1000}s)")
+                }
             }
             Log.w(TAG, "ensureSession: schemas not available after ${timeoutMs}ms, deployment may still be running")
             return false
         }
-        Log.w(TAG, "ensureSession: schemas not available after ${timeoutMs}ms")
-        return false
     }
 
     fun isMaintaining(): Boolean {

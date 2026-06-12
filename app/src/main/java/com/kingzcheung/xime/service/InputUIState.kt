@@ -42,6 +42,7 @@ data class InputUIState(
     val hasNextPage: Boolean = false,
     val hasPrevPage: Boolean = false,
     val inputSessionId: Long = 0,
+    val t9ResetSignal: Long = 0,
     val toolbarButtons: List<String> = ToolbarButton.DEFAULT_VISIBLE.map { it.id },
     val isCompact: Boolean = false
 ) {
