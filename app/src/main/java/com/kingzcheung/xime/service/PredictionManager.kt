@@ -21,6 +21,7 @@ class PredictionManager(
     companion object {
         private const val TAG = "PredictionManager"
         private const val MAX_CONTEXT_LENGTH = 25
+        const val MAX_ASSOCIATION_COUNT = 20
     }
     
     private var _lastCommittedText = ""
@@ -121,7 +122,9 @@ class PredictionManager(
             try {
                 if (!AssociationManager.isInitialized()) {
                     Log.d(TAG, "AssociationManager not initialized, initializing...")
-                    val initSuccess = AssociationManager.initialize(context)
+                    val initSuccess = withContext(Dispatchers.IO) {
+                        AssociationManager.initialize(context)
+                    }
                     if (!initSuccess) {
                         Log.e(TAG, "Failed to initialize AssociationManager")
                         withContext(Dispatchers.Main) {
@@ -131,7 +134,7 @@ class PredictionManager(
                     }
                 }
                 
-                val candidates = AssociationManager.predict(contextText, 20)
+                val candidates = AssociationManager.predict(contextText, MAX_ASSOCIATION_COUNT)
                 
                 Log.d(TAG, "Prediction candidates: ${candidates.map { it.text }}")
                 
@@ -159,7 +162,7 @@ class PredictionManager(
         }
     }
     
-    suspend fun getEnglishAssociations(text: String, limit: Int = 5): Array<String> {
+    suspend fun getEnglishAssociations(text: String, limit: Int = MAX_ASSOCIATION_COUNT): Array<String> {
         return try {
             AssociationService.getAssociations(context, text, true, limit).toTypedArray()
         } catch (e: Exception) {
@@ -168,7 +171,7 @@ class PredictionManager(
         }
     }
     
-    suspend fun getChineseAssociations(text: String, limit: Int = 5): Array<String> {
+    suspend fun getChineseAssociations(text: String, limit: Int = MAX_ASSOCIATION_COUNT): Array<String> {
         return try {
             if (!AssociationManager.isInitialized()) {
                 Log.d(TAG, "AssociationManager not initialized, initializing...")

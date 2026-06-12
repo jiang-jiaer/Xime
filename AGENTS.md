@@ -10,7 +10,7 @@
 ## 插件开发
 - 清除插件数据： `./gradlew clearPlugins`
 - 完全卸载主应用： `./gradlew uninstallApp`
-- [插件开发指南](docs/plugins/PLUGIN_DEVELOPMENT_GUIDE.md) - 开发插件时必读
+- [插件开发指南](https://ime.ximei.me/plugins/PLUGIN_DEVELOPMENT_GUIDE) - 开发插件时必读
 
 ## 硬性规则（必须遵守，CI 会验证）
 
@@ -30,3 +30,8 @@
 1. 更新 PROGRESS.md
 2. 跑 `./gradlew assembleDebug --quiet` 确认一致状态
 3. 提交所有已完成的工作
+
+## Jetpack Compose
+For all Compose/Android UI tasks, follow the instructions in
+`.skills/compose-expert/SKILL.md` and consult the reference
+files in `.skills/compose-expert/references/` before answering.

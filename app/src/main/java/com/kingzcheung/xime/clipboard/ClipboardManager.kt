@@ -44,6 +44,15 @@ class ClipboardManager private constructor(private val context: Context) {
     }
     
     private val androidClipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as AndroidClipboardManager
+    private val clipboardListener = AndroidClipboardManager.OnPrimaryClipChangedListener {
+        val clipData = androidClipboardManager.primaryClip
+        if (clipData != null && clipData.itemCount > 0) {
+            val text = clipData.getItemAt(0).text?.toString()
+            if (!text.isNullOrEmpty()) {
+                addItem(text)
+            }
+        }
+    }
     
     private val _clipboardItems = MutableStateFlow<List<ClipboardItem>>(emptyList())
     val clipboardItems: StateFlow<List<ClipboardItem>> = _clipboardItems.asStateFlow()
@@ -150,15 +159,11 @@ class ClipboardManager private constructor(private val context: Context) {
     }
     
     private fun startListening() {
-        androidClipboardManager.addPrimaryClipChangedListener {
-            val clipData = androidClipboardManager.primaryClip
-            if (clipData != null && clipData.itemCount > 0) {
-                val text = clipData.getItemAt(0).text?.toString()
-                if (!text.isNullOrEmpty()) {
-                    addItem(text)
-                }
-            }
-        }
+        androidClipboardManager.addPrimaryClipChangedListener(clipboardListener)
+    }
+
+    fun stopListening() {
+        androidClipboardManager.removePrimaryClipChangedListener(clipboardListener)
     }
     
     fun addItem(text: String) {

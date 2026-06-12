@@ -212,19 +212,47 @@ fun KeyEffectSettingsContent(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "下滑显示字根",
+                                text = "上滑提示",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "按键下滑时显示字根拆分提示。注意,只支持显示86版本的字根",
+                                text = "在按键上显示上滑符号提示",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Switch(
-                            checked = uiState.swipeDownShowRootsEnabled,
-                            onCheckedChange = { viewModel.setSwipeDownShowRootsEnabled(it) }
+                            checked = uiState.swipeUpHintsEnabled,
+                            onCheckedChange = { viewModel.setSwipeUpHintsEnabled(it) }
+                        )
+                    }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 16.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "下滑提示",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "在按键上显示下滑提示内容",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = uiState.swipeDownHintsEnabled,
+                            onCheckedChange = { viewModel.setSwipeDownHintsEnabled(it) }
                         )
                     }
                 })

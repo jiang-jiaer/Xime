@@ -2,6 +2,7 @@
 // 基于 trime 的实现
 
 #include <rime_api.h>
+#include <rime/setup.h>
 #include <jni.h>
 #include <android/log.h>
 #include <memory>
@@ -16,6 +17,16 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+
+struct ProcessResult {
+    bool processed;
+    std::string committedText;
+    std::string inputText;
+    std::vector<std::pair<std::string, std::string>> candidates;
+    bool isAsciiMode;
+    bool hasNextPage;
+    bool hasPrevPage;
+};
 
 // Rime 单例类
 class Rime {
@@ -34,6 +45,9 @@ public:
             LOGE("Rime API not available");
             return;
         }
+        
+        user_data_dir_ = user_data_dir;
+        shared_data_dir_ = shared_data_dir;
 
         std::string log_dir = std::string(user_data_dir) + "/logs";
         
@@ -77,7 +91,11 @@ public:
     bool createSession() {
         if (!rime) return false;
         session_id_ = rime->create_session();
-        LOGI("Session created: %lu", (unsigned long)session_id_);
+        if (session_id_ != 0) {
+            LOGI("Session created: %lu", (unsigned long)session_id_);
+        } else {
+            LOGD("Session creation failed (engine may be maintaining)");
+        }
         return session_id_ != 0;
     }
 
@@ -110,6 +128,55 @@ public:
         LOGD("processKey: keycode=%d, mask=%d", keycode, mask);
         bool result = rime->process_key(session_id_, keycode, mask);
         LOGD("processKey result: %d", result);
+        return result;
+    }
+
+    ProcessResult processKeyAndGetResult(int keycode, int mask) {
+        ProcessResult result;
+        result.processed = false;
+        result.isAsciiMode = false;
+        result.hasNextPage = false;
+        result.hasPrevPage = false;
+
+        if (!rime || !session_id_) {
+            LOGE("processKeyAndGetResult: rime or session not available");
+            return result;
+        }
+
+        result.processed = rime->process_key(session_id_, keycode, mask);
+
+        RIME_STRUCT(RimeCommit, commit);
+        if (rime->get_commit(session_id_, &commit)) {
+            result.committedText = commit.text ? commit.text : "";
+            rime->free_commit(&commit);
+        }
+
+        const char* input = rime->get_input(session_id_);
+        result.inputText = input ? input : "";
+
+        RIME_STRUCT(RimeContext, context);
+        if (rime->get_context(session_id_, &context)) {
+            if (context.menu.num_candidates > 0) {
+                for (int i = 0; i < context.menu.num_candidates; ++i) {
+                    const char* text = context.menu.candidates[i].text;
+                    const char* comment = context.menu.candidates[i].comment;
+                    result.candidates.push_back(std::make_pair(
+                        text ? text : "",
+                        comment ? comment : ""
+                    ));
+                }
+            }
+            result.hasNextPage = !context.menu.is_last_page;
+            result.hasPrevPage = context.menu.page_no > 0;
+            rime->free_context(&context);
+        }
+
+        RIME_STRUCT(RimeStatus, status);
+        if (rime->get_status(session_id_, &status)) {
+            result.isAsciiMode = status.is_ascii_mode;
+            rime->free_status(&status);
+        }
+
         return result;
     }
 
@@ -272,27 +339,7 @@ public:
         
         LOGI("switchSchema: switching to '%s'", schema_id);
         
-        // 使用 set_schema_option 来切换方案
-        // 首先获取当前方案列表确认方案存在
-        RimeSchemaList schema_list = {0};
-        bool schema_exists = false;
-        if (rime->get_schema_list(&schema_list)) {
-            for (size_t i = 0; i < schema_list.size; i++) {
-                if (strcmp(schema_list.list[i].schema_id, schema_id) == 0) {
-                    schema_exists = true;
-                    LOGI("Found schema: %s (%s)", schema_list.list[i].schema_id, schema_list.list[i].name);
-                    break;
-                }
-            }
-            rime->free_schema_list(&schema_list);
-        }
-        
-        if (!schema_exists) {
-            LOGE("Schema '%s' not found in schema list", schema_id);
-            return false;
-        }
-        
-        // 使用 select_schema 来切换方案
+        // 直接切换方案，不验证方案是否存在（get_schema_list 不读 default.custom.yaml 的 patch）
         bool result = rime->select_schema(session_id_, schema_id);
         LOGI("select_schema result: %s", result ? "true" : "false");
         
@@ -438,13 +485,36 @@ public:
         return true;
     }
     
-    bool deploySchema(const char* schemaFile) {
+    bool deploySchema(const char* schemaId) {
         if (!rime) {
             LOGE("deploySchema: rime not available");
             return false;
         }
         
-        LOGI("Deploying single schema: %s", schemaFile);
+        // 确保部署模块已加载（schema_update 等任务注册在 levers 模块中）
+        rime::LoadModules(rime::kDeployerModules);
+        
+        // 构造 .schema.yaml 文件名
+        std::string schemaFile(schemaId);
+        if (schemaFile.find(".schema.yaml") == std::string::npos) {
+            schemaFile += ".schema.yaml";
+        }
+        
+        // 在 user_data_dir 和 shared_data_dir 中查找 schema 文件
+        std::string schemaPath;
+        std::string userPath = user_data_dir_ + "/" + schemaFile;
+        std::string sharedPath = shared_data_dir_ + "/" + schemaFile;
+        if (access(userPath.c_str(), F_OK) == 0) {
+            schemaPath = userPath;
+        } else if (access(sharedPath.c_str(), F_OK) == 0) {
+            schemaPath = sharedPath;
+        } else {
+            LOGE("deploySchema: schema file not found at %s or %s",
+                 userPath.c_str(), sharedPath.c_str());
+            return false;
+        }
+        
+        LOGI("Deploying single schema: %s", schemaPath.c_str());
         
         // 先销毁旧session
         if (session_id_) {
@@ -452,9 +522,9 @@ public:
             session_id_ = 0;
         }
         
-        Bool result = rime->deploy_schema(schemaFile);
+        Bool result = rime->deploy_schema(schemaPath.c_str());
         if (!result) {
-            LOGE("deploy_schema failed for: %s", schemaFile);
+            LOGE("deploy_schema failed for: %s", schemaPath.c_str());
             // 回退：启动完整维护等待完成
             rime->start_maintenance(true);
             while (rime->is_maintenance_mode()) {
@@ -464,7 +534,7 @@ public:
         
         // 重新创建session
         session_id_ = rime->create_session();
-        LOGI("Deploy schema completed: %s", schemaFile);
+        LOGI("Deploy schema completed: %s", schemaId);
         return true;
     }
 
@@ -492,9 +562,33 @@ public:
 private:
     RimeApi* rime;
     RimeSessionId session_id_ = 0;
+    std::string user_data_dir_;
+    std::string shared_data_dir_;
 };
 
 extern "C" {
+
+static jclass gRimeProcessResultClass = nullptr;
+static jmethodID gRimeProcessResultCtor = nullptr;
+static jclass gRimeCandidateClass = nullptr;
+static jmethodID gRimeCandidateCtor = nullptr;
+
+static void ensureJniCache(JNIEnv* env) {
+    if (!gRimeCandidateClass) {
+        jclass cls = env->FindClass("com/kingzcheung/xime/rime/RimeCandidate");
+        gRimeCandidateClass = (jclass)env->NewGlobalRef(cls);
+        gRimeCandidateCtor = env->GetMethodID(gRimeCandidateClass, "<init>",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+        env->DeleteLocalRef(cls);
+    }
+    if (!gRimeProcessResultClass) {
+        jclass cls = env->FindClass("com/kingzcheung/xime/rime/RimeProcessResult");
+        gRimeProcessResultClass = (jclass)env->NewGlobalRef(cls);
+        gRimeProcessResultCtor = env->GetMethodID(gRimeProcessResultClass, "<init>",
+            "(ZLjava/lang/String;Ljava/lang/String;[Lcom/kingzcheung/xime/rime/RimeCandidate;ZZZ)V");
+        env->DeleteLocalRef(cls);
+    }
+}
 
 // 初始化 Rime 引擎
 JNIEXPORT void JNICALL
@@ -560,6 +654,49 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeProcessKey(
     jint mask
 ) {
     return Rime::Instance().processKey(keycode, mask) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jobject JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativeProcessKeyAndGetResult(
+    JNIEnv* env,
+    jobject thiz,
+    jint keycode,
+    jint mask
+) {
+    ensureJniCache(env);
+
+    ProcessResult result = Rime::Instance().processKeyAndGetResult(keycode, mask);
+
+    jobjectArray candidateArray = env->NewObjectArray(
+        result.candidates.size(), gRimeCandidateClass, nullptr);
+
+    for (size_t i = 0; i < result.candidates.size(); ++i) {
+        jstring text = env->NewStringUTF(result.candidates[i].first.c_str());
+        jstring comment = env->NewStringUTF(result.candidates[i].second.c_str());
+        jobject candidate = env->NewObject(gRimeCandidateClass, gRimeCandidateCtor, text, comment);
+        env->SetObjectArrayElement(candidateArray, i, candidate);
+        env->DeleteLocalRef(text);
+        env->DeleteLocalRef(comment);
+        env->DeleteLocalRef(candidate);
+    }
+
+    jstring jCommitted = env->NewStringUTF(result.committedText.c_str());
+    jstring jInput = env->NewStringUTF(result.inputText.c_str());
+
+    jobject jResult = env->NewObject(gRimeProcessResultClass, gRimeProcessResultCtor,
+        result.processed ? JNI_TRUE : JNI_FALSE,
+        jCommitted,
+        jInput,
+        candidateArray,
+        result.isAsciiMode ? JNI_TRUE : JNI_FALSE,
+        result.hasNextPage ? JNI_TRUE : JNI_FALSE,
+        result.hasPrevPage ? JNI_TRUE : JNI_FALSE);
+
+    env->DeleteLocalRef(jCommitted);
+    env->DeleteLocalRef(jInput);
+    env->DeleteLocalRef(candidateArray);
+
+    return jResult;
 }
 
 // 获取候选词列表
@@ -727,10 +864,12 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeGetAvailableSchemas(
     Rime::Instance().getAvailableSchemas(schemas);
     
     jclass stringClass = env->FindClass("java/lang/String");
+    if (!stringClass) return nullptr;
+    
     jobjectArray result = env->NewObjectArray(schemas.size(), stringClass, nullptr);
+    if (!result) return nullptr;
     
     for (size_t i = 0; i < schemas.size(); ++i) {
-        // 返回方案ID
         jstring str = env->NewStringUTF(schemas[i].first.c_str());
         env->SetObjectArrayElement(result, i, str);
         env->DeleteLocalRef(str);
@@ -814,6 +953,31 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeLookupText(
         return env->NewStringUTF(code.c_str());
     }
     return env->NewStringUTF("");
+}
+
+// 检查 Rime 模块是否已注册（用于测试插件集成）
+JNIEXPORT jboolean JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativeIsModuleRegistered(
+    JNIEnv* env,
+    jobject thiz,
+    jstring module_name
+) {
+    const char* name = env->GetStringUTFChars(module_name, nullptr);
+    if (!name) return JNI_FALSE;
+    
+    bool found = false;
+    RimeApi* api = rime_get_api();
+    if (api && RIME_API_AVAILABLE(api, find_module)) {
+        RimeModule* m = api->find_module(name);
+        found = (m != nullptr);
+    } else {
+        RimeModule* m = RimeFindModule(name);
+        found = (m != nullptr);
+    }
+    
+    LOGI("Module check: '%s' -> %s", name, found ? "FOUND" : "NOT FOUND");
+    env->ReleaseStringUTFChars(module_name, name);
+    return found ? JNI_TRUE : JNI_FALSE;
 }
 
 } // extern "C"

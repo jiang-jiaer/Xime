@@ -42,7 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.settings.UploadResult
 import com.kingzcheung.xime.settings.WirelessImportHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,13 +62,15 @@ fun WirelessImportSheet(
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        val port = helper.findAvailablePort()
-        val url = helper.start(port)
-        if (url != null) {
-            serverUrl = url
-            qrBitmap = helper.generateQrCode(url)
-        } else {
-            error = "无法获取 IP 地址，请确保已连接 WiFi"
+        withContext(Dispatchers.Default) {
+            val port = helper.findAvailablePort()
+            val url = helper.start(port)
+            if (url != null) {
+                serverUrl = url
+                qrBitmap = helper.generateQrCode(url)
+            } else {
+                error = "无法获取 IP 地址，请确保已连接 WiFi"
+            }
         }
     }
 

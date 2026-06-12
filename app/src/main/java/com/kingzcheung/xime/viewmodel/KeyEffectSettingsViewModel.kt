@@ -13,7 +13,8 @@ data class KeyEffectUiState(
     val soundVolume: Int = 50,
     val vibrationEnabled: Boolean = true,
     val vibrationIntensity: Int = 50,
-    val swipeDownShowRootsEnabled: Boolean = false
+    val swipeUpHintsEnabled: Boolean = true,
+    val swipeDownHintsEnabled: Boolean = true
 )
 
 class KeyEffectSettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -24,7 +25,8 @@ class KeyEffectSettingsViewModel(application: Application) : AndroidViewModel(ap
         soundVolume = SettingsPreferences.getSoundVolume(context),
         vibrationEnabled = SettingsPreferences.isVibrationEnabled(context),
         vibrationIntensity = SettingsPreferences.getVibrationIntensity(context),
-        swipeDownShowRootsEnabled = SettingsPreferences.isSwipeDownShowRootsEnabled(context)
+        swipeUpHintsEnabled = SettingsPreferences.isSwipeUpHintsEnabled(context),
+        swipeDownHintsEnabled = SettingsPreferences.isSwipeDownHintsEnabled(context)
     ))
     val uiState: StateFlow<KeyEffectUiState> = _uiState.asStateFlow()
     
@@ -48,8 +50,13 @@ class KeyEffectSettingsViewModel(application: Application) : AndroidViewModel(ap
         _uiState.update { it.copy(vibrationIntensity = intensity) }
     }
     
-    fun setSwipeDownShowRootsEnabled(enabled: Boolean) {
-        SettingsPreferences.setSwipeDownShowRootsEnabled(context, enabled)
-        _uiState.update { it.copy(swipeDownShowRootsEnabled = enabled) }
+    fun setSwipeUpHintsEnabled(enabled: Boolean) {
+        SettingsPreferences.setSwipeUpHintsEnabled(context, enabled)
+        _uiState.update { it.copy(swipeUpHintsEnabled = enabled) }
+    }
+    
+    fun setSwipeDownHintsEnabled(enabled: Boolean) {
+        SettingsPreferences.setSwipeDownHintsEnabled(context, enabled)
+        _uiState.update { it.copy(swipeDownHintsEnabled = enabled) }
     }
 }

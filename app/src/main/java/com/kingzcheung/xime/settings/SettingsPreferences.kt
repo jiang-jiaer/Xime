@@ -8,6 +8,8 @@ object SettingsPreferences {
     private const val PREFS_NAME = "kime_settings"
     private const val KEY_CURRENT_SCHEMA = "current_schema"
     private const val KEY_DEPLOYMENT_DONE = "deployment_done"
+    private const val KEY_DEPLOYMENT_HASH = "deployment_hash"
+    private const val KEY_SETUP_COMPLETED = "setup_completed"
     private const val KEY_DARK_MODE = "dark_mode"
     
     private const val KEY_SOUND_ENABLED = "sound_enabled"
@@ -28,7 +30,12 @@ object SettingsPreferences {
     
     private const val KEY_PUNCTUATION_MODEL_ENABLED = "punctuation_model_enabled"
     
-    private const val KEY_SWIPE_DOWN_SHOW_ROOTS = "swipe_down_show_roots"
+    /** 默认主题 ID，可从 xime.yaml 的 style.color_scheme 初始化。 */
+    @JvmStatic
+    var defaultKeyboardTheme: String = "lavender_purple"
+    
+    const val KEY_SWIPE_UP_HINTS_ENABLED = "swipe_up_hints_enabled"
+    const val KEY_SWIPE_DOWN_HINTS_ENABLED = "swipe_down_hints_enabled"
     
     private const val KEY_LAYOUT_PREFIX = "layout_pref_"
     
@@ -40,7 +47,7 @@ object SettingsPreferences {
     private const val DEFAULT_KEYBOARD_BOTTOM_PADDING_DP = 0
 
     private const val KEY_TOOLBAR_BUTTONS = "toolbar_buttons"
-    private val DEFAULT_TOOLBAR_BUTTONS = com.kingzcheung.xime.ui.ToolbarButton.DEFAULT_VISIBLE.joinToString(",") { it.id }
+    private val DEFAULT_TOOLBAR_BUTTONS = com.kingzcheung.xime.keyboard.ToolbarButton.DEFAULT_VISIBLE.joinToString(",") { it.id }
 
     fun getToolbarButtons(context: Context): List<String> {
         val raw = getPrefs(context).getString(KEY_TOOLBAR_BUTTONS, DEFAULT_TOOLBAR_BUTTONS) ?: DEFAULT_TOOLBAR_BUTTONS
@@ -57,7 +64,27 @@ object SettingsPreferences {
     private const val KEY_WEBDAV_PATH = "webdav_path"
 
     private const val KEY_SCHEMA_IMPORT_WARNING_DISMISSED = "schema_import_warning_dismissed"
-    
+
+    private const val KEY_INSTALLED_MARKET_IDS = "installed_market_ids"
+    private const val KEY_COMPACT_MODE = "compact_mode"
+    private const val KEY_SHOW_CANDIDATE_COMMENTS = "show_candidate_comments"
+
+    fun isCompactModeEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_COMPACT_MODE, true)
+    }
+
+    fun setCompactModeEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_COMPACT_MODE, enabled).apply()
+    }
+
+    fun showCandidateComments(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_SHOW_CANDIDATE_COMMENTS, true)
+    }
+
+    fun setShowCandidateComments(context: Context, show: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_SHOW_CANDIDATE_COMMENTS, show).apply()
+    }
+
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
@@ -81,7 +108,23 @@ object SettingsPreferences {
     fun setDeploymentDone(context: Context, done: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_DEPLOYMENT_DONE, done).apply()
     }
-    
+
+    fun getDeploymentHash(context: Context): String {
+        return getPrefs(context).getString(KEY_DEPLOYMENT_HASH, "") ?: ""
+    }
+
+    fun setDeploymentHash(context: Context, hash: String) {
+        getPrefs(context).edit().putString(KEY_DEPLOYMENT_HASH, hash).apply()
+    }
+
+    fun isSetupCompleted(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_SETUP_COMPLETED, false)
+    }
+
+    fun setSetupCompleted(context: Context, completed: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_SETUP_COMPLETED, completed).apply()
+    }
+
     fun getDarkMode(context: Context): Int {
         // 0 = 浅色, 1 = 深色, 2 = 跟随系统（默认）
         return getPrefs(context).getInt(KEY_DARK_MODE, 2)
@@ -124,7 +167,7 @@ object SettingsPreferences {
     }
     
     fun getKeyboardTheme(context: Context): String {
-        return getPrefs(context).getString(KEY_KEYBOARD_THEME, "lavender_purple") ?: "lavender_purple"
+        return getPrefs(context).getString(KEY_KEYBOARD_THEME, defaultKeyboardTheme) ?: defaultKeyboardTheme
     }
     
     fun setKeyboardTheme(context: Context, themeId: String) {
@@ -220,12 +263,20 @@ object SettingsPreferences {
         getPrefs(context).edit().putBoolean(KEY_PUNCTUATION_MODEL_ENABLED, enabled).apply()
     }
     
-    fun isSwipeDownShowRootsEnabled(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_SWIPE_DOWN_SHOW_ROOTS, false)
+    fun isSwipeUpHintsEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_SWIPE_UP_HINTS_ENABLED, true)
     }
     
-    fun setSwipeDownShowRootsEnabled(context: Context, enabled: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_SWIPE_DOWN_SHOW_ROOTS, enabled).apply()
+    fun setSwipeUpHintsEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_SWIPE_UP_HINTS_ENABLED, enabled).apply()
+    }
+    
+    fun isSwipeDownHintsEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_SWIPE_DOWN_HINTS_ENABLED, true)
+    }
+    
+    fun setSwipeDownHintsEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_SWIPE_DOWN_HINTS_ENABLED, enabled).apply()
     }
     
     /** 获取方案偏好的键盘布局，默认全键盘 */
@@ -313,5 +364,25 @@ object SettingsPreferences {
 
     fun setSchemaImportWarningDismissed(context: Context, dismissed: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_SCHEMA_IMPORT_WARNING_DISMISSED, dismissed).apply()
+    }
+
+    // ── 方案市场「已安装」的持久记录 ──
+    // 记录用户通过市场主动安装过的方案 id；与本地文件存在性解耦（方案可能仅作为依赖落盘，
+    // 文件存在不代表用户装过它），且跨重启保持。
+    fun getInstalledMarketIds(context: Context): Set<String> =
+        getPrefs(context).getStringSet(KEY_INSTALLED_MARKET_IDS, emptySet())?.toSet() ?: emptySet()
+
+    fun addInstalledMarketId(context: Context, id: String) {
+        val cur = getInstalledMarketIds(context).toMutableSet()
+        if (cur.add(id)) {
+            getPrefs(context).edit().putStringSet(KEY_INSTALLED_MARKET_IDS, cur).apply()
+        }
+    }
+
+    fun removeInstalledMarketId(context: Context, id: String) {
+        val cur = getInstalledMarketIds(context).toMutableSet()
+        if (cur.remove(id)) {
+            getPrefs(context).edit().putStringSet(KEY_INSTALLED_MARKET_IDS, cur).apply()
+        }
     }
 }

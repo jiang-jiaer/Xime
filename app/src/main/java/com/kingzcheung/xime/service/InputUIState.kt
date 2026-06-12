@@ -3,7 +3,7 @@ package com.kingzcheung.xime.service
 import com.kingzcheung.xime.settings.SchemaInfo
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.speech.RecognitionState
-import com.kingzcheung.xime.ui.ToolbarButton
+import com.kingzcheung.xime.keyboard.ToolbarButton
 
 data class InputUIState(
     val candidates: Array<String> = emptyArray(),
@@ -42,8 +42,8 @@ data class InputUIState(
     val hasNextPage: Boolean = false,
     val hasPrevPage: Boolean = false,
     val inputSessionId: Long = 0,
-    val t9ResetSignal: Long = 0,
-    val toolbarButtons: List<String> = ToolbarButton.DEFAULT_VISIBLE.map { it.id }
+    val toolbarButtons: List<String> = ToolbarButton.DEFAULT_VISIBLE.map { it.id },
+    val isCompact: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -89,6 +89,7 @@ data class InputUIState(
         if (inputSessionId != other.inputSessionId) return false
         if (t9ResetSignal != other.t9ResetSignal) return false
         if (toolbarButtons != other.toolbarButtons) return false
+        if (isCompact != other.isCompact) return false
 
         return true
     }
@@ -131,6 +132,7 @@ data class InputUIState(
         result = 31 * result + hasPrevPage.hashCode()
         result = 31 * result + t9ResetSignal.hashCode()
         result = 31 * result + toolbarButtons.hashCode()
+        result = 31 * result + isCompact.hashCode()
         return result
     }
 }

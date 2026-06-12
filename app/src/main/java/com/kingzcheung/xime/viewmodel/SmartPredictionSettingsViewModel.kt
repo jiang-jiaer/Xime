@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
 import java.net.URL
 
 data class SmartPredictionUiState(
@@ -171,7 +172,10 @@ class SmartPredictionSettingsViewModel(application: Application) : AndroidViewMo
                             else -> "$baseUrl/$fileName"
                         }
                         
-                        URL(downloadUrl).openStream().use { input ->
+                        val conn = URL(downloadUrl).openConnection() as HttpURLConnection
+                        conn.connectTimeout = 30000
+                        conn.readTimeout = 120000
+                        conn.inputStream.use { input ->
                             FileOutputStream(targetFile).use { output ->
                                 input.copyTo(output)
                             }

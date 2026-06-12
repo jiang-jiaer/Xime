@@ -266,6 +266,11 @@ fun AudioSpectrumAnimation(
     isActive: Boolean = true,
     amplitude: Float = 0f
 ) {
+    if (!isActive) {
+        Canvas(modifier = modifier) {}
+        return
+    }
+
     val infiniteTransition = rememberInfiniteTransition(label = "spectrum")
     
     val barCount = 9
@@ -385,11 +390,7 @@ fun AudioSpectrumAnimation(
             val baseHeight = animValue
             
             val barHeight = maxHeight * (
-                if (isActive) {
-                    (baseHeight * 0.4f + amplitudeValue * 0.6f).coerceIn(0.1f, 0.95f)
-                } else {
-                    0.1f
-                }
+                (baseHeight * 0.4f + amplitudeValue * 0.6f).coerceIn(0.1f, 0.95f)
             )
             
             val totalWidth = barCount * barWidth + (barCount - 1) * spacing
@@ -397,11 +398,7 @@ fun AudioSpectrumAnimation(
             val x = startX + index * (barWidth + spacing)
             val y = (maxHeight - barHeight) / 2f
             
-            val barAlpha = if (isActive) {
-                0.5f + amplitudeValue * 0.5f
-            } else {
-                0.3f
-            }
+            val barAlpha = 0.5f + amplitudeValue * 0.5f
             
             drawRoundRect(
                 color = colors[index % colors.size].copy(alpha = barAlpha),

@@ -40,6 +40,14 @@ class CalculatorEngine {
     /** 获取已在输入框中提交的表达式文本，如 "12+35" */
     fun getExpression(): String = "$leftOperand$operator_$rightOperand"
 
+    /** 获取带公式的结果文本，如 "12+35=47"，用于候选栏直接提交 */
+    fun getFormulaResult(): String {
+        if (!isActive()) return ""
+        val result = getResult()
+        if (result.isEmpty()) return ""
+        return "$leftOperand$operator_$rightOperand=$result"
+    }
+
     /** 获取候选栏显示文本，如 "12 + 35 = 47"，null 表示不显示 */
     fun getCandidate(): String? {
         if (!isActive()) return null

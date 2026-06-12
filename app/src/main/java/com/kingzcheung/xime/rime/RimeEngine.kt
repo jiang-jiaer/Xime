@@ -7,6 +7,39 @@ data class RimeCandidate(
     val comment: String
 )
 
+data class RimeProcessResult(
+    val processed: Boolean,
+    val committedText: String,
+    val inputText: String,
+    val candidates: Array<RimeCandidate>,
+    val isAsciiMode: Boolean,
+    val hasNextPage: Boolean,
+    val hasPrevPage: Boolean
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RimeProcessResult) return false
+        return processed == other.processed &&
+                committedText == other.committedText &&
+                inputText == other.inputText &&
+                candidates.contentEquals(other.candidates) &&
+                isAsciiMode == other.isAsciiMode &&
+                hasNextPage == other.hasNextPage &&
+                hasPrevPage == other.hasPrevPage
+    }
+
+    override fun hashCode(): Int {
+        var result = processed.hashCode()
+        result = 31 * result + committedText.hashCode()
+        result = 31 * result + inputText.hashCode()
+        result = 31 * result + candidates.contentHashCode()
+        result = 31 * result + isAsciiMode.hashCode()
+        result = 31 * result + hasNextPage.hashCode()
+        result = 31 * result + hasPrevPage.hashCode()
+        return result
+    }
+}
+
 class RimeEngine {
 
     companion object {
@@ -29,6 +62,15 @@ class RimeEngine {
         }
 
         fun isInitialized(): Boolean = instance?.isInitialized ?: false
+
+        /**
+         * 检查指定的 Rime 模块是否已注册（用于验证插件集成）
+         */
+        fun isModuleRegistered(moduleName: String): Boolean {
+            val engine = instance ?: return false
+            if (!engine.isInitialized) return false
+            return engine.nativeIsModuleRegistered(moduleName)
+        }
 
         fun setDeploymentCallback(callback: (isDeploying: Boolean, message: String) -> Unit) {
             deploymentCallback = callback
@@ -73,30 +115,44 @@ class RimeEngine {
         synchronized(rimeLock) {
             if (nativeHasSession() && getAvailableSchemas().isNotEmpty()) return true
 
-            var waited = 0L
-            while (waited < timeoutMs) {
-                if (!nativeHasSession()) {
-                    nativeCreateSession()
-                }
-                if (getAvailableSchemas().isNotEmpty()) {
-                    if (waited > 100) {
-                        Log.d(TAG, "ensureSession: schemas ready after ${waited}ms")
-                    }
-                    return true
-                }
-                try {
-                    Thread.sleep(100)
-                } catch (_: InterruptedException) {
-                    return false
-                }
-                waited += 100
-                if (waited % 5000 == 0L) {
-                    Log.d(TAG, "ensureSession: waiting for schemas... (${waited/1000}s)")
-                }
+        // 先等编译完成再创建 session（编译可能在后台进行）
+        var waited = 0L
+        while (nativeIsMaintaining() && waited < timeoutMs) {
+            try {
+                Thread.sleep(100)
+            } catch (_: InterruptedException) {
+                return false
+            }
+            waited += 100
+            if (waited % 5000 == 0L) {
+                Log.d(TAG, "ensureSession: waiting for maintenance... (${waited / 1000}s)")
+            }
+        }
+        // 编译完成后尝试创建 session
+        waited = 0L
+        while (waited < timeoutMs) {
+            // 先创建 session（get_schema_list 需要 session 才能读取方案列表）
+            if (!nativeHasSession()) {
+                nativeCreateSession()
+            }
+            if (getAvailableSchemas().isNotEmpty()) {
+                Log.d(TAG, "ensureSession: schemas ready after ${waited}ms")
+                return true
+            }
+            try {
+                Thread.sleep(100)
+            } catch (_: InterruptedException) {
+                return false
+            }
+            waited += 100
+            if (waited % 5000 == 0L) {
+                Log.d(TAG, "ensureSession: waiting for schemas... (${waited / 1000}s)")
             }
             Log.w(TAG, "ensureSession: schemas not available after ${timeoutMs}ms, deployment may still be running")
             return false
         }
+        Log.w(TAG, "ensureSession: schemas not available after ${timeoutMs}ms")
+        return false
     }
 
     fun isMaintaining(): Boolean {
@@ -118,6 +174,13 @@ class RimeEngine {
             if (!nativeHasSession() && !nativeCreateSession()) return false
             return nativeProcessKey(keycode, mask)
         }
+    }
+
+    fun processKeyAndGetResult(keycode: Int, mask: Int): RimeProcessResult {
+        if (!isInitialized) return RimeProcessResult(false, "", "", emptyArray(), false, false, false)
+        if (!nativeHasSession() && !nativeCreateSession())
+            return RimeProcessResult(false, "", "", emptyArray(), false, false, false)
+        return nativeProcessKeyAndGetResult(keycode, mask)
     }
 
     fun getCandidates(): Array<String> {
@@ -237,10 +300,7 @@ class RimeEngine {
     }
 
     fun getAvailableSchemas(): Array<String> {
-        synchronized(rimeLock) {
-            if (!nativeHasSession()) return emptyArray()
-            return nativeGetAvailableSchemas() ?: emptyArray()
-        }
+        return nativeGetAvailableSchemas() ?: emptyArray()
     }
 
     fun destroy() {
@@ -260,6 +320,7 @@ class RimeEngine {
     private external fun nativeIsMaintaining(): Boolean
     private external fun nativeGetCurrentSchema(): String?
     private external fun nativeProcessKey(keycode: Int, mask: Int): Boolean
+    private external fun nativeProcessKeyAndGetResult(keycode: Int, mask: Int): RimeProcessResult
     private external fun nativeGetCandidates(): Array<String>?
     private external fun nativeGetCandidatesWithComments(): Array<Array<String>>?
     private external fun nativeGetInput(): String?
@@ -278,6 +339,7 @@ class RimeEngine {
     private external fun nativeDeploySchema(schemaId: String): Boolean
     private external fun nativeLookupText(text: String): String
     private external fun nativeGetAvailableSchemas(): Array<String>?
+    private external fun nativeIsModuleRegistered(moduleName: String): Boolean
     private external fun nativeUpdateLastBuildTime()
     private external fun nativeDestroy()
 

@@ -6,6 +6,9 @@ import com.kingzcheung.xime.plugin.ExtensionManager
 import com.kingzcheung.xime.plugin.core.runtime.PluginManager
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
+import com.kingzcheung.xime.settings.KeysConfigHelper
+import com.kingzcheung.xime.settings.SettingsPreferences
+import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,7 +48,14 @@ class XimeApplication : Application() {
         
         Log.d(TAG, "Initializing ExtensionManager...")
         ExtensionManager.initialize(this)
-        
+
+        // 从 xime.yaml 加载配色方案
+        KeyboardThemes.initFromConfig(this)
+
+        // 从 xime.yaml 的 style.color_scheme 读取默认主题
+        SettingsPreferences.defaultKeyboardTheme = KeysConfigHelper.loadDefaultThemeId(this)
+        Log.d(TAG, "Default keyboard theme: ${SettingsPreferences.defaultKeyboardTheme}")
+
         preInitializeRimeEngine()
         
         Log.d(TAG, "Initialization complete")
@@ -61,7 +71,18 @@ class XimeApplication : Application() {
         applicationScope.launch {
             try {
                 val (userDataDir, sharedDataDir) = RimeConfigHelper.initializeRimeDataAsync(this@XimeApplication)
-                RimeEngine.getInstance().initialize(userDataDir, sharedDataDir)
+                val engine = RimeEngine.getInstance()
+                engine.initialize(userDataDir, sharedDataDir)
+
+                // 首次启动时静默编译词库，避免用户在设置中手动点「部署」
+                if (!SettingsPreferences.isDeploymentDone(this@XimeApplication)) {
+                    Log.d(TAG, "First launch: silently deploying schemas...")
+                    engine.deploy()
+                    SettingsPreferences.setDeploymentDone(this@XimeApplication, true)
+                    RimeConfigHelper.storeDeploymentHash(this@XimeApplication)
+                    Log.d(TAG, "Silent deploy completed")
+                }
+
                 Log.d(TAG, "Rime engine pre-initialization completed")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to pre-initialize Rime engine", e)

@@ -122,52 +122,15 @@ jobs:
           echo "meme_bunny_apks=$MEME_BUNNY_APKS" >> $GITHUB_OUTPUT
           echo "kaomoji_apks=$KAOMOJI_APKS" >> $GITHUB_OUTPUT
           
-          echo "Main App APKs:"
-          echo "$MAIN_APKS" | tr ',' '\n'
-          echo "Meme Bunny Plugin APKs:"
-          echo "$MEME_BUNNY_APKS" | tr ',' '\n'
-          echo "Kaomoji Plugin APKs:"
-          echo "$KAOMOJI_APKS" | tr ',' '\n'
-          
           if [ -z "$MAIN_APKS" ]; then
             echo "::warning::No main app APKs found!"
-            ls -la app/build/outputs/apk/release/
           fi
-        
-      - name: Generate changelog
-        id: changelog
-        run: |
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$PREVIOUS_TAG" ]; then
-            CHANGELOG=$(git log $PREVIOUS_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
-          else
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
-          fi
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
         
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           name: Xime ${{ steps.get_version.outputs.VERSION }}
-          body: |
-            ## Xime ${{ steps.get_version.outputs.VERSION }}
-            
-            ### 主程序下载
-            选择对应架构的APK：
-            - **arm64-v8a**: 适用于大多数现代手机
-            - **armeabi-v7a**: 适用于旧款32位手机
-            - **x86_64**: 适用于模拟器
-            - **universal**: 包含所有架构，体积较大
-            
-            ### 插件下载（可选）
-            插件为独立 APK，安装后可在主应用中启用：
-            - **meme-bunny**: 恶搞兔表情包插件（提供8个表情）
-            - **kaomoji**: 颜文字插件（提供精选颜文字）
-            
-            ### 安装说明
-            ${{ steps.changelog.outputs.CHANGELOG }}
+          generate_release_notes: true
           files: |
             ${{ steps.find_apks.outputs.main_apks }}
             ${{ steps.find_apks.outputs.meme_bunny_apks }}

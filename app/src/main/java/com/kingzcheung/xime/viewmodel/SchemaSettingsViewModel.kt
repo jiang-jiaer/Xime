@@ -5,7 +5,9 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kingzcheung.xime.rime.RimeEngine
+import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
+import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.settings.SchemaMeta
 import com.kingzcheung.xime.settings.SettingsPreferences
 import kotlinx.coroutines.Dispatchers
@@ -36,18 +38,23 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun refresh() {
-        val allSchemas = SchemaManager.discoverSchemas(context)
-        val enabledSchemas = SchemaManager.getEnabledSchemas(context)
-        val currentSchema = SettingsPreferences.getCurrentSchema(context)
-
-        val sorted = allSchemas.sortedByDescending { it.schemaId in enabledSchemas }
-
-        _uiState.update {
-            it.copy(
-                allSchemas = sorted,
-                enabledSchemas = enabledSchemas,
-                currentSchema = currentSchema
-            )
+        // 在 IO 线程读盘（discoverSchemas/getEnabledSchemas 扫描文件），避免 ON_RESUME 在主线程卡顿
+        viewModelScope.launch {
+            val (allSchemas, enabledSchemas, currentSchema) = withContext(Dispatchers.IO) {
+                Triple(
+                    SchemaManager.discoverSchemas(context),
+                    SchemaManager.getEnabledSchemas(context),
+                    SettingsPreferences.getCurrentSchema(context),
+                )
+            }
+            val sorted = allSchemas.sortedByDescending { it.schemaId in enabledSchemas }
+            _uiState.update {
+                it.copy(
+                    allSchemas = sorted,
+                    enabledSchemas = enabledSchemas,
+                    currentSchema = currentSchema
+                )
+            }
         }
     }
 
@@ -58,8 +65,12 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
         } else {
             enabled.add(schema.schemaId)
         }
-        SchemaManager.setEnabledSchemas(context, enabled)
-        _uiState.update { it.copy(enabledSchemas = enabled) }
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                SchemaManager.setEnabledSchemas(context, enabled)
+            }
+            _uiState.update { it.copy(enabledSchemas = enabled) }
+        }
     }
 
     fun selectSchema(schema: SchemaMeta) {
@@ -102,15 +113,19 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun deleteSchema(schema: SchemaMeta) {
-        SchemaManager.deleteSchemaFiles(context, schema.schemaId)
-        if (_uiState.value.currentSchema == schema.schemaId) {
-            val remaining = _uiState.value.allSchemas.firstOrNull { it.schemaId != schema.schemaId }
-            if (remaining != null) {
-                selectSchema(remaining)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                SchemaManager.deleteSchemaFiles(context, schema.schemaId)
             }
+            if (_uiState.value.currentSchema == schema.schemaId) {
+                val remaining = _uiState.value.allSchemas.firstOrNull { it.schemaId != schema.schemaId }
+                if (remaining != null) {
+                    selectSchema(remaining)
+                }
+            }
+            refresh()
+            showToast("${schema.name} 已删除")
         }
-        refresh()
-        showToast("${schema.name} 已删除")
     }
 
     fun deploySchema() {
@@ -118,19 +133,11 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             _uiState.update { it.copy(isDeploying = true) }
             val success = withContext(Dispatchers.IO) {
+                // 部署前重新加载 xime 手势配置和配色方案（用户可能更新了 xime.custom.yaml）
+                KeysConfigHelper.loadConfig(context)
+                KeyboardThemes.reload(context)
                 val engine = RimeEngine.getInstance()
-                engine.startMaintenance(false)
-                // 等待编译完成（最多等 120 秒）
-                var waited = 0L
-                while (engine.isMaintaining() && waited < 120_000L) {
-                    Thread.sleep(100)
-                    waited += 100
-                }
-                val done = !engine.isMaintaining()
-                if (done) {
-                    engine.updateLastBuildTime()
-                }
-                done
+                engine.deploy()
             }
             _uiState.update { it.copy(isDeploying = false) }
             showToast(if (success) "部署完成" else "部署失败")

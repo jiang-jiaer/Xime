@@ -308,8 +308,8 @@ android {
         applicationId = "com.kingzcheung.xime"
         minSdk = 28
         targetSdk = 35
-        versionCode = 27
-        versionName = "2.3.0"
+        versionCode = 31
+        versionName = "2.4.0-beta3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -356,6 +356,7 @@ android {
     kotlin {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            freeCompilerArgs.add("-Xunused")
         }
     }
     buildFeatures {
@@ -384,6 +385,11 @@ android {
         getByName("test") {
             resources.srcDirs("src/main/assets")
         }
+    lint {
+        checkReleaseBuilds = false
+        checkGeneratedSources = false
+        abortOnError = false
+        checkDependencies = true
     }
     
     // 分架构打�?

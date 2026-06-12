@@ -8,7 +8,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kingzcheung.xime.ui.settings.DictionarySettingsContent
 import com.kingzcheung.xime.ui.settings.KeyEffectSettingsContent
+import com.kingzcheung.xime.ui.settings.LayoutDisplaySettingsContent
 import com.kingzcheung.xime.ui.settings.PluginSettingsContent
+import com.kingzcheung.xime.ui.settings.SchemaMarketContent
 import com.kingzcheung.xime.ui.settings.SchemaSettingsContent
 import com.kingzcheung.xime.ui.settings.SettingsMainContent
 import com.kingzcheung.xime.ui.settings.SettingsRoutes
@@ -18,10 +20,13 @@ import com.kingzcheung.xime.ui.settings.WebDavSyncContent
 @Composable
 fun SettingsScreen(
     initialRoute: String? = null,
-    onThemeChanged: () -> Unit = {}
+    onThemeChanged: () -> Unit = {},
+    onWizardBack: () -> Unit = {}
 ) {
     val navController = rememberNavController()
-    val startDestination = if (initialRoute == "manage_dict") SettingsRoutes.Dictionary else SettingsRoutes.Main
+    val startDestination = if (initialRoute == "manage_dict") SettingsRoutes.Dictionary
+    else if (initialRoute == "schema") SettingsRoutes.Schema
+    else SettingsRoutes.Main
     
     NavHost(
         navController = navController,
@@ -30,8 +35,10 @@ fun SettingsScreen(
         composable(SettingsRoutes.Main) {
             SettingsMainContent(
                 onNavigateToSchema = { navController.navigate(SettingsRoutes.Schema) },
+                onNavigateToSchemaMarket = { navController.navigate(SettingsRoutes.SchemaMarket) },
                 onNavigateToTheme = { navController.navigate(SettingsRoutes.Theme) },
                 onNavigateToKeyEffect = { navController.navigate(SettingsRoutes.KeyEffect) },
+                onNavigateToLayoutDisplay = { navController.navigate(SettingsRoutes.LayoutDisplay) },
                 onNavigateToDictionary = { navController.navigate(SettingsRoutes.Dictionary) },
                 onNavigateToPlugins = { navController.navigate(SettingsRoutes.Plugins) },
                 onNavigateToSmartPrediction = { navController.navigate(SettingsRoutes.SmartPrediction) },
@@ -42,6 +49,21 @@ fun SettingsScreen(
         }
         composable(SettingsRoutes.Schema) {
             SchemaSettingsContent(
+                onBack = {
+                    if (initialRoute == "schema") {
+                        navController.navigate(SettingsRoutes.Main) {
+                            popUpTo(SettingsRoutes.Main) { inclusive = true }
+                        }
+                    } else {
+                        navController.popBackStack()
+                    }
+                    onWizardBack()
+                },
+                onNavigateToMarket = { navController.navigate(SettingsRoutes.SchemaMarket) }
+            )
+        }
+        composable(SettingsRoutes.SchemaMarket) {
+            SchemaMarketContent(
                 onBack = { navController.popBackStack() }
             )
         }
@@ -71,6 +93,11 @@ fun SettingsScreen(
         }
         composable(SettingsRoutes.KeyEffect) {
             KeyEffectSettingsContent(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(SettingsRoutes.LayoutDisplay) {
+            LayoutDisplaySettingsContent(
                 onBack = { navController.popBackStack() }
             )
         }

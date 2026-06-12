@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,6 +26,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +58,20 @@ fun CandidatePage(
     val configuration = LocalConfiguration.current
     val isLandscape =
         configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    val centerPage = 1
+    val pagerState = rememberPagerState(initialPage = centerPage, pageCount = { 3 })
+
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != centerPage) {
+            if (pagerState.currentPage == 0 && hasPrevPage && onPageUp != null) {
+                onPageUp()
+            } else if (pagerState.currentPage == 2 && hasNextPage && onPageDown != null) {
+                onPageDown()
+            }
+            pagerState.scrollToPage(centerPage)
+        }
+    }
 
     Column(
         modifier = modifier
@@ -137,48 +155,54 @@ fun CandidatePage(
             }
         }
 
-        Column(
+        HorizontalPager(
+            state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
                 .padding(horizontal = 8.dp)
-        ) {
-            if (candidates.isNotEmpty()) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    candidates.forEachIndexed { index, candidate ->
-                        CandidatePageItem(
-                            text = candidate,
-                            comment = candidateComments.getOrElse(index) { "" },
-                            onClick = { onCandidateSelect(index) },
-                            textColor = textColor
-                        )
+        ) { page ->
+            if (page == centerPage) {
+                Column {
+                    if (candidates.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            candidates.forEachIndexed { index, candidate ->
+                                CandidatePageItem(
+                                    text = candidate,
+                                    comment = candidateComments.getOrElse(index) { "" },
+                                    onClick = { onCandidateSelect(index) },
+                                    textColor = textColor
+                                )
+                            }
+                        }
                     }
-                }
-            }
 
-            if (associationCandidates.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                    if (associationCandidates.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    associationCandidates.forEachIndexed { index, candidate ->
-                        CandidatePageItem(
-                            text = candidate,
-                            comment = "",
-                            onClick = { onAssociationSelect?.invoke(index) },
-                            textColor = textColor
-                        )
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            associationCandidates.forEachIndexed { index, candidate ->
+                                CandidatePageItem(
+                                    text = candidate,
+                                    comment = "",
+                                    onClick = { onAssociationSelect?.invoke(index) },
+                                    textColor = textColor
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
+
+        Spacer(modifier = Modifier.weight(1f))
 
         // 底部留空
         Spacer(
