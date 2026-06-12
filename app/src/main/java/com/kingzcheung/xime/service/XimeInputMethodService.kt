@@ -1147,6 +1147,44 @@ onVoiceModeChange = { enabled ->
         }
     }
 
+    private fun updateUIWithResult(result: com.kingzcheung.xime.rime.RimeProcessResult) {
+        val isAsciiMode = result.isAsciiMode
+        val candidatesWithComments = result.candidates
+        
+        val pendingEnglish = uiState.value.pendingEnglishText
+        
+        val (filteredTexts, filteredComments) = if (isAsciiMode) {
+            val filtered = candidatesWithComments.filterNot { candidate ->
+                candidate.text.any { it.code in 0x4E00..0x9FFF }
+            }
+            filtered.map { it.text }.toTypedArray() to filtered.map { it.comment }.toTypedArray()
+        } else {
+            candidatesWithComments.map { it.text }.toTypedArray() to candidatesWithComments.map { it.comment }.toTypedArray()
+        }
+        
+        uiState.value = uiState.value.copy(
+            inputText = result.inputText,
+            candidates = filteredTexts,
+            candidateComments = filteredComments,
+            isComposing = result.inputText.isNotEmpty(),
+            isAsciiMode = isAsciiMode,
+            associationCandidates = if (isAsciiMode && pendingEnglish.isEmpty()) emptyArray() else uiState.value.associationCandidates,
+            isShowingRecentClipboard = false,
+            hasNextPage = result.hasNextPage,
+            hasPrevPage = result.hasPrevPage
+        )
+        
+        if (pendingEnglish.isNotEmpty()) {
+            serviceScope.launch {
+                val candidates = predictionManager.getEnglishAssociations(pendingEnglish, 5)
+                Log.d(TAG, "English association for pending '$pendingEnglish': ${candidates.joinToString()}")
+                withContext(Dispatchers.Main) {
+                    uiState.value = uiState.value.copy(associationCandidates = candidates)
+                }
+            }
+        }
+    }
+
     private fun updateSchemaName() {
         serviceScope.launch(Dispatchers.IO) {
             val context = this@XimeInputMethodService
@@ -1183,6 +1221,7 @@ onVoiceModeChange = { enabled ->
         serviceScope.launch(keyProcessingDispatcher) {
             val state = uiState.value
             var needsUIUpdate = false
+            var pendingResult: com.kingzcheung.xime.rime.RimeProcessResult? = null
             
             when (key) {
                 "delete" -> {
@@ -1204,14 +1243,11 @@ onVoiceModeChange = { enabled ->
                         needsUIUpdate = true
                         Log.d(TAG, "Delete English pending: '$newPending'")
                     } else if (state.isComposing || state.inputText.isNotEmpty()) {
-                        rimeEngine.processKey(0xff08, 0)
-                        
-                        val currentInput = rimeEngine.getInput()
-                        if (currentInput.isEmpty()) {
+                        val result = rimeEngine.processKeyAndGetResult(0xff08, 0)
+                        if (result.inputText.isEmpty()) {
                             rimeEngine.clearComposition()
-                            Log.d(TAG, "Delete: encoding cleared, cleared composition and candidates")
                         }
-                        
+                        pendingResult = result
                         needsUIUpdate = true
                     } else {
                         predictionManager.deleteLastChar()
@@ -1441,15 +1477,15 @@ onVoiceModeChange = { enabled ->
                         val keyCode = key.lowercase()[0].code
                         val mask = if (isShifted) KeyEvent.META_SHIFT_ON else 0
                         
-                        val processed = rimeEngine.processKey(keyCode, mask)
+                        val result = rimeEngine.processKeyAndGetResult(keyCode, mask)
                         
-                        if (processed) {
+                        if (result.processed) {
                             needsUIUpdate = true
+                            pendingResult = result
                             
-                            val committedText = rimeEngine.commit()
-                            if (committedText.isNotEmpty()) {
+                            if (result.committedText.isNotEmpty()) {
                                 withContext(Dispatchers.Main) {
-                                    commitText(committedText)
+                                    commitText(result.committedText)
                                 }
                                 needsUIUpdate = true
                             }
@@ -1483,8 +1519,13 @@ onVoiceModeChange = { enabled ->
             }
             
             if (needsUIUpdate) {
+                val result = pendingResult
                 withContext(Dispatchers.Main) {
-                    updateUI()
+                    if (result != null) {
+                        updateUIWithResult(result)
+                    } else {
+                        updateUI()
+                    }
                 }
             }
         }
