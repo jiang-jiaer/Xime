@@ -134,30 +134,23 @@ fun ToolbarCustomizeView(
             }
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f)
+                .padding(horizontal = 16.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .padding(16.dp)
+                .padding(16.dp,10.dp)
         ) {
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxWidth()
             ) { page ->
                 FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     maxItemsInEachRow = 4
                 ) {
                     pages[page].forEach { button ->
@@ -189,13 +182,13 @@ fun ToolbarCustomizeView(
                                     Icon(
                                         imageVector = button.icon,
                                         contentDescription = button.label,
-                                        tint = if (isEnabled) accentColor else keyTextColor,
+                                        tint = if (isEnabled) accentColor else keyTextColor.copy(alpha = 0.8f),
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
                                 Text(
                                     text = button.label,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     color = keyTextColor.copy(alpha = 0.8f),
                                     maxLines = 1
                                 )
@@ -206,7 +199,7 @@ fun ToolbarCustomizeView(
                     }
                 }
             }
-        }        }
+        }
         if (pages.size > 1) {
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -232,3 +225,5 @@ fun ToolbarCustomizeView(
         Spacer(modifier = Modifier.height(if (isLandscape) 15.dp else maxOf(bottomPaddingDp, 40).dp))
     }
 }
+
+
