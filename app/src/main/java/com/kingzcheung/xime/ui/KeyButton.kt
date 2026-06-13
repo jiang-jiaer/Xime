@@ -79,6 +79,8 @@ fun KeyButton(
     onSwipeStateChange: ((SwipeState) -> Unit)? = null,
     fontSize: androidx.compose.ui.unit.TextUnit? = null,
     onPress: (() -> Unit)? = null,
+    /** 长按回调（含震动反馈），点按仍走 [onClick] */
+    onLongClick: (() -> Unit)? = null,
     shadowEnabled: Boolean = true,
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
@@ -90,8 +92,13 @@ fun KeyButton(
     var hasTriggeredSwipeDown by remember { mutableStateOf(false) }
     var isSwiping by remember { mutableStateOf(false) }
     var isSwipeDown by remember { mutableStateOf(false) }
+    /** 防止拖动手势和长按手势双重点击 */
+    var longPressActivated by remember { mutableStateOf(false) }
     
     val density = LocalDensity.current
+    val view = LocalView.current
+    val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnLongClick by rememberUpdatedState(onLongClick)
     val swipeUpThreshold = with(density) { (-30).dp.toPx() }
     val swipeDownThreshold = with(density) { 30.dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
@@ -136,8 +143,8 @@ fun KeyButton(
                         onPress?.invoke()
                     },
                     onDragEnd = {
-                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown && abs(dragOffsetX) < 5.dp.toPx() && dragOffsetY > swipeUpThreshold && dragOffsetY < swipeDownThreshold) {
-                            onClick()
+                        if (!longPressActivated && !hasTriggeredSwipeUp && !hasTriggeredSwipeDown && abs(dragOffsetX) < 5.dp.toPx() && dragOffsetY > swipeUpThreshold && dragOffsetY < swipeDownThreshold) {
+                            currentOnClick()
                         }
                         isPressed = false
                         dragOffsetX = 0f
@@ -146,6 +153,7 @@ fun KeyButton(
                         hasTriggeredSwipeDown = false
                         isSwiping = false
                         isSwipeDown = false
+                        longPressActivated = false
                         onSwipeStateChange?.invoke(SwipeState(false, null, false))
                     },
                     onDragCancel = {
@@ -196,18 +204,43 @@ fun KeyButton(
                     }
                 )
             }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        onPress?.invoke()
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onTap = {
-                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) onClick()
-                    }
-                )
+            .pointerInput(currentOnLongClick) {
+                if (currentOnLongClick == null) {
+                    // 无长按时使用简单点击检测
+                    detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            onPress?.invoke()
+                            tryAwaitRelease()
+                            isPressed = false
+                        },
+                        onTap = {
+                            if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) onClick()
+                        }
+                    )
+                } else {
+                    // 有长按回调：利用 detectTapGestures 的 onLongPress
+                    detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            longPressActivated = false
+                            onPress?.invoke()
+                            tryAwaitRelease()
+                            isPressed = false
+                        },
+                        onTap = {
+                            if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown && !longPressActivated) {
+                                currentOnClick()
+                            }
+                            longPressActivated = false
+                        },
+                        onLongPress = {
+                            longPressActivated = true
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                            currentOnLongClick?.invoke()
+                        }
+                    )
+                }
             },
         contentAlignment = Alignment.Center
     ) {

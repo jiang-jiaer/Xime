@@ -442,8 +442,9 @@ fun KeyboardLayout(
                             )
                         } else {
                             KeyButton(
-                                text = "123",
+                                text = "?123",
                                 onClick = { onKeyPress("mode_change") },
+                                onLongClick = { onKeyPress("mode_change_symbol") },
                                 backgroundColor = specialKeyBackgroundColor,
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(1.2f),
@@ -1127,8 +1128,9 @@ private fun LandscapeKeyboardContent(
                     shadowShapeRadius = shadowShapeRadius,
                 )
                 KeyButton(
-                    text = "123",
+                    text = "?123",
                     onClick = { onKeyPress("mode_change") },
+                    onLongClick = { onKeyPress("mode_change_symbol") },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,
                     modifier = Modifier.weight(1.2f),

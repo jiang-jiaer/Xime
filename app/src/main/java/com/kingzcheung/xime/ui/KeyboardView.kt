@@ -303,6 +303,7 @@ fun KeyboardView(
                             "mode_change" -> keyboardState = keyboardState.transition(
                                 KeyboardLayoutAction.SwitchToNumber, isAsciiMode
                             )
+                            "mode_change_symbol" -> currentRoute = KeyboardRoute.Symbol
                             "emoji" -> currentRoute = KeyboardRoute.Emoji
                             else -> onKeyPress(key, isShifted)
                         }
@@ -322,7 +323,7 @@ fun KeyboardView(
                             "abc" -> keyboardState = keyboardState.transition(
                                 KeyboardLayoutAction.SwitchToFull, isAsciiMode
                             )
-                            "123" -> keyboardState = keyboardState.transition(
+                            "?123" -> keyboardState = keyboardState.transition(
                                 KeyboardLayoutAction.SwitchToNumber, isAsciiMode
                             )
                             else -> onKeyPress(key, false)
