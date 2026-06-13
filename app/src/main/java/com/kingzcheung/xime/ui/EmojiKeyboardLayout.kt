@@ -313,9 +313,9 @@ fun EmojiKeyboardLayout(
         }
 
         // Pager 滑动时同步到外部状态
-        LaunchedEffect(pagerState.currentPage) {
+        LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
             val page = pagerState.currentPage
-            if (page != currentPageIndex) {
+            if (!pagerState.isScrollInProgress && page != currentPageIndex) {
                 if (page < builtinCategories.size) {
                     selectedTopTabIndex = 0
                     selectedSubCategoryIndex = page
