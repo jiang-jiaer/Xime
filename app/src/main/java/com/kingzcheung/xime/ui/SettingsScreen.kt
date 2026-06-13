@@ -11,6 +11,7 @@ import com.kingzcheung.xime.ui.settings.KeyEffectSettingsContent
 import com.kingzcheung.xime.ui.settings.LayoutDisplaySettingsContent
 import com.kingzcheung.xime.ui.settings.PluginSettingsContent
 import com.kingzcheung.xime.ui.settings.SchemaMarketContent
+import com.kingzcheung.xime.ui.settings.SchemaMarketDetailContent
 import com.kingzcheung.xime.ui.settings.SchemaSettingsContent
 import com.kingzcheung.xime.ui.settings.SettingsMainContent
 import com.kingzcheung.xime.ui.settings.SettingsRoutes
@@ -64,7 +65,20 @@ fun SettingsScreen(
         }
         composable(SettingsRoutes.SchemaMarket) {
             SchemaMarketContent(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onNavigateToDetail = { schemeId ->
+                    navController.navigate("schema_market_detail/$schemeId")
+                },
+            )
+        }
+        composable(
+            route = SettingsRoutes.SchemaMarketDetail,
+            arguments = listOf(navArgument("schemeId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val schemeId = backStackEntry.arguments?.getString("schemeId") ?: return@composable
+            SchemaMarketDetailContent(
+                schemeId = schemeId,
+                onBack = { navController.popBackStack() },
             )
         }
         composable(SettingsRoutes.Theme) {

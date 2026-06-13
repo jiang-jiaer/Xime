@@ -17,6 +17,10 @@ object XimeIndexParser {
     fun parseSubIndex(text: String): SchemesSubIndex =
         yaml.decodeFromString(SchemesSubIndex.serializer(), text)
 
+    /** 解析扁平索引（rimes/index.yaml），其中 schemas 直接内联 MarketScheme 列表。 */
+    fun parseDirectIndex(text: String): SchemasDirectIndex =
+        yaml.decodeFromString(SchemasDirectIndex.serializer(), text)
+
     fun parseScheme(text: String): MarketScheme =
         yaml.decodeFromString(MarketScheme.serializer(), migrateDownloadUrl(text))
 

@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -29,6 +30,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +65,7 @@ import com.kingzcheung.xime.viewmodel.SchemaMarketViewModel
 @Composable
 fun SchemaMarketContent(
     onBack: () -> Unit,
+    onNavigateToDetail: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val viewModel: SchemaMarketViewModel = viewModel()
@@ -188,11 +192,17 @@ fun SchemaMarketContent(
                     items(uiState.filteredSchemes, key = { it.scheme.id }) { item ->
                         SchemeCard(
                             item = item,
-                            installing = uiState.installingId == item.scheme.id,
+                            downloading = uiState.downloadingId == item.scheme.id,
+                            downloadProgress = uiState.downloadProgress,
+                            extracting = uiState.extractingId == item.scheme.id,
+                            downloaded = item.scheme.id in uiState.downloadedIds,
                             installed = item.scheme.id in uiState.installedIds,
+                            sha256Status = uiState.sha256Status[item.scheme.id],
                             deploying = uiState.isDeploying,
-                            onInstall = { viewModel.installScheme(item) },
+                            onDownload = { viewModel.downloadScheme(item) },
+                            onInstall = { viewModel.installFromMarket(item) },
                             onDeploy = { viewModel.deploy() },
+                            onDelete = { viewModel.deleteDownloadedScheme(item.scheme.id) },
                         )
                     }
                     item {
@@ -220,11 +230,17 @@ private fun CenterBox(content: @Composable () -> Unit) {
 @Composable
 private fun SchemeCard(
     item: MarketSchemeItem,
-    installing: Boolean,
+    downloading: Boolean,
+    downloadProgress: Float,
+    extracting: Boolean,
+    downloaded: Boolean,
     installed: Boolean,
+    sha256Status: Boolean?,
     deploying: Boolean,
+    onDownload: () -> Unit,
     onInstall: () -> Unit,
     onDeploy: () -> Unit,
+    onDelete: () -> Unit = {},
 ) {
     val scheme = item.scheme
     Card(
@@ -232,6 +248,7 @@ private fun SchemeCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
+            // 标题行：名称 + 版本号（无v前缀）
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     scheme.name.ifEmpty { scheme.id },
@@ -239,11 +256,19 @@ private fun SchemeCard(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                if (scheme.currentVersion.isNotEmpty()) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        scheme.currentVersion,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
                 if (scheme.type == "built-in") {
-                    Tag("内置")
                     Spacer(Modifier.width(6.dp))
+                    Tag("内置")
                 }
             }
             if (scheme.description.isNotEmpty()) {
@@ -256,28 +281,74 @@ private fun SchemeCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (scheme.author.isNotEmpty()) {
-                    Text(
-                        scheme.author,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                    Spacer(Modifier.width(12.dp))
+            // 作者
+            if (scheme.author.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "作者：${scheme.author}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+            // 标签（逗号分隔）
+            if (scheme.tags.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    scheme.tags.joinToString("、"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+            // 依赖
+            if (scheme.dependencies.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    scheme.dependencies.take(4).forEach { dep ->
+                        Tag(dep)
+                    }
                 }
-                if (scheme.currentVersion.isNotEmpty()) {
+            }
+            // APP 版本要求
+            if (scheme.appVersion.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "APP 版本要求 ：${scheme.appVersion}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+            // 许可证
+            if (scheme.license.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    scheme.license,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+            // 警告
+            if (scheme.warning.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                ) {
                     Text(
-                        "v${scheme.currentVersion}",
+                        scheme.warning,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     )
                 }
             }
-            if (scheme.tags.isNotEmpty()) {
+            if (downloaded) {
                 Spacer(Modifier.height(6.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    scheme.tags.take(4).forEach { Tag(it) }
+                    when (sha256Status) {
+                        true -> VerificationTag("已校验", MaterialTheme.colorScheme.primary)
+                        false -> VerificationTag("校验失败", MaterialTheme.colorScheme.error)
+                        null -> VerificationTag("未验证", MaterialTheme.colorScheme.outline)
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -287,18 +358,66 @@ private fun SchemeCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 when {
-                    installing -> {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text("安装中…", style = MaterialTheme.typography.labelMedium)
+                    downloading -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.End,
+                        ) {
+                            if (downloadProgress > 0f) {
+                                LinearProgressIndicator(
+                                    progress = { downloadProgress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 6.dp)
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp)),
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "下载中 ${(downloadProgress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                    }
+
+                    extracting -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("安装中…", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
 
                     !item.compatible -> OutlinedButton(onClick = {}, enabled = false) {
                         Text("需 App ≥ ${item.minAppVersion}")
                     }
 
+                    downloaded && !installed -> Button(onClick = onInstall) {
+                        Text("安装")
+                    }
+
                     installed -> {
-                        OutlinedButton(onClick = onInstall) { Text("重新安装") }
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            OutlinedButton(onClick = onDownload) { Text("重新下载") }
+                            Spacer(Modifier.width(4.dp))
+                            IconButton(
+                                onClick = onDelete,
+                                modifier = Modifier.size(36.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "删除压缩包",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
                         Spacer(Modifier.width(8.dp))
                         if (deploying) {
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -309,15 +428,24 @@ private fun SchemeCard(
                         }
                     }
 
-                    else -> Button(onClick = onInstall) {
+                    else -> Button(onClick = onDownload) {
                         Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("安装")
+                        Text("下载")
                     }
                 }
             }
         }
     }
+}
+
+/** 方案详情占位页（待实现）。 */
+@Composable
+fun SchemaMarketDetailContent(
+    schemeId: String,
+    onBack: () -> Unit,
+) {
+    SchemaMarketContent(onBack = onBack)
 }
 
 @Composable
@@ -330,6 +458,21 @@ private fun Tag(text: String) {
             text,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun VerificationTag(text: String, color: androidx.compose.ui.graphics.Color) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = color.copy(alpha = 0.12f),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
         )
     }
