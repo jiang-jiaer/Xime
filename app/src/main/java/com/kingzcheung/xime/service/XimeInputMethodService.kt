@@ -654,6 +654,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 @Suppress("DEPRECATION")
                                 imm.showInputMethodPicker()
                             },
+                            onToolbarEditingAction = { action ->
+                                handleToolbarEditingAction(action)
+                            },
                             associationCandidates = if (state.pendingEnglishText.isNotEmpty()) {
                                 arrayOf(state.pendingEnglishText) + state.associationCandidates
                             } else {
@@ -1772,6 +1775,23 @@ onVoiceModeChange = { enabled ->
         }
     }
     
+    private fun handleToolbarEditingAction(action: String) {
+        val ic = currentInputConnection ?: return
+        when (action) {
+            "select_all" -> ic.performContextMenuAction(android.R.id.selectAll)
+            "copy" -> ic.performContextMenuAction(android.R.id.copy)
+            "paste" -> ic.performContextMenuAction(android.R.id.paste)
+            "home" -> {
+                ic.setSelection(0, 0)
+            }
+            "end" -> {
+                val textBefore = ic.getTextBeforeCursor(Int.MAX_VALUE, 0) ?: ""
+                val textAfter = ic.getTextAfterCursor(Int.MAX_VALUE, 0) ?: ""
+                ic.setSelection(textBefore.length + textAfter.length, textBefore.length + textAfter.length)
+            }
+        }
+    }
+
     private fun applyPageSizeSetting(schemaId: String) {
         val userPageSize = SettingsPreferences.getPageSize(this)
         if (userPageSize > 0) {

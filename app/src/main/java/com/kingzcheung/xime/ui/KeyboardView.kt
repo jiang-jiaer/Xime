@@ -106,6 +106,7 @@ fun KeyboardView(
     onSwitchSchema: ((String) -> Unit)? = null,
     onHideKeyboard: (() -> Unit)? = null,
     onSwitchKeyboard: (() -> Unit)? = null,
+    onToolbarEditingAction: ((String) -> Unit)? = null,
     onCommitImage: ((String) -> Unit)? = null,
     isVoiceMode: Boolean = false,
     voiceBottomActive: Boolean = false,
@@ -222,6 +223,11 @@ fun KeyboardView(
                         ToolbarButton.SCHEMA -> ({ currentRoute = KeyboardRoute.SchemaList })
                         ToolbarButton.QUICK_PHRASE -> ({ currentRoute = KeyboardRoute.Clipboard(1) })
                         ToolbarButton.SYMBOL -> ({ currentRoute = KeyboardRoute.Symbol })
+                        ToolbarButton.SELECT_ALL -> ({ onToolbarEditingAction?.invoke("select_all") })
+                        ToolbarButton.COPY -> ({ onToolbarEditingAction?.invoke("copy") })
+                        ToolbarButton.PASTE -> ({ onToolbarEditingAction?.invoke("paste") })
+                        ToolbarButton.HOME -> ({ onToolbarEditingAction?.invoke("home") })
+                        ToolbarButton.END -> ({ onToolbarEditingAction?.invoke("end") })
                     }
                     ToolbarAction(button, onClick)
                 }
