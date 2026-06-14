@@ -118,9 +118,19 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
                 SchemaManager.deleteSchemaFiles(context, schema.schemaId)
             }
             if (_uiState.value.currentSchema == schema.schemaId) {
-                val remaining = _uiState.value.allSchemas.firstOrNull { it.schemaId != schema.schemaId }
+                // 自动切换到另一个可用方案：优先选已启用的，其次选第一个
+                val remaining = _uiState.value.allSchemas
+                    .filter { it.schemaId != schema.schemaId }
+                    .let { list ->
+                        list.firstOrNull { it.schemaId in _uiState.value.enabledSchemas }
+                            ?: list.firstOrNull()
+                    }
                 if (remaining != null) {
                     selectSchema(remaining)
+                } else {
+                    // 没有任何其他方案了，重置当前方案防止残留无效 ID
+                    SettingsPreferences.setCurrentSchema(context, "")
+                    _uiState.update { it.copy(currentSchema = "") }
                 }
             }
             refresh()
