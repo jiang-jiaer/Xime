@@ -177,7 +177,7 @@ fun LogViewerScreen(
             LogContentSection(
                 selectedLogFile = uiState.selectedLogFile!!,
                 logContent = uiState.logContent,
-                onBackToList = { viewModel.selectLogFile(File("")) },
+                onBackToList = { viewModel.goBackToList() },
                 onDelete = { viewModel.deleteLogFile(uiState.selectedLogFile!!) },
                 onShare = { viewModel.shareLogFile(uiState.selectedLogFile!!) },
                 onSave = { viewModel.saveToDownloads(uiState.selectedLogFile!!) }
@@ -188,6 +188,7 @@ fun LogViewerScreen(
                 onSelect = { viewModel.selectLogFile(it) },
                 onShare = { viewModel.shareLogFile(it) },
                 onSave = { viewModel.saveToDownloads(it) },
+                onDelete = { viewModel.deleteLogFile(it) },
                 context = context,
                 modifier = Modifier.padding(padding)
             )
@@ -281,6 +282,7 @@ private fun LogFilesList(
     onSelect: (File) -> Unit,
     onShare: (File) -> Unit,
     onSave: (File) -> Unit,
+    onDelete: (File) -> Unit,
     context: android.content.Context,
     modifier: Modifier = Modifier
 ) {
@@ -338,7 +340,7 @@ private fun LogFilesList(
                     onClick = { onSelect(file) },
                     onShare = { onShare(file) },
                     onSave = { onSave(file) },
-                    onDelete = { onSelect(File("")) }
+                    onDelete = { onDelete(file) }
                 )
             }
             

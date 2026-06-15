@@ -88,6 +88,10 @@ class LogViewerViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
     
+    fun goBackToList() {
+        _uiState.update { it.copy(selectedLogFile = null, logContent = "", errorMsg = null) }
+    }
+    
     fun selectLogFile(file: File) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, selectedLogFile = file) }
@@ -117,6 +121,7 @@ class LogViewerViewModel(application: Application) : AndroidViewModel(applicatio
                 file.delete()
             }
             
+            val wasSelected = _uiState.value.selectedLogFile == file
             _uiState.update { state ->
                 val newFiles = state.logFiles.filter { it != file }
                 state.copy(
@@ -126,7 +131,7 @@ class LogViewerViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             }
             
-            if (_uiState.value.selectedLogFile == null && _uiState.value.logFiles.isNotEmpty()) {
+            if (wasSelected && _uiState.value.logFiles.isNotEmpty()) {
                 selectLogFile(_uiState.value.logFiles.first())
             }
         }

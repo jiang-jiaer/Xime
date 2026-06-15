@@ -1201,6 +1201,7 @@ onVoiceModeChange = { enabled ->
         
         val pendingEnglish = candidateState.value.pendingEnglishText
         
+        val tFilter = System.nanoTime()
         val (filteredTexts, filteredComments) = if (isAsciiMode) {
             val filtered = candidatesWithComments.filterNot { candidate ->
                 candidate.text.any { it.code in 0x4E00..0x9FFF }
@@ -1208,6 +1209,10 @@ onVoiceModeChange = { enabled ->
             filtered.map { it.text }.toTypedArray() to filtered.map { it.comment }.toTypedArray()
         } else {
             candidatesWithComments.map { it.text }.toTypedArray() to candidatesWithComments.map { it.comment }.toTypedArray()
+        }
+        val filterElapsed = (System.nanoTime() - tFilter) / 1_000_000
+        if (filterElapsed > 5) {
+            FileLogger.d(KEY_PERF, "updateUI filter candidates: ${filterElapsed}ms, count=${candidatesWithComments.size}")
         }
         
         candidateState.value = candidateState.value.copy(
@@ -1283,6 +1288,7 @@ onVoiceModeChange = { enabled ->
             val candState = candidateState.value
             var needsUIUpdate = false
             var pendingResult: com.kingzcheung.xime.rime.RimeProcessResult? = null
+            var committedText: String? = null
             
             when (key) {
                 "delete" -> {
@@ -1517,21 +1523,18 @@ onVoiceModeChange = { enabled ->
                             }
                             Log.d(TAG, "Symbol: added '$key' after pending English '$pendingEnglish'")
                         } else if (candState.isComposing) {
-                            val committedText = rimeEngine.commit()
-                            if (committedText.isNotEmpty()) {
+                            val rimeCommitted = rimeEngine.commit()
+                            if (rimeCommitted.isNotEmpty()) {
                                 withContext(Dispatchers.Main) {
-                                    commitText(committedText)
+                                    commitText(rimeCommitted)
                                 }
                             }
                             rimeEngine.clearComposition()
                             needsUIUpdate = true
-                            withContext(Dispatchers.Main) {
-                                commitText(key)
-                            }
+                            committedText = key
                         } else {
-                            withContext(Dispatchers.Main) {
-                                commitText(key)
-                            }
+                            committedText = key
+                            needsUIUpdate = true
                         }
                     } else {
                         val char = if (isShifted) key.uppercase() else key
@@ -1553,10 +1556,7 @@ onVoiceModeChange = { enabled ->
                             pendingResult = result
                             
                             if (result.committedText.isNotEmpty()) {
-                                withContext(Dispatchers.Main) {
-                                    commitText(result.committedText)
-                                }
-                                needsUIUpdate = true
+                                committedText = result.committedText
                             }
                         } else {
                             val isAscii = state.isAsciiMode
@@ -1577,9 +1577,8 @@ onVoiceModeChange = { enabled ->
                                     needsUIUpdate = true
                                     Log.d(TAG, "English mode: committed '$charToCommit', pending text '$newPending'")
                                 } else {
-                                    withContext(Dispatchers.Main) {
-                                        commitText(char)
-                                    }
+                                    committedText = char
+                                    needsUIUpdate = true
                                 }
                             }
                         }
@@ -1589,13 +1588,28 @@ onVoiceModeChange = { enabled ->
             
             if (needsUIUpdate) {
                 val result = pendingResult
+                val textToCommit = committedText
+                val tMainEntry = System.nanoTime()
                 withContext(Dispatchers.Main) {
+                    val tMainStart = System.nanoTime()
+                    val mainDispatchDelay = (tMainStart - tMainEntry) / 1_000_000
+                    if (textToCommit != null) {
+                        commitText(textToCommit)
+                    }
                     if (result != null) {
                         updateUIWithResult(result)
                     } else {
                         updateUI()
                     }
+                    val mainElapsed = (System.nanoTime() - tMainStart) / 1_000_000
+                    if (mainElapsed > 5) {
+                        FileLogger.d(KEY_PERF, "MainThread work: ${mainElapsed}ms, dispatch=${mainDispatchDelay}ms")
+                    }
                 }
+            }
+            val totalElapsed = (System.nanoTime() - tStart) / 1_000_000
+            if (totalElapsed > 10) {
+                FileLogger.d(KEY_PERF, "handleKey '$key' total: ${totalElapsed}ms")
             }
         }
         keyJobs.trySend(job)
