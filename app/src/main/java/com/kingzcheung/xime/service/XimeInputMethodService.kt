@@ -1322,9 +1322,16 @@ onVoiceModeChange = { enabled ->
                         predictionManager.deleteLastChar()
                         Log.d(TAG, "Delete committed text, remaining: '${predictionManager.lastCommittedText}'")
                         
+                        withContext(Dispatchers.Main) {
+                            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+                        }
+                        
                         if (!state.isAsciiMode && isChineseMode && SettingsPreferences.isSmartPredictionEnabled(this@XimeInputMethodService) && predictionManager.lastCommittedText.isNotEmpty()) {
-                            val candidates = predictionManager.getChineseAssociations(predictionManager.lastCommittedText, PredictionManager.MAX_ASSOCIATION_COUNT)
-                            candidateState.value = candidateState.value.copy(associationCandidates = candidates)
+                            val text = predictionManager.lastCommittedText
+                            serviceScope.launch {
+                                val candidates = predictionManager.getChineseAssociations(text, PredictionManager.MAX_ASSOCIATION_COUNT)
+                                candidateState.value = candidateState.value.copy(associationCandidates = candidates)
+                            }
                         } else {
                             candidateState.value = candidateState.value.copy(
                                 candidates = emptyArray(),
@@ -1332,10 +1339,6 @@ onVoiceModeChange = { enabled ->
                                 associationCandidates = emptyArray(),
                                 isShowingRecentClipboard = false
                             )
-                        }
-                        
-                        withContext(Dispatchers.Main) {
-                            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                         }
                     }
                 }
@@ -1468,6 +1471,16 @@ onVoiceModeChange = { enabled ->
                                 needsUIUpdate = true
                             }
                         }
+                    } else if (candState.associationCandidates.isNotEmpty()) {
+                        // 联想预测词模式：按空格选中第一个联想词
+                        val text = candState.associationCandidates[0]
+                        withContext(Dispatchers.Main) {
+                            commitText(text)
+                            candidateState.value = candidateState.value.copy(
+                                associationCandidates = emptyArray()
+                            )
+                        }
+                        updateUI()
                     } else {
                         withContext(Dispatchers.Main) {
                             commitText(" ")
@@ -1513,31 +1526,17 @@ onVoiceModeChange = { enabled ->
                         updateCalculatorCandidates()
                     }
                     
-                    if (key.matches(Regex("[0-9]")) ||
-                        key in listOf("-", "/", ":", ";", "(", ")", "@", "\"", "'", "#", ".", ",", "!", "?", "，", "。")) {
-                        if (pendingEnglish.isNotEmpty()) {
-                            withContext(Dispatchers.Main) {
-                                commitText(key)
-                                candidateState.value = candidateState.value.copy(
-                                    pendingEnglishText = "",
-                                    associationCandidates = emptyArray()
-                                )
-                            }
-                            Log.d(TAG, "Symbol: added '$key' after pending English '$pendingEnglish'")
-                        } else if (candState.isComposing) {
-                            val rimeCommitted = rimeEngine.commit()
-                            if (rimeCommitted.isNotEmpty()) {
-                                withContext(Dispatchers.Main) {
-                                    commitText(rimeCommitted)
-                                }
-                            }
-                            rimeEngine.clearComposition()
-                            needsUIUpdate = true
-                            committedText = key
-                        } else {
-                            committedText = key
-                            needsUIUpdate = true
+                    // 所有按键统一经过 Rime 引擎
+                    if (pendingEnglish.isNotEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            commitText(key)
+                            candidateState.value = candidateState.value.copy(
+                                pendingEnglishText = "",
+                                associationCandidates = emptyArray()
+                            )
                         }
+                        Log.d(TAG, "Symbol: added '$key' after pending English '$pendingEnglish'")
+                        needsUIUpdate = true
                     } else {
                         val char = if (isShifted) key.uppercase() else key
                         val keyCode = key.lowercase()[0].code
@@ -1602,6 +1601,11 @@ onVoiceModeChange = { enabled ->
                         updateUIWithResult(result)
                     } else {
                         updateUI()
+                    }
+                    // 如果计算器有活跃表达式，在 updateUI/updateUIWithResult 之后
+                    // 重新应用计算器候选，避免被 Rime 候选覆盖
+                    if (calculatorEngine.isActive()) {
+                        updateCalculatorCandidates()
                     }
                     val mainElapsed = (System.nanoTime() - tMainStart) / 1_000_000
                     if (mainElapsed > 5) {

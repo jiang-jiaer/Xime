@@ -182,6 +182,37 @@ class CalculatorEngineTest {
         assertNull(engine.getCandidate())
     }
 
+    @Test
+    fun `多次获取候选结果稳定`() {
+        val engine = CalculatorEngine()
+        engine.handleDigit("1")
+        engine.handleOperator("+")
+        engine.handleDigit("1")
+        // 模拟 updateUI 等中间操作反复读取候选的场景
+        assertEquals("1+1 = 2", engine.getCandidate())
+        assertEquals("1+1 = 2", engine.getCandidate())
+        assertEquals("1+1 = 2", engine.getCandidate())
+        assertEquals("1+1 = 2", engine.getCandidate())
+        assertEquals("2", engine.getResult())
+        assertEquals("2", engine.getResult())
+    }
+
+    @Test
+    fun `链式计算候选稳定`() {
+        val engine = CalculatorEngine()
+        engine.handleDigit("2")
+        engine.handleOperator("+")
+        engine.handleDigit("3")
+        engine.handleOperator("*")
+        engine.handleDigit("4")
+        // 链式计算中间态后多次读取候选应一致
+        assertEquals("2+3*4 = 14", engine.getCandidate())
+        assertEquals("2+3*4 = 14", engine.getCandidate())
+        assertEquals("2+3*4 = 14", engine.getCandidate())
+        assertEquals("14", engine.getResult())
+        assertEquals("14", engine.getResult())
+    }
+
     // ===================== 直接计算测试 calculate() =====================
     //
     // 测试表格：操作数1 | 运算符 | 操作数2 | 预期结果

@@ -77,6 +77,7 @@ reverse_lookup:
 
 punctuator:
   import_preset: default
+  __include: symbols:/punctuator
 
 key_binder:
   import_preset: default
