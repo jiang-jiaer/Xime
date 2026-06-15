@@ -28,6 +28,17 @@ data class IndexSource(
     val description: String = "",
 )
 
+/**
+ * 扁平索引格式：schemas 直接内联 MarketScheme 对象列表。
+ * 对应 rimes/index.yaml（由 scripts/generate_index.py 生成）。
+ */
+@Serializable
+data class SchemasDirectIndex(
+    @SerialName("index_version") val indexVersion: Int = 1,
+    @SerialName("updated_at") val updatedAt: String = "",
+    val schemas: List<MarketScheme> = emptyList(),
+)
+
 @Serializable
 data class SchemesSubIndex(
     @SerialName("index_version") val indexVersion: Int = 1,
@@ -59,12 +70,21 @@ data class MarketScheme(
         versions.firstOrNull { it.version == currentVersion } ?: versions.firstOrNull()
 }
 
+/** 下载条目（多文件时 downloadUrl 数组中的单条）。 */
+@Serializable
+data class DownloadItem(
+    val url: String = "",
+    val sha256: String = "",
+    val size: String = "",
+)
+
 @Serializable
 data class SchemeVersion(
     val version: String = "",
     val date: String = "",
     val changelog: String = "",
-    @SerialName("downloadUrl") val downloadUrl: String = "",
+    @SerialName("downloadUrl")
+    val downloadUrls: List<DownloadItem> = emptyList(),
     val size: String = "",
     val sha256: String = "",
 )

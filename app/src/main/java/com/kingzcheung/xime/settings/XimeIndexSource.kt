@@ -4,20 +4,22 @@ import android.content.Context
 import android.util.Log
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-/** 安装结果（带失败原因 + 未解决依赖，供 ViewModel 映射文案）。 */
+/** 下载校验状态：null=未提供sha256, true=校验通过, false=校验不通过。 */
+typealias Sha256Status = Boolean?
+
+/** 安装结果（带失败原因 + 未解决依赖 + sha256 校验状态）。 */
 data class InstallResult(
     val success: Boolean,
     val unresolvedDeps: List<String> = emptyList(),
     val failureReason: String? = null,
+    /** null=未提供sha256, true=校验通过, false=校验不通过 */
+    val sha256Status: Sha256Status = null,
 )
 
 /** 方案列表拉取结果（含命中的来源主机名，供 UI 显示「从哪个端点拉的」）。 */
@@ -27,9 +29,9 @@ data class SchemesFetch(
 )
 
 /**
- * 方案市场数据源：读取 ximeiorg/xime-index 精选索引（根→子→逐方案，CDN 优先 + raw 回退），
- * 并按版本 sha256 安装；安装后用 [RimeDependencyResolver] 按索引声明的 dependencies 补齐编译依赖。
- * 网络/Android 依赖集中在此层；解析/版本/路径/兼容性逻辑都在 [XimeIndexParser] 纯函数里。
+ * 方案市场数据源：从镜像基址的 rimes/index.yaml（扁平索引，schemas 内联所有 MarketScheme）
+ * 获取方案列表，按版本 sha256 下载；安装后用 [RimeDependencyResolver] 补齐编译依赖。
+ * 网络/Android 依赖集中在此层；解析/版本/兼容性逻辑在 [XimeIndexParser] 纯函数里。
  *
  * 端点列表通过 [xime.yaml] 的 `xime_index.base_urls` 配置，用户可自定义镜像列表。
  */
@@ -61,82 +63,23 @@ object XimeIndexSource {
         .followRedirects(true)
         .build()
 
-    /** 取文本的结果：成功带命中来源 [base]+[text]；失败时 [error] 记录最后一个源的可读原因。 */
-    private data class TextFetch(val base: String? = null, val text: String? = null, val error: String? = null)
-
-    /** 按镜像优先级取一个 repo 相对路径的文本；首个 2xx 即返回，全失败返回带原因的结果。 */
-    private fun fetchTextWithSource(repoPath: String): TextFetch {
-        var lastError = "网络不可用"
-        for (base in mirrors) {
-            val host = hostOf(base)
-            try {
-                client.newCall(Request.Builder().url(base + repoPath).build()).execute().use { resp ->
-                    if (resp.isSuccessful) {
-                        val s = resp.body?.string()
-                        if (!s.isNullOrBlank()) return TextFetch(base = base, text = s)
-                        lastError = "$host 返回空内容"
-                    } else {
-                        lastError = "$host HTTP ${resp.code}"
-                    }
-                }
-            } catch (e: Exception) {
-                lastError = "$host ${friendlyCause(e)}"
-                Log.w(TAG, "fetch $base$repoPath failed: ${e.message}")
-            }
-        }
-        return TextFetch(error = lastError)
-    }
-
-    private fun fetchText(repoPath: String): String? = fetchTextWithSource(repoPath).text
-
-    /** 把网络异常转成可读原因（超时 / 无法解析域名 / 无法连接…），免得给用户抛英文堆栈。 */
-    private fun friendlyCause(e: Throwable): String = when (e) {
-        is java.net.UnknownHostException -> "无法解析域名(网络不可用?)"
-        is java.net.SocketTimeoutException -> "连接超时"
-        is java.net.ConnectException -> "无法连接"
-        is javax.net.ssl.SSLException -> "SSL 错误"
-        else -> e.message ?: e.javaClass.simpleName
-    }
-
     /** 镜像 base → 展示用主机名（如 index.ximei.me / fastly.jsdelivr.net）。 */
     private fun hostOf(base: String): String =
         base.substringAfter("://").substringBefore("/")
 
-    /** 跟随索引跳转：根 → 子 → 逐方案（并行、部分失败容忍）。 */
+    /** 跟随索引跳转：根 → 子 → 逐方案（并行、部分失败容忍）。逐个镜像尝试直到获取到方案。 */
     suspend fun fetchSchemes(context: Context, appVersion: String): Result<SchemesFetch> =
         withContext(Dispatchers.IO) {
             ensureConfigured(context)
             try {
-                val rootFetch = fetchTextWithSource("index.yaml")
-                val rootText = rootFetch.text
-                    ?: return@withContext Result.failure(
-                        IOException("无法连接到方案市场，请检查网络"),
-                    )
-                val source = hostOf(rootFetch.base!!)
-                val root = XimeIndexParser.parseIndex(rootText)
-                val subPath = XimeIndexParser.resolveRepoPath(
-                    "index.yaml", root.schemas?.from ?: "./rimes/index.yaml",
-                )
-                val subFetch = fetchTextWithSource(subPath)
-                val subText = subFetch.text
-                    ?: return@withContext Result.failure(
-                        IOException("方案列表加载失败（${subFetch.error}）"),
-                    )
-                val sub = XimeIndexParser.parseSubIndex(subText)
-
-                val schemes = coroutineScope {
-                    sub.schemas.map { entry ->
-                        async {
-                            val p = XimeIndexParser.resolveRepoPath(subPath, entry.file)
-                            val text = fetchText(p) ?: return@async null
-                            runCatching { XimeIndexParser.parseScheme(text) }.getOrNull()
-                        }
-                    }.awaitAll()
-                }.filterNotNull()
-                    .distinctBy { it.id }
-                    .map { XimeIndexParser.toItem(it, appVersion) }
-
-                Result.success(SchemesFetch(schemes, source))
+                // 遍历所有镜像，第一个成功获取到方案的返回
+                for (base in mirrors) {
+                    val result = tryFetchFromBase(base, appVersion)
+                    if (result != null) return@withContext Result.success(result)
+                }
+                // 全部镜像都失败
+                val lastUrl = mirrors.lastOrNull() ?: "未知"
+                Result.failure(IOException("无法连接到方案市场（已尝试 ${mirrors.size} 个镜像）"))
             } catch (e: Exception) {
                 Log.e(TAG, "fetchSchemes failed", e)
                 Result.failure(e)
@@ -144,29 +87,124 @@ object XimeIndexSource {
         }
 
     /**
-     * 安装一个方案：按版本 downloadUrl（+sha256）落盘，再按索引声明依赖补齐编译依赖。
-     * @param resolveDepUrl 依赖包 id → 下载 URL（由调用方从已取的方案列表构造）。
+     * 尝试从一个镜像基址获取方案列表。
+     * 新索引格式：直接抓取 rimes/index.yaml，其中 schemas 已内联所有 MarketScheme。
      */
-    suspend fun installScheme(
+    private fun tryFetchFromBase(base: String, appVersion: String): SchemesFetch? {
+        val repoPath = "rimes/index.yaml"
+        val host = hostOf(base)
+        try {
+            val text = fetchTextSingle(base, repoPath) ?: return null
+            val direct = XimeIndexParser.parseDirectIndex(text)
+            val schemes = direct.schemas.distinctBy { it.id }
+                .map { XimeIndexParser.toItem(it, appVersion) }
+            Log.i(TAG, "tryFetchFromBase $host: 获取到 ${schemes.size} 个方案（扁平索引）")
+
+            if (schemes.isEmpty()) {
+                Log.w(TAG, "tryFetchFromBase $host: 0 个方案，尝试下一个镜像")
+                return null
+            }
+            return SchemesFetch(schemes, host)
+        } catch (e: Exception) {
+            Log.w(TAG, "tryFetchFromBase $host failed: ${e.message}")
+            return null
+        }
+    }
+
+    /** 从镜像基址获取文件内容，失败返回 null。 */
+    private fun fetchTextSingle(base: String, repoPath: String): String? {
+        return try {
+            client.newCall(Request.Builder().url(base + repoPath).build()).execute().use { resp ->
+                if (resp.isSuccessful) {
+                    resp.body?.string()?.takeIf { it.isNotBlank() }
+                } else null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchTextSingle $base$repoPath failed: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * 下载一个方案到 market 目录（仅下载，不解压）。
+     * 遍历所有 downloadUrl（如主包 + 语言模型等），逐一下载到 market/{schemeId}/。
+     */
+    suspend fun downloadScheme(
+        context: Context,
+        scheme: MarketScheme,
+        onDownloadProgress: (Long, Long) -> Unit = { _, _ -> },
+    ): InstallResult = withContext(Dispatchers.IO) {
+        val v = scheme.resolvedVersion()
+            ?: return@withContext InstallResult(false, failureReason = "无可用版本")
+        if (v.downloadUrls.isEmpty() || v.downloadUrls.all { it.url.isBlank() }) {
+            return@withContext InstallResult(false, failureReason = "缺少下载地址")
+        }
+
+        // 汇总所有文件的校验状态
+        var anyFailed = false
+        var anyMismatch = false
+        var anyVerified = false
+
+        data class DlItem(val item: DownloadItem, val fileName: String, val sizeBytes: Long)
+        val items = v.downloadUrls.filter { it.url.isNotBlank() }.map { dl ->
+            val fn = dl.url.substringAfterLast('/').takeIf { it.isNotBlank() }
+                ?: "file.${dl.url.substringAfterLast('.').takeIf { it.length in 1..6 } ?: "bin"}"
+            val bytes = dl.size.removeSuffix(" MB").trim().toDoubleOrNull()
+                ?.let { (it * 1024.0 * 1024.0).toLong() } ?: 0L
+            DlItem(dl, fn, bytes)
+        }
+        val totalBytesAll = items.sumOf { it.sizeBytes }
+        var accumulatedBytes = 0L
+
+        for ((dl, fn, sz) in items) {
+            val result = SchemaManager.downloadToMarket(
+                context, dl.url, scheme.id, fn, dl.sha256.takeIf { it.isNotBlank() },
+                onProgress = { read, _ ->
+                    // 跨文件合并进度：前序文件已下载完 + 当前文件进度
+                    val overall = accumulatedBytes + read
+                    if (totalBytesAll > 0) onDownloadProgress(overall, totalBytesAll)
+                },
+            )
+            accumulatedBytes += sz
+            if (!result.success) {
+                anyFailed = true
+                if (result.sha256Verified == false) anyMismatch = true
+            } else if (result.sha256Verified == true) {
+                anyVerified = true
+            }
+        }
+
+        if (anyFailed) {
+            val reason = when {
+                anyMismatch -> "文件校验失败（sha256 不匹配），部分文件可能不完整"
+                else -> "下载失败"
+            }
+            return@withContext InstallResult(false, failureReason = reason, sha256Status = if (anyMismatch) false else null)
+        }
+        InstallResult(success = true, sha256Status = if (anyVerified) true else null)
+    }
+
+    /**
+     * 从 market 目录安装已下载的方案到 rime 目录（解压/复制 + 依赖补齐）。
+     * 返回安装结果，调用方据此更新已安装列表。
+     */
+    suspend fun installFromMarket(
         context: Context,
         scheme: MarketScheme,
         resolveDepUrl: (String) -> String? = { null },
     ): InstallResult = withContext(Dispatchers.IO) {
-        val v = scheme.resolvedVersion()
-            ?: return@withContext InstallResult(false, failureReason = "无可用版本")
-        if (v.downloadUrl.isBlank()) {
-            return@withContext InstallResult(false, failureReason = "缺少下载地址")
+        if (!SchemaManager.isSchemeDownloaded(context, scheme.id)) {
+            return@withContext InstallResult(false, failureReason = "压缩包不存在，请先下载")
         }
-
         val before = SchemaManager.discoverSchemas(context).map { it.schemaId }.toSet()
-        val ok = SchemaManager.importFromUrl(context, v.downloadUrl, v.sha256)
-        if (!ok) return@withContext InstallResult(false, failureReason = "安装失败或文件校验失败")
+        val ok = SchemaManager.installFromMarketToRime(context, scheme.id)
+        if (!ok) return@withContext InstallResult(false, failureReason = "安装失败")
 
-        // 找到新落盘的真实 rime schema id（索引 id 不保证等于 rime schema_id / 文件名）
+        // 找到新落盘的真实 rime schema id
         val after = SchemaManager.discoverSchemas(context).map { it.schemaId }.toSet()
         val newSchemaId = (after - before).firstOrNull() ?: scheme.id
 
-        // 依赖补齐（不剥离）：按索引声明的 dependencies 递归补齐，让方案带反查完整编译
+        // 依赖补齐
         val completion = RimeDependencyResolver.complete(
             context = context,
             schemaId = newSchemaId,
@@ -174,7 +212,7 @@ object XimeIndexSource {
             resolveUrl = resolveDepUrl,
         )
         val unresolved = (completion.unresolved + completion.stillMissingFiles).distinct()
-        if (unresolved.isNotEmpty()) Log.w(TAG, "install ${scheme.id}: unresolved=$unresolved")
+        if (unresolved.isNotEmpty()) Log.w(TAG, "installFromMarket ${scheme.id}: unresolved=$unresolved")
         InstallResult(success = true, unresolvedDeps = unresolved)
     }
 }

@@ -308,8 +308,8 @@ android {
         applicationId = "com.kingzcheung.xime"
         minSdk = 28
         targetSdk = 35
-        versionCode = 31
-        versionName = "2.4.0-beta3"
+        versionCode = 35
+        versionName = "2.4.0-beta7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -459,6 +459,9 @@ dependencies {
     
     // Kaml for YAML parsing
     implementation(libs.kaml)
+
+    // exp4j for calculator expression evaluation
+    implementation(libs.exp4j)
 
     // ZXing for QR code generation
     implementation("com.google.zxing:core:3.5.3")

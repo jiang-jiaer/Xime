@@ -18,6 +18,16 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
+extern void rime_require_module_lua();
+extern void rime_require_module_octagram();
+extern void rime_require_module_predict();
+
+static void declare_librime_module_dependencies() {
+  rime_require_module_lua();
+  rime_require_module_octagram();
+  rime_require_module_predict();
+}
+
 struct ProcessResult {
     bool processed;
     std::string committedText;
@@ -45,7 +55,9 @@ public:
             LOGE("Rime API not available");
             return;
         }
-        
+
+        declare_librime_module_dependencies();
+
         user_data_dir_ = user_data_dir;
         shared_data_dir_ = shared_data_dir;
 
@@ -549,6 +561,22 @@ public:
         }
     }
 
+    void setPageSize(const char* schema_id, int page_size) {
+        if (!rime) {
+            LOGE("setPageSize: rime not available");
+            return;
+        }
+        // schema_open 直接打开方案的配置对象，修改内存中的 menu/page_size
+        RimeConfig config;
+        if (rime->schema_open(schema_id, &config)) {
+            rime->config_set_int(&config, "menu/page_size", page_size);
+            rime->config_close(&config);
+            LOGI("Set schema '%s' menu/page_size=%d via schema_open", schema_id, page_size);
+        } else {
+            LOGE("setPageSize: schema_open failed for '%s'", schema_id);
+        }
+    }
+
     void destroy() {
         if (rime) {
             if (session_id_) {
@@ -953,6 +981,20 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeLookupText(
         return env->NewStringUTF(code.c_str());
     }
     return env->NewStringUTF("");
+}
+
+// 设置候选词每页数量
+JNIEXPORT void JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativeSetPageSize(
+    JNIEnv* env,
+    jobject thiz,
+    jstring schema_id,
+    jint page_size
+) {
+    const char* schema = env->GetStringUTFChars(schema_id, nullptr);
+    if (!schema) return;
+    Rime::Instance().setPageSize(schema, page_size);
+    env->ReleaseStringUTFChars(schema_id, schema);
 }
 
 // 检查 Rime 模块是否已注册（用于测试插件集成）

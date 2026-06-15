@@ -501,7 +501,14 @@ private fun SchemaToggleItem(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("删除方案") },
-            text = { Text("确定删除「${schema.name}」吗？\n相关的 .schema.yaml 和 .dict.yaml 文件将被移除。") },
+            text = {
+                val msg = if (isCurrent) {
+                    "「${schema.name}」是当前默认输入方案，删除后将自动切换到其他方案。\n\n相关的 .schema.yaml 和 .dict.yaml 文件将被移除。"
+                } else {
+                    "确定删除「${schema.name}」吗？\n相关的 .schema.yaml 和 .dict.yaml 文件将被移除。"
+                }
+                Text(msg)
+            },
             confirmButton = {
                 TextButton(onClick = { showDeleteConfirm = false; onDelete() }) {
                     Text("删除", color = MaterialTheme.colorScheme.error)

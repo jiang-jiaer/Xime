@@ -16,6 +16,7 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPInputStream
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipFile
 
@@ -33,6 +34,89 @@ object SchemaManager {
 
     fun getRimeDir(context: Context): File =
         File(context.filesDir, "rime")
+
+    /** market 根目录。 */
+    fun getMarketDir(context: Context): File =
+        File(getRimeDir(context), "market")
+
+    /** 每个方案在 market 下的独立子目录：rime/market/{schemeId}/ */
+    fun getMarketDir(context: Context, schemeId: String): File =
+        File(getMarketDir(context), schemeId)
+
+    /** 检查方案的压缩包是否已下载。 */
+    fun isSchemeDownloaded(context: Context, schemeId: String): Boolean {
+        val dir = getMarketDir(context, schemeId)
+        return dir.exists() && (dir.listFiles()?.any { it.isFile } == true)
+    }
+
+    /** 删除 market 中指定方案的整个子目录（含压缩包）。 */
+    fun deleteSchemeArchive(context: Context, schemeId: String): Boolean {
+        val dir = getMarketDir(context, schemeId)
+        if (!dir.exists()) return false
+        return dir.deleteRecursively()
+    }
+
+    /** 在 market/{schemeId}/ 中查找已下载的文件。 */
+    fun findMarketFile(context: Context, schemeId: String): File? {
+        val dir = getMarketDir(context, schemeId)
+        if (!dir.exists()) return null
+        return dir.listFiles()?.firstOrNull { it.isFile }
+    }
+
+    /**
+     * 从 market 目录安装方案到 rime 目录：
+     * - .zip / .tar.gz / .tgz → 解压
+     * - 其他文件 → 直接复制
+     */
+    /**
+     * 从 market/{schemeId}/ 安装所有已下载文件到 rime 目录：
+     * - .zip / .tar.gz / .tgz → 解压
+     * - 其他文件 → 直接复制
+     */
+    fun installFromMarketToRime(context: Context, schemeId: String): Boolean {
+        val dir = getMarketDir(context, schemeId)
+        if (!dir.exists()) return false
+        val files = dir.listFiles()?.filter { it.isFile } ?: return false
+        if (files.isEmpty()) return false
+        val rimeDir = getRimeDir(context)
+        if (!rimeDir.exists()) rimeDir.mkdirs()
+        var allOk = true
+        for (file in files) {
+            try {
+                val name = file.name
+                // 解压前先校验压缩包完整性
+                val isArchive = name.endsWith(".zip", ignoreCase = true) ||
+                    name.endsWith(".tar.gz", ignoreCase = true) || name.endsWith(".tgz", ignoreCase = true)
+                if (isArchive && !validateArchive(file)) {
+                    Log.e(TAG, "installFromMarketToRime: ${file.name} is corrupted for $schemeId, deleting")
+                    file.delete()
+                    allOk = false
+                    continue
+                }
+                val ok = when {
+                    name.endsWith(".zip", ignoreCase = true) -> importZipFromFile(file, rimeDir)
+                    name.endsWith(".tar.gz", ignoreCase = true) || name.endsWith(".tgz", ignoreCase = true) ->
+                        importTarGzFromFile(file, rimeDir)
+                    else -> {
+                        val target = File(rimeDir, file.name)
+                        file.copyTo(target, overwrite = true)
+                        Log.i(TAG, "Copied ${file.name} to rime dir")
+                        true
+                    }
+                }
+                if (!ok) {
+                    Log.e(TAG, "installFromMarketToRime: failed to process ${file.name} for $schemeId, deleting")
+                    file.delete()
+                    allOk = false
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "installFromMarketToRime: error processing ${file.name} for $schemeId, deleting", e)
+                file.delete()
+                allOk = false
+            }
+        }
+        return allOk
+    }
 
     private fun getBuildDir(context: Context): File =
         File(getRimeDir(context), "build")
@@ -114,10 +198,10 @@ object SchemaManager {
         MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
-    /** 导入归档时禁止覆盖的文件：default.yaml 与任何 *.custom.* （保护用户配置 + F1 写入）。 */
+    /** 导入归档时禁止覆盖 default.yaml（保护用户配置）。 */
     fun isProtectedImportName(name: String): Boolean {
         val base = name.substringAfterLast('/')
-        return base == "default.yaml" || base.contains(".custom.")
+        return base == "default.yaml"
     }
 
     /** 把归档条目解析到 targetDir 下，越界（zip-slip，如 ../../x）返回 null。 */
@@ -430,8 +514,7 @@ object SchemaManager {
                     while (entry != null) {
                         val originalName = entry.name
                         val name = originalName.removePrefix(baseDir)
-                        if (!entry.isDirectory && !isProtectedImportName(name) &&
-                            (name.endsWith(".yaml") || name.endsWith(".txt") || name.endsWith(".bin"))) {
+                        if (!entry.isDirectory && !isProtectedImportName(name)) {
                             val file = safeChild(targetDir, name)
                             if (file == null) {
                                 Log.w(TAG, "Skip unsafe path: $name")
@@ -441,6 +524,14 @@ object SchemaManager {
                                     zis.copyTo(output)
                                 }
                                 extractedCount++
+
+                                when {
+                                    name.endsWith(".schema.yaml") ->
+                                        importedSchemas.add(name.removeSuffix(".schema.yaml").substringAfterLast('/'))
+                                    name.endsWith(".dict.yaml") ->
+                                        importedSchemas.add(name.removeSuffix(".dict.yaml").substringAfterLast('/'))
+                                }
+
                                 Log.d(TAG, "Extracted: $name")
 
                                 when {
@@ -466,14 +557,123 @@ object SchemaManager {
     }
 
     /**
+     * 从 URL 下载文件到 market/{schemeId}/ 目录（仅下载，不解压）。
+     * 支持任意文件类型（zip、tar.gz、yaml 等）。
+     */
+    /** 下载结果：success + sha256 校验状态（null=未提供, true=通过, false=不通过）。 */
+    data class DownloadResult(val success: Boolean, val sha256Verified: Boolean? = null)
+
+    suspend fun downloadToMarket(
+        context: Context,
+        url: String,
+        schemeId: String,
+        fileName: String,
+        expectedSha256: String? = null,
+        onProgress: (Long, Long) -> Unit = { _, _ -> },
+    ): DownloadResult = withContext(Dispatchers.IO) {
+        try {
+            val schemeDir = getMarketDir(context, schemeId)
+            if (!schemeDir.exists()) schemeDir.mkdirs()
+            val targetFile = File(schemeDir, fileName)
+
+            val client = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .build()
+            client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.e(TAG, "Download failed: ${response.code} $url")
+                    return@withContext DownloadResult(false)
+                }
+                val body = response.body ?: return@withContext DownloadResult(false)
+                val totalBytes = body.contentLength()
+                var downloadedBytes = 0L
+                val md = if (!expectedSha256.isNullOrBlank()) MessageDigest.getInstance("SHA-256") else null
+                body.byteStream().use { input ->
+                    FileOutputStream(targetFile).use { output ->
+                        val buf = ByteArray(8192)
+                        var n = input.read(buf)
+                        while (n >= 0) {
+                            output.write(buf, 0, n)
+                            md?.update(buf, 0, n)
+                            downloadedBytes += n
+                            if (totalBytes > 0) onProgress(downloadedBytes, totalBytes)
+                            n = input.read(buf)
+                        }
+                    }
+                }
+                if (md != null && !expectedSha256.isNullOrBlank()) {
+                    val actual = md.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+                    if (!actual.equals(expectedSha256.trim(), ignoreCase = true)) {
+                        Log.e(TAG, "sha256 mismatch for $url: expected=${expectedSha256.trim()} actual=$actual")
+                        targetFile.delete()
+                        return@withContext DownloadResult(false, sha256Verified = false)
+                    }
+                    Log.i(TAG, "Downloaded (sha256 verified): ${targetFile.absolutePath}")
+                    DownloadResult(true, sha256Verified = true)
+                } else {
+                    // 无 sha256：校验压缩包完整性（zip/tar.gz），防止下载不完整
+                    val valid = validateArchive(targetFile)
+                    if (!valid) {
+                        Log.e(TAG, "Archive validation failed for $url, file is corrupted")
+                        targetFile.delete()
+                        return@withContext DownloadResult(false)
+                    }
+                    Log.i(TAG, "Downloaded (unverified, archive validated): ${targetFile.absolutePath}")
+                    DownloadResult(true, sha256Verified = null)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "downloadToMarket failed: $url", e)
+            // 删除可能残留的损坏文件
+            val schemeDir = getMarketDir(context, schemeId)
+            val targetFile = File(schemeDir, fileName)
+            if (targetFile.exists()) targetFile.delete()
+            DownloadResult(false)
+        }
+    }
+
+    /**
+     * 验证压缩包完整性：zip 尝试列出条目，tar.gz 尝试读取首条。
+     * 非归档文件直接返回 true（无法校验）。
+     */
+    private fun validateArchive(file: File): Boolean {
+        val name = file.name
+        return try {
+            when {
+                name.endsWith(".zip", ignoreCase = true) -> {
+                    java.util.zip.ZipFile(file).use { zip -> zip.entries().hasMoreElements() }
+                }
+                name.endsWith(".tar.gz", ignoreCase = true) || name.endsWith(".tgz", ignoreCase = true) -> {
+                    org.apache.commons.compress.archivers.tar.TarArchiveInputStream(
+                        java.util.zip.GZIPInputStream(file.inputStream())
+                    ).use { tar -> tar.nextTarEntry != null }
+                }
+                else -> true // 非归档文件无法校验
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Archive validation failed for ${file.name}", e)
+            false
+        }
+    }
+
+    /**
      * 从 URL 下载压缩包并解压进 rime 目录。
      * @param expectedSha256 非空时，下载落临时文件并校验 SHA-256；不符则不落盘、返回 false。
      *                       为空/空白时保持原有行为（不校验）。
+     */
+    /**
+     * 从 URL 下载压缩包到 market 目录（保留压缩包），然后解压到 rime 目录。
+     * @param archiveName 压缩包在 market 目录中保存的文件名，如 "my_scheme.zip"。
+     *                    为空时从 URL 末段自动推断。
      */
     suspend fun importFromUrl(
         context: Context,
         url: String,
         expectedSha256: String? = null,
+        archiveName: String? = null,
+        onProgress: (Long, Long) -> Unit = { _, _ -> },
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val rimeDir = getRimeDir(context)
@@ -485,6 +685,16 @@ object SchemaManager {
                 Log.e(TAG, "Unsupported format: $url")
                 return@withContext false
             }
+
+            // 确定压缩包保存路径
+            val ext = when {
+                isZip -> ".zip"
+                url.endsWith(".tgz", ignoreCase = true) -> ".tgz"
+                else -> ".tar.gz"
+            }
+            val marketDir = getMarketDir(context)
+            if (!marketDir.exists()) marketDir.mkdirs()
+            val archiveFile = File(marketDir, archiveName ?: (url.substringAfterLast("/").takeIf { it.isNotBlank() } ?: "download$ext"))
 
             val client = OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
@@ -498,32 +708,35 @@ object SchemaManager {
                 }
                 val body = response.body ?: return@withContext false
 
-                // 下载到临时文件并边写边算 SHA-256（先校验，校验通过才解压落盘）
-                val tmp = File.createTempFile("rime_dl_", if (isZip) ".zip" else ".tar.gz", context.cacheDir)
-                try {
-                    val md = MessageDigest.getInstance("SHA-256")
-                    body.byteStream().use { input ->
-                        FileOutputStream(tmp).use { output ->
-                            val buf = ByteArray(8192)
-                            var n = input.read(buf)
-                            while (n >= 0) {
-                                output.write(buf, 0, n)
-                                md.update(buf, 0, n)
-                                n = input.read(buf)
+                // 下载到 market 目录的压缩包文件，边写边算 SHA-256
+                val totalBytes = body.contentLength()
+                var downloadedBytes = 0L
+                val md = MessageDigest.getInstance("SHA-256")
+                body.byteStream().use { input ->
+                    FileOutputStream(archiveFile).use { output ->
+                        val buf = ByteArray(8192)
+                        var n = input.read(buf)
+                        while (n >= 0) {
+                            output.write(buf, 0, n)
+                            md.update(buf, 0, n)
+                            downloadedBytes += n
+                            if (totalBytes > 0) {
+                                onProgress(downloadedBytes, totalBytes)
                             }
+                            n = input.read(buf)
                         }
                     }
-                    if (!expectedSha256.isNullOrBlank()) {
-                        val actual = md.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
-                        if (!actual.equals(expectedSha256.trim(), ignoreCase = true)) {
-                            Log.e(TAG, "sha256 mismatch for $url: expected=${expectedSha256.trim()} actual=$actual")
-                            return@withContext false
-                        }
-                    }
-                    if (isZip) importZipFromFile(tmp, rimeDir) else importTarGzFromFile(tmp, rimeDir)
-                } finally {
-                    tmp.delete()
                 }
+                if (!expectedSha256.isNullOrBlank()) {
+                    val actual = md.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+                    if (!actual.equals(expectedSha256.trim(), ignoreCase = true)) {
+                        Log.e(TAG, "sha256 mismatch for $url: expected=${expectedSha256.trim()} actual=$actual")
+                        archiveFile.delete()
+                        return@withContext false
+                    }
+                }
+                // 解压到 rime 目录
+                if (isZip) importZipFromFile(archiveFile, rimeDir) else importTarGzFromFile(archiveFile, rimeDir)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to import from URL: $url", e)
@@ -568,7 +781,7 @@ object SchemaManager {
                 zip.entries().asSequence().forEach { entry ->
                     val originalName = entry.name
                     val name = originalName.removePrefix(baseDir)
-                    if (!entry.isDirectory && (name.endsWith(".yaml") || name.endsWith(".txt") || name.endsWith(".bin"))) {
+                    if (!entry.isDirectory) {
                         val file = if (isProtectedImportName(name)) null else safeChild(targetDir, name)
                         if (file == null) {
                             Log.d(TAG, "Skip protected/unsafe entry: $name")
@@ -630,7 +843,7 @@ object SchemaManager {
                 var entry = tarIn.nextEntry
                 while (entry != null) {
                     val name = entry.name.removePrefix(baseDir)
-                    if (!entry.isDirectory && (name.endsWith(".yaml") || name.endsWith(".txt") || name.endsWith(".bin"))) {
+                    if (!entry.isDirectory) {
                         val file = if (isProtectedImportName(name)) null else safeChild(targetDir, name)
                         if (file == null) {
                             Log.d(TAG, "Skip protected/unsafe entry: $name")

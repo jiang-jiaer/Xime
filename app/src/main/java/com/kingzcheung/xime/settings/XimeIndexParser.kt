@@ -17,8 +17,24 @@ object XimeIndexParser {
     fun parseSubIndex(text: String): SchemesSubIndex =
         yaml.decodeFromString(SchemesSubIndex.serializer(), text)
 
+    /** 解析扁平索引（rimes/index.yaml），其中 schemas 直接内联 MarketScheme 列表。 */
+    fun parseDirectIndex(text: String): SchemasDirectIndex =
+        yaml.decodeFromString(SchemasDirectIndex.serializer(), text)
+
     fun parseScheme(text: String): MarketScheme =
-        yaml.decodeFromString(MarketScheme.serializer(), text)
+        yaml.decodeFromString(MarketScheme.serializer(), migrateDownloadUrl(text))
+
+    /**
+     * 兼容旧格式 `downloadUrl: "..."` → 新格式 `downloadUrl:\n  - url: "..."`。
+     * kaml 不支持在序列化器中做类型自适应，所以在文本层预处理。
+     */
+    private fun migrateDownloadUrl(yaml: String): String {
+        return yaml.replace(Regex("""^(\s*)downloadUrl:\s+"([^"]*)"\s*$""", RegexOption.MULTILINE)) { match ->
+            val indent = match.groupValues[1]
+            val url = match.groupValues[2]
+            "${indent}downloadUrl:\n${indent}  - url: \"$url\""
+        }
+    }
 
     /** 以 repo 相对路径为中心解析引用（去 ./、相对当前文件目录、折叠 ..、绝对 / 视为根）。 */
     fun resolveRepoPath(currentPath: String, ref: String): String {

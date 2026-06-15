@@ -46,12 +46,30 @@ class XimeIndexParserTest {
         versions:
           - version: "2.0.1"
             date: "2024-01-01"
-            downloadUrl: "https://github.com/kingzcheung/rime-wubi/archive/refs/tags/2.0.1.tar.gz"
-            sha256: "ABC123"
+            downloadUrl:
+              - url: "https://github.com/kingzcheung/rime-wubi/archive/refs/tags/2.0.1.tar.gz"
+                sha256: "ABC123"
+                size: ""
           - version: "2.0.0"
             date: "2024-12-01"
             downloadUrl: "https://github.com/kingzcheung/rime-wubi/archive/refs/tags/2.0.0.tar.gz"
         someFutureUnknownField: "ignored"
+    """.trimIndent()
+
+    private val schemeOldFormat = """
+        id: "wubi86"
+        name: "五笔86"
+        author: "王永民"
+        description: "五笔字形 86 版"
+        type: "built-in"
+        tags: ["五笔", "拼音"]
+        appVersion: ">=2.3.0"
+        currentVersion: "2.0.1"
+        versions:
+          - version: "2.0.1"
+            date: "2024-01-01"
+            downloadUrl: "https://github.com/kingzcheung/rime-wubi/archive/refs/tags/2.0.1.tar.gz"
+            sha256: "ABC123"
     """.trimIndent()
 
     @Test
@@ -80,7 +98,7 @@ class XimeIndexParserTest {
         assertEquals(">=2.3.0", s.appVersion)
         assertEquals("2.0.1", s.currentVersion)
         assertEquals(2, s.versions.size)
-        assertTrue(s.versions[0].downloadUrl.endsWith("2.0.1.tar.gz"))
+        assertTrue(s.versions[0].downloadUrls[0].url.endsWith("2.0.1.tar.gz"))
     }
 
     @Test
@@ -93,6 +111,17 @@ class XimeIndexParserTest {
 
         val empty = s.copy(versions = emptyList())
         assertNull(empty.resolvedVersion())
+    }
+
+    @Test
+    fun `parseScheme handles old downloadUrl string format`() {
+        val s = XimeIndexParser.parseScheme(schemeOldFormat)
+        assertEquals("wubi86", s.id)
+        assertEquals(1, s.versions.size)
+        assertEquals(1, s.versions[0].downloadUrls.size)
+        assertTrue(s.versions[0].downloadUrls[0].url.endsWith("2.0.1.tar.gz"))
+        // 旧格式的 sha256 留在版本级别
+        assertEquals("ABC123", s.versions[0].sha256)
     }
 
     @Test

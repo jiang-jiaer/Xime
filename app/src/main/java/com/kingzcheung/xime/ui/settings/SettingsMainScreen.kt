@@ -4,9 +4,9 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,8 +28,8 @@ import androidx.compose.material.icons.twotone.KeyboardAlt
 import androidx.compose.material.icons.twotone.Palette
 import androidx.compose.material.icons.twotone.Storefront
 import androidx.compose.material.icons.twotone.Straighten
+import androidx.compose.material.icons.twotone.TableChart
 import androidx.compose.material.icons.twotone.ToggleOn
-import androidx.compose.material.icons.twotone.ViewAgenda
 import androidx.compose.material.icons.twotone.Vibration
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -52,13 +52,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kingzcheung.xime.settings.SettingsPreferences
+import com.kingzcheung.xime.ui.SettingsItem
+import com.kingzcheung.xime.ui.SettingsSection
+import com.kingzcheung.xime.ui.SettingsToggleItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.kingzcheung.xime.ui.SettingsItem
-import com.kingzcheung.xime.ui.SettingsSection
-import com.kingzcheung.xime.ui.SettingsToggleItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -257,27 +257,11 @@ fun SettingsMainContent(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                     SettingsItem(
-                        icon = Icons.TwoTone.ViewAgenda,
+                        icon = Icons.TwoTone.TableChart,
                         title = "布局与显示",
                         subtitle = "候选词显示、键盘布局等",
                         onClick = onNavigateToLayoutDisplay,
                         showArrow = true
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 56.dp),
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-                    var showBottomButtons by remember { mutableStateOf(SettingsPreferences.showBottomButtons(context)) }
-                    SettingsToggleItem(
-                        icon = Icons.TwoTone.Straighten,
-                        title = "显示底部按钮",
-                        subtitle = "显示收回键盘和切换输入法按钮（部分系统自带）",
-                        checked = showBottomButtons,
-                        onCheckedChange = { newValue ->
-                            showBottomButtons = newValue
-                            SettingsPreferences.setShowBottomButtons(context, newValue)
-                        }
                     )
                 })
             }

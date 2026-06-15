@@ -51,6 +51,7 @@ import com.kingzcheung.xime.clipboard.ClipboardItem
 import com.kingzcheung.xime.keyboard.KeyboardRoute
 import com.kingzcheung.xime.keyboard.ToolbarAction
 import com.kingzcheung.xime.keyboard.ToolbarButton
+import com.kingzcheung.xime.service.CandidateState
 import com.kingzcheung.xime.service.InputUIState
 import com.kingzcheung.xime.settings.SchemaInfo
 import com.kingzcheung.xime.speech.RecognitionState
@@ -108,6 +109,7 @@ fun KeyboardView(
     onSwitchSchema: ((String) -> Unit)? = null,
     onHideKeyboard: (() -> Unit)? = null,
     onSwitchKeyboard: (() -> Unit)? = null,
+    onToolbarEditingAction: ((String) -> Unit)? = null,
     onCommitImage: ((String) -> Unit)? = null,
     isVoiceMode: Boolean = false,
     voiceBottomActive: Boolean = false,
@@ -119,6 +121,7 @@ fun KeyboardView(
     voiceRecognitionState: RecognitionState = RecognitionState.IDLE,
     voiceRecognizedText: String = "",
     voiceAmplitude: Float = 0f,
+    candidateStateProvider: () -> CandidateState,
     uiStateProvider: () -> InputUIState,
     onPageDown: (() -> Unit)? = null,
     onPageUp: (() -> Unit)? = null,
@@ -159,6 +162,7 @@ fun KeyboardView(
         else longToColor(kbColors.candidateTextColor)
     val dividerColor = if (isDarkTheme) Color(0xFF3C4043) else Color(0xFFDADCE0)
     val state = uiStateProvider()
+    val candState = candidateStateProvider()
     val clipboardTab = (currentRoute as? KeyboardRoute.Clipboard)?.tab ?: 0
     // 每次重新开始输入时（inputSessionId 变化），重置导航状态到全键盘
     LaunchedEffect(state.inputSessionId) {
@@ -181,41 +185,8 @@ fun KeyboardView(
                 candidateComments = candidateComments.toList(),
                 inputText = inputText,
                 isComposing = isComposing,
-                onCandidateSelect = onCandidateSelect,
-                backgroundColor = candidateBarBg,
-                showClipboardHeader = state.isShowingRecentClipboard,
-                textColor = candidateTextColor,
-                dividerColor = dividerColor,
-                accentColor = accentColor,
-                isDarkTheme = isDarkTheme,
                 currentRoute = currentRoute,
-                onLogoClick = { currentRoute = KeyboardRoute.Menu },
-                onBack = {
-                    currentRoute = when (currentRoute) {
-                        is KeyboardRoute.SchemaList -> KeyboardRoute.Menu
-                        is KeyboardRoute.Clipboard -> KeyboardRoute.Keyboard
-                        is KeyboardRoute.CandidatePage -> KeyboardRoute.Keyboard
-                        is KeyboardRoute.ToolbarCustomize -> KeyboardRoute.Keyboard
-                        is KeyboardRoute.Emoji -> KeyboardRoute.Keyboard
-                        is KeyboardRoute.Symbol -> KeyboardRoute.Keyboard
-                        is KeyboardRoute.SplitWords -> KeyboardRoute.Keyboard
-                        else -> KeyboardRoute.Keyboard
-                    }
-                },
-                onHideKeyboard = {
-                    onHideKeyboard?.invoke()
-                    keyboardState = initialKeyboardLayoutState(isAsciiMode)
-                    currentRoute = KeyboardRoute.Keyboard
-                    isShifted = false
-                },
-                onShowMoreCandidates = { currentRoute = KeyboardRoute.CandidatePage },
-                onInputTextClick = {
-                    if (inputText.isNotEmpty()) {
-                        onClipboardSelect?.invoke(inputText)
-                    }
-                },
                 associationCandidates = associationCandidates.toList(),
-                onAssociationSelect = onAssociationSelect,
                 toolbarActions = toolbarButtons.mapNotNull { id ->
                     val button = ToolbarButton.fromId(id) ?: return@mapNotNull null
                     val onClick: () -> Unit = when (button) {
@@ -223,9 +194,52 @@ fun KeyboardView(
                         ToolbarButton.CLIPBOARD -> ({ currentRoute = KeyboardRoute.Clipboard(0) })
                         ToolbarButton.SCHEMA -> ({ currentRoute = KeyboardRoute.SchemaList })
                         ToolbarButton.QUICK_PHRASE -> ({ currentRoute = KeyboardRoute.Clipboard(1) })
+                        ToolbarButton.SYMBOL -> ({ currentRoute = KeyboardRoute.Symbol })
+                        ToolbarButton.SELECT_ALL -> ({ onToolbarEditingAction?.invoke("select_all") })
+                        ToolbarButton.COPY -> ({ onToolbarEditingAction?.invoke("copy") })
+                        ToolbarButton.PASTE -> ({ onToolbarEditingAction?.invoke("paste") })
+                        ToolbarButton.HOME -> ({ onToolbarEditingAction?.invoke("home") })
+                        ToolbarButton.END -> ({ onToolbarEditingAction?.invoke("end") })
                     }
                     ToolbarAction(button, onClick)
-                }
+                },
+                visuals = CandidateBarVisuals(
+                    backgroundColor = candidateBarBg,
+                    showClipboardHeader = candState.isShowingRecentClipboard,
+                    textColor = candidateTextColor,
+                    dividerColor = dividerColor,
+                    accentColor = accentColor,
+                    isDarkTheme = isDarkTheme
+                ),
+                callbacks = CandidateBarCallbacks(
+                    onCandidateSelect = onCandidateSelect,
+                    onLogoClick = { currentRoute = KeyboardRoute.Menu },
+                    onBack = {
+                        currentRoute = when (currentRoute) {
+                            is KeyboardRoute.SchemaList -> KeyboardRoute.Menu
+                            is KeyboardRoute.Clipboard -> KeyboardRoute.Keyboard
+                            is KeyboardRoute.CandidatePage -> KeyboardRoute.Keyboard
+                            is KeyboardRoute.ToolbarCustomize -> KeyboardRoute.Keyboard
+                            is KeyboardRoute.Emoji -> KeyboardRoute.Keyboard
+                            is KeyboardRoute.Symbol -> KeyboardRoute.Keyboard
+                            is KeyboardRoute.SplitWords -> KeyboardRoute.Keyboard
+                            else -> KeyboardRoute.Keyboard
+                        }
+                    },
+                    onHideKeyboard = {
+                        onHideKeyboard?.invoke()
+                        keyboardState = initialKeyboardLayoutState(isAsciiMode)
+                        currentRoute = KeyboardRoute.Keyboard
+                        isShifted = false
+                    },
+                    onShowMoreCandidates = { currentRoute = KeyboardRoute.CandidatePage },
+                    onInputTextClick = {
+                        if (inputText.isNotEmpty()) {
+                            onClipboardSelect?.invoke(inputText)
+                        }
+                    },
+                    onAssociationSelect = onAssociationSelect
+                )
             )
 
             // 显示菜单、剪切板、候选词页面或键盘
@@ -328,6 +342,7 @@ fun KeyboardView(
                             "mode_change" -> keyboardState = keyboardState.transition(
                                 KeyboardLayoutAction.SwitchToNumber, isAsciiMode
                             )
+                            "mode_change_symbol" -> currentRoute = KeyboardRoute.Symbol
                             "emoji" -> currentRoute = KeyboardRoute.Emoji
                             else -> onKeyPress(key, isShifted)
                         }
@@ -347,7 +362,7 @@ fun KeyboardView(
                             "abc" -> keyboardState = keyboardState.transition(
                                 KeyboardLayoutAction.SwitchToFull, isAsciiMode
                             )
-                            "123" -> keyboardState = keyboardState.transition(
+                            "?123" -> keyboardState = keyboardState.transition(
                                 KeyboardLayoutAction.SwitchToNumber, isAsciiMode
                             )
                             else -> onKeyPress(key, false)
@@ -572,8 +587,8 @@ fun KeyboardView(
                     },
                     backgroundColor = candidateBarBg,
                     textColor = candidateTextColor,
-                    hasNextPage = state.hasNextPage,
-                    hasPrevPage = state.hasPrevPage,
+                    hasNextPage = candState.hasNextPage,
+                    hasPrevPage = candState.hasPrevPage,
                     onPageDown = onPageDown,
                     onPageUp = onPageUp,
                     onBack = { currentRoute = KeyboardRoute.Keyboard },

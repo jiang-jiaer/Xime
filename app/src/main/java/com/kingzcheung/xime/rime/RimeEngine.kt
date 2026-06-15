@@ -269,6 +269,11 @@ class RimeEngine {
         }
     }
 
+    fun setPageSize(schemaId: String, pageSize: Int) {
+        if (!isInitialized) return
+        nativeSetPageSize(schemaId, pageSize)
+    }
+
     fun switchSchema(schemaId: String): Boolean {
         synchronized(rimeLock) {
             if (!nativeHasSession()) return false
@@ -340,6 +345,7 @@ class RimeEngine {
     private external fun nativeGetAvailableSchemas(): Array<String>?
     private external fun nativeIsModuleRegistered(moduleName: String): Boolean
     private external fun nativeUpdateLastBuildTime()
+    private external fun nativeSetPageSize(schemaId: String, pageSize: Int)
     private external fun nativeDestroy()
 
     fun deploySchema(schemaId: String): Boolean {
