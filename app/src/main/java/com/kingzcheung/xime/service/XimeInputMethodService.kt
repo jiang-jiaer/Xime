@@ -762,6 +762,17 @@ onVoiceModeChange = { enabled ->
                                    SettingsPreferences.setToolbarButtons(this@XimeInputMethodService, buttons)
                                    uiState.value = uiState.value.copy(toolbarButtons = buttons)
                                },
+                                onT9ReplaceFullPinyin = { pinyin ->
+                                    if (pinyin.isEmpty()) {
+                                        rimeEngine.clearComposition()
+                                    } else {
+                                        rimeEngine.clearComposition()
+                                        for (char in pinyin) {
+                                            rimeEngine.processKey(char.code, 0)
+                                        }
+                                    }
+                                    updateUI()
+                                },
                                 onKeyboardModeChange = { chineseMode ->
                                     if (isChineseMode != chineseMode) {
                                         isChineseMode = chineseMode
