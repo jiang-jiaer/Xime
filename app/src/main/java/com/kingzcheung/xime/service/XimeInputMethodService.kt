@@ -1322,9 +1322,16 @@ onVoiceModeChange = { enabled ->
                         predictionManager.deleteLastChar()
                         Log.d(TAG, "Delete committed text, remaining: '${predictionManager.lastCommittedText}'")
                         
+                        withContext(Dispatchers.Main) {
+                            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+                        }
+                        
                         if (!state.isAsciiMode && isChineseMode && SettingsPreferences.isSmartPredictionEnabled(this@XimeInputMethodService) && predictionManager.lastCommittedText.isNotEmpty()) {
-                            val candidates = predictionManager.getChineseAssociations(predictionManager.lastCommittedText, PredictionManager.MAX_ASSOCIATION_COUNT)
-                            candidateState.value = candidateState.value.copy(associationCandidates = candidates)
+                            val text = predictionManager.lastCommittedText
+                            serviceScope.launch {
+                                val candidates = predictionManager.getChineseAssociations(text, PredictionManager.MAX_ASSOCIATION_COUNT)
+                                candidateState.value = candidateState.value.copy(associationCandidates = candidates)
+                            }
                         } else {
                             candidateState.value = candidateState.value.copy(
                                 candidates = emptyArray(),
@@ -1332,10 +1339,6 @@ onVoiceModeChange = { enabled ->
                                 associationCandidates = emptyArray(),
                                 isShowingRecentClipboard = false
                             )
-                        }
-                        
-                        withContext(Dispatchers.Main) {
-                            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                         }
                     }
                 }
