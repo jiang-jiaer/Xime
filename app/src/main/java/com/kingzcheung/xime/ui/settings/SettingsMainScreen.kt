@@ -52,9 +52,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kingzcheung.xime.settings.SettingsPreferences
-import com.kingzcheung.xime.ui.SettingsItem
-import com.kingzcheung.xime.ui.SettingsSection
-import com.kingzcheung.xime.ui.SettingsToggleItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch

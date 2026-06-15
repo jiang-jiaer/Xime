@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.keyboard
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween

@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.settings
 
 import android.util.Log
 import androidx.compose.foundation.clickable
@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -34,12 +35,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.kingzcheung.xime.viewmodel.LogViewerEvent
 import com.kingzcheung.xime.viewmodel.LogViewerViewModel
 import java.io.File
 
@@ -61,9 +67,35 @@ fun LogViewerScreen(
     val context = LocalContext.current
     val viewModel: LogViewerViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is LogViewerEvent.ShareFile -> {
+                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = event.mimeType
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, event.subject)
+                        putExtra(android.content.Intent.EXTRA_STREAM, event.uri)
+                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        clipData = android.content.ClipData.newRawUri(null, event.uri)
+                    }
+                    val chooser = android.content.Intent.createChooser(shareIntent, "分享日志")
+                    context.startActivity(chooser)
+                }
+                is LogViewerEvent.SavedToDownloads -> {
+                    snackbarHostState.showSnackbar("已保存到 ${event.path}")
+                }
+                is LogViewerEvent.ShowError -> {
+                    snackbarHostState.showSnackbar(event.message)
+                }
+            }
+        }
+    }
     
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("日志查看器") },
@@ -76,6 +108,19 @@ fun LogViewerScreen(
                     }
                 },
                 actions = {
+                    val targetFile = uiState.selectedLogFile
+                        ?: uiState.logFiles.firstOrNull()
+                    if (targetFile != null) {
+                        IconButton(onClick = { viewModel.shareLogFile(targetFile) }) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "分享日志"
+                            )
+                        }
+                        TextButton(onClick = { viewModel.saveToDownloads(targetFile) }) {
+                            Text("保存")
+                        }
+                    }
                     IconButton(onClick = { viewModel.loadLogFiles() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -132,13 +177,18 @@ fun LogViewerScreen(
             LogContentSection(
                 selectedLogFile = uiState.selectedLogFile!!,
                 logContent = uiState.logContent,
-                onBackToList = { viewModel.selectLogFile(File("")) },
-                onDelete = { viewModel.deleteLogFile(uiState.selectedLogFile!!) }
+                onBackToList = { viewModel.goBackToList() },
+                onDelete = { viewModel.deleteLogFile(uiState.selectedLogFile!!) },
+                onShare = { viewModel.shareLogFile(uiState.selectedLogFile!!) },
+                onSave = { viewModel.saveToDownloads(uiState.selectedLogFile!!) }
             )
         } else {
             LogFilesList(
                 logFiles = uiState.logFiles,
                 onSelect = { viewModel.selectLogFile(it) },
+                onShare = { viewModel.shareLogFile(it) },
+                onSave = { viewModel.saveToDownloads(it) },
+                onDelete = { viewModel.deleteLogFile(it) },
                 context = context,
                 modifier = Modifier.padding(padding)
             )
@@ -151,7 +201,9 @@ private fun LogContentSection(
     selectedLogFile: File,
     logContent: String,
     onBackToList: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onShare: () -> Unit,
+    onSave: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
@@ -167,9 +219,19 @@ private fun LogContentSection(
                 text = selectedLogFile.name,
                 fontWeight = FontWeight.Medium
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onBackToList) {
                     Text("返回列表")
+                }
+                TextButton(onClick = onSave) {
+                    Text("保存")
+                }
+                IconButton(onClick = onShare) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "分享",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
                 IconButton(onClick = onDelete) {
                     Icon(
@@ -218,6 +280,9 @@ private fun LogContentSection(
 private fun LogFilesList(
     logFiles: List<File>,
     onSelect: (File) -> Unit,
+    onShare: (File) -> Unit,
+    onSave: (File) -> Unit,
+    onDelete: (File) -> Unit,
     context: android.content.Context,
     modifier: Modifier = Modifier
 ) {
@@ -273,7 +338,9 @@ private fun LogFilesList(
                 LogFileItem(
                     file = file,
                     onClick = { onSelect(file) },
-                    onDelete = { onSelect(File("")) }
+                    onShare = { onShare(file) },
+                    onSave = { onSave(file) },
+                    onDelete = { onDelete(file) }
                 )
             }
             
@@ -293,6 +360,8 @@ private fun LogFilesList(
 private fun LogFileItem(
     file: File,
     onClick: () -> Unit,
+    onShare: () -> Unit,
+    onSave: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -358,12 +427,24 @@ private fun LogFileItem(
                 )
             }
             
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.error
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                TextButton(onClick = onSave) {
+                    Text("保存", style = MaterialTheme.typography.labelSmall)
+                }
+                IconButton(onClick = onShare) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "分享",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }

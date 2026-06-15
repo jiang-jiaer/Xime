@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.keyboard
 
 /**
  * 键盘布局状态 — 取代 [KeyboardMode] 枚举，

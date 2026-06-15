@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.keyboard
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
@@ -56,8 +56,8 @@ import com.kingzcheung.xime.service.InputUIState
 import com.kingzcheung.xime.settings.SchemaInfo
 import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.settings.KeysConfigHelper
+import com.kingzcheung.xime.ui.settings.SchemaListView
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
-import com.kingzcheung.xime.ui.SplitWordsView
 import com.kingzcheung.xime.keyboard.GestureAction
 
 val LocalStretchFactor = compositionLocalOf { 1f }

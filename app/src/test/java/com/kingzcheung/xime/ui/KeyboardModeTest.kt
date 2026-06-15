@@ -1,5 +1,9 @@
 package com.kingzcheung.xime.ui
 
+import com.kingzcheung.xime.ui.keyboard.KeyboardLayoutAction
+import com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState
+import com.kingzcheung.xime.ui.keyboard.initialKeyboardLayoutState
+import com.kingzcheung.xime.ui.keyboard.transition
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

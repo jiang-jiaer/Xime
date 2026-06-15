@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.settings
 
 import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState

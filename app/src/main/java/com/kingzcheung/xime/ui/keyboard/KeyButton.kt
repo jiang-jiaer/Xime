@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.keyboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -26,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import com.kingzcheung.xime.ui.LocalStretchFactor
 import com.kingzcheung.xime.util.CharInfo
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip

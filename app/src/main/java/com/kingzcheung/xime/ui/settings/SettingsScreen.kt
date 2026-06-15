@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.settings
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
@@ -6,17 +6,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.kingzcheung.xime.ui.settings.DictionarySettingsContent
-import com.kingzcheung.xime.ui.settings.KeyEffectSettingsContent
-import com.kingzcheung.xime.ui.settings.LayoutDisplaySettingsContent
-import com.kingzcheung.xime.ui.settings.PluginSettingsContent
-import com.kingzcheung.xime.ui.settings.SchemaMarketContent
-import com.kingzcheung.xime.ui.settings.SchemaMarketDetailContent
-import com.kingzcheung.xime.ui.settings.SchemaSettingsContent
-import com.kingzcheung.xime.ui.settings.SettingsMainContent
-import com.kingzcheung.xime.ui.settings.SettingsRoutes
-import com.kingzcheung.xime.ui.settings.ThemeSettingsContent
-import com.kingzcheung.xime.ui.settings.WebDavSyncContent
 
 @Composable
 fun SettingsScreen(

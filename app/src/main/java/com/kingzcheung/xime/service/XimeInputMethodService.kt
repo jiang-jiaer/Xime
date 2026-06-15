@@ -40,12 +40,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
-import com.kingzcheung.xime.ui.LocalStretchFactor
+import com.kingzcheung.xime.ui.keyboard.LocalStretchFactor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kingzcheung.xime.ui.KeyboardResizeOverlay
-import com.kingzcheung.xime.ui.FloatingCandidateBar
+import com.kingzcheung.xime.ui.keyboard.KeyboardResizeOverlay
+import com.kingzcheung.xime.ui.keyboard.FloatingCandidateBar
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.core.content.FileProvider
@@ -69,7 +69,7 @@ import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.settings.SchemaConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
-import com.kingzcheung.xime.ui.KeyboardView
+import com.kingzcheung.xime.ui.keyboard.KeyboardView
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.XimeTheme
@@ -94,6 +94,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
     companion object {
         private const val TAG = "XimeInputMethodService"
+        private const val KEY_PERF = "KeyPerf"
         private const val DARK_MODE_LIGHT = 0
         private const val DARK_MODE_DARK = 1
         private const val DARK_MODE_SYSTEM = 2
@@ -123,7 +124,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     
     init {
         serviceScope.launch {
-            keyJobs.consumeEach { it.join() }
+            keyJobs.consumeEach { job ->
+                val tBeforeJoin = System.nanoTime()
+                job.join()
+                val joinTime = (System.nanoTime() - tBeforeJoin) / 1_000_000
+                if (joinTime > 20) {
+                    FileLogger.d(KEY_PERF, "Channel join took ${joinTime}ms")
+                }
+            }
         }
     }
     
@@ -1194,11 +1202,13 @@ onVoiceModeChange = { enabled ->
     }
 
     private fun updateUIWithResult(result: com.kingzcheung.xime.rime.RimeProcessResult) {
+        val t0 = System.nanoTime()
         val isAsciiMode = result.isAsciiMode
         val candidatesWithComments = result.candidates
         
         val pendingEnglish = candidateState.value.pendingEnglishText
         
+        val tFilter = System.nanoTime()
         val (filteredTexts, filteredComments) = if (isAsciiMode) {
             val filtered = candidatesWithComments.filterNot { candidate ->
                 candidate.text.any { it.code in 0x4E00..0x9FFF }
@@ -1206,6 +1216,10 @@ onVoiceModeChange = { enabled ->
             filtered.map { it.text }.toTypedArray() to filtered.map { it.comment }.toTypedArray()
         } else {
             candidatesWithComments.map { it.text }.toTypedArray() to candidatesWithComments.map { it.comment }.toTypedArray()
+        }
+        val filterElapsed = (System.nanoTime() - tFilter) / 1_000_000
+        if (filterElapsed > 5) {
+            FileLogger.d(KEY_PERF, "updateUI filter candidates: ${filterElapsed}ms, count=${candidatesWithComments.size}")
         }
         
         candidateState.value = candidateState.value.copy(
@@ -1228,6 +1242,11 @@ onVoiceModeChange = { enabled ->
                     candidateState.value = candidateState.value.copy(associationCandidates = candidates)
                 }
             }
+        }
+        
+        val elapsed = (System.nanoTime() - t0) / 1_000_000
+        if (elapsed > 5) {
+            FileLogger.d(KEY_PERF, "updateUI: ${elapsed}ms")
         }
     }
 
@@ -1264,11 +1283,19 @@ onVoiceModeChange = { enabled ->
     }
 
     private fun handleKeyPress(key: String, isShifted: Boolean) {
+        val tDispatch = System.nanoTime()
         val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY) {
+            val tStart = System.nanoTime()
+            val dispatchDelay = (tStart - tDispatch) / 1_000_000
+            if (dispatchDelay > 5) {
+                FileLogger.w(KEY_PERF, "Key dispatch delay ${dispatchDelay}ms for '$key'")
+            }
+            
             val state = uiState.value
             val candState = candidateState.value
             var needsUIUpdate = false
             var pendingResult: com.kingzcheung.xime.rime.RimeProcessResult? = null
+            var committedText: String? = null
             
             when (key) {
                 "delete" -> {
@@ -1503,21 +1530,18 @@ onVoiceModeChange = { enabled ->
                             }
                             Log.d(TAG, "Symbol: added '$key' after pending English '$pendingEnglish'")
                         } else if (candState.isComposing) {
-                            val committedText = rimeEngine.commit()
-                            if (committedText.isNotEmpty()) {
+                            val rimeCommitted = rimeEngine.commit()
+                            if (rimeCommitted.isNotEmpty()) {
                                 withContext(Dispatchers.Main) {
-                                    commitText(committedText)
+                                    commitText(rimeCommitted)
                                 }
                             }
                             rimeEngine.clearComposition()
                             needsUIUpdate = true
-                            withContext(Dispatchers.Main) {
-                                commitText(key)
-                            }
+                            committedText = key
                         } else {
-                            withContext(Dispatchers.Main) {
-                                commitText(key)
-                            }
+                            committedText = key
+                            needsUIUpdate = true
                         }
                     } else {
                         val char = if (isShifted) key.uppercase() else key
@@ -1527,17 +1551,19 @@ onVoiceModeChange = { enabled ->
                         val t0 = System.nanoTime()
                         val result = rimeEngine.processKeyAndGetResult(keyCode, mask)
                         val elapsed = (System.nanoTime() - t0) / 1_000_000
-                        if (elapsed > 10) Log.w(TAG, "Key '$key' processed in ${elapsed}ms")
+                        if (elapsed > 5) {
+                            FileLogger.d(KEY_PERF, "Rime processKey '${char}' mask=$mask: ${elapsed}ms")
+                        }
+                        if (elapsed > 10) {
+                            FileLogger.w(KEY_PERF, "Rime slow processKey '${char}' mask=$mask: ${elapsed}ms")
+                        }
 
                         if (result.processed) {
                             needsUIUpdate = true
                             pendingResult = result
                             
                             if (result.committedText.isNotEmpty()) {
-                                withContext(Dispatchers.Main) {
-                                    commitText(result.committedText)
-                                }
-                                needsUIUpdate = true
+                                committedText = result.committedText
                             }
                         } else {
                             val isAscii = state.isAsciiMode
@@ -1558,9 +1584,8 @@ onVoiceModeChange = { enabled ->
                                     needsUIUpdate = true
                                     Log.d(TAG, "English mode: committed '$charToCommit', pending text '$newPending'")
                                 } else {
-                                    withContext(Dispatchers.Main) {
-                                        commitText(char)
-                                    }
+                                    committedText = char
+                                    needsUIUpdate = true
                                 }
                             }
                         }
@@ -1570,13 +1595,28 @@ onVoiceModeChange = { enabled ->
             
             if (needsUIUpdate) {
                 val result = pendingResult
+                val textToCommit = committedText
+                val tMainEntry = System.nanoTime()
                 withContext(Dispatchers.Main) {
+                    val tMainStart = System.nanoTime()
+                    val mainDispatchDelay = (tMainStart - tMainEntry) / 1_000_000
+                    if (textToCommit != null) {
+                        commitText(textToCommit)
+                    }
                     if (result != null) {
                         updateUIWithResult(result)
                     } else {
                         updateUI()
                     }
+                    val mainElapsed = (System.nanoTime() - tMainStart) / 1_000_000
+                    if (mainElapsed > 5) {
+                        FileLogger.d(KEY_PERF, "MainThread work: ${mainElapsed}ms, dispatch=${mainDispatchDelay}ms")
+                    }
                 }
+            }
+            val totalElapsed = (System.nanoTime() - tStart) / 1_000_000
+            if (totalElapsed > 10) {
+                FileLogger.d(KEY_PERF, "handleKey '$key' total: ${totalElapsed}ms")
             }
         }
         keyJobs.trySend(job)
@@ -1587,7 +1627,14 @@ onVoiceModeChange = { enabled ->
      * Ensures no interleaving with key processing.
      */
     private fun postRimeJob(block: suspend CoroutineScope.() -> Unit) {
-        val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY, block = block)
+        val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY) {
+            val t0 = System.nanoTime()
+            block()
+            val elapsed = (System.nanoTime() - t0) / 1_000_000
+            if (elapsed > 10) {
+                FileLogger.d(KEY_PERF, "postRimeJob: ${elapsed}ms")
+            }
+        }
         keyJobs.trySend(job)
     }
 
@@ -1910,7 +1957,12 @@ onVoiceModeChange = { enabled ->
     }
 
     override fun commitText(text: String) {
+        val t0 = System.nanoTime()
         currentInputConnection?.commitText(text, 1)
+        val commitElapsed = (System.nanoTime() - t0) / 1_000_000
+        if (commitElapsed > 5) {
+            FileLogger.d(KEY_PERF, "commitText '$text': ${commitElapsed}ms")
+        }
 
         if (isChineseMode) {
             predictionManager.appendCommittedText(text)

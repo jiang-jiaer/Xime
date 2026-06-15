@@ -26,8 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kingzcheung.xime.ui.KeyboardThemeCard
-import com.kingzcheung.xime.ui.ThemeCard
 import com.kingzcheung.xime.viewmodel.ThemeSettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -30,7 +30,7 @@ import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.settings.KeysConfigHelper
-import com.kingzcheung.xime.ui.SettingsScreen
+import com.kingzcheung.xime.ui.settings.SettingsScreen
 import com.kingzcheung.xime.ui.settings.SetupWizardScreen
 import com.kingzcheung.xime.ui.theme.XimeTheme
 import com.kingzcheung.xime.util.PermissionHelper

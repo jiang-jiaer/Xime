@@ -66,7 +66,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.settings.WebDavSyncHelper
-import com.kingzcheung.xime.ui.SettingsSection
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.keyboard
 
 import android.widget.Toast
 import androidx.compose.foundation.background

@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.settings
 
 import android.content.Intent
 import android.net.Uri

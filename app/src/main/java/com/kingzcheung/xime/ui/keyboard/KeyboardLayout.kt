@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.keyboard
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -40,7 +40,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import com.kingzcheung.xime.ui.LocalStretchFactor
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.keyboard.GestureAction

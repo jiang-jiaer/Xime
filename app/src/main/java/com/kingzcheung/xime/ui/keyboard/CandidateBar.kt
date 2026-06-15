@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.keyboard
 
 import com.kingzcheung.xime.service.PredictionManager
 import android.annotation.SuppressLint

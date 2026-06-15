@@ -32,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kingzcheung.xime.ui.SettingsSection
 import com.kingzcheung.xime.viewmodel.KeyEffectSettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)

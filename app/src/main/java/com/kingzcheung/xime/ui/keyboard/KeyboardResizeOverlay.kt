@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui
+package com.kingzcheung.xime.ui.keyboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
