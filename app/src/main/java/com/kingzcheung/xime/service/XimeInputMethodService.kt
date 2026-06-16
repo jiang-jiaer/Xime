@@ -1311,6 +1311,17 @@ onVoiceModeChange = { enabled ->
                         }
                         needsUIUpdate = true
                         Log.d(TAG, "Delete: cleared association candidates")
+                    } else if (candState.isShowingRecentClipboard) {
+                        // 清除候选栏的复制内容显示，不删除实际内容
+                        withContext(Dispatchers.Main) {
+                            candidateState.value = candidateState.value.copy(
+                                candidates = emptyArray(),
+                                candidateComments = emptyArray(),
+                                isShowingRecentClipboard = false
+                            )
+                        }
+                        needsUIUpdate = true
+                        Log.d(TAG, "Delete: cleared clipboard display")
                     } else {
                         val pendingEnglish = candState.pendingEnglishText
                         
@@ -1331,18 +1342,9 @@ onVoiceModeChange = { enabled ->
                             if (result.inputText.isEmpty()) {
                                 rimeEngine.clearComposition()
                             }
-                            val pending = candidateState.value.pendingEnglishText
                             uiEventChannel.trySend {
                                 updateUIWithResult(result)
                                 if (calculatorEngine.isActive()) updateCalculatorCandidates()
-                                if (pending.isNotEmpty()) {
-                                    serviceScope.launch {
-                                        val candidates = predictionManager.getEnglishAssociations(pending, PredictionManager.MAX_ASSOCIATION_COUNT)
-                                        withContext(Dispatchers.Main) {
-                                            candidateState.value = candidateState.value.copy(associationCandidates = candidates)
-                                        }
-                                    }
-                                }
                             }
                         } else {
                             predictionManager.deleteLastChar()
@@ -1352,20 +1354,12 @@ onVoiceModeChange = { enabled ->
                                 sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                             }
                             
-                            if (!state.isAsciiMode && isChineseMode && SettingsPreferences.isSmartPredictionEnabled(this@XimeInputMethodService) && predictionManager.lastCommittedText.isNotEmpty()) {
-                                val text = predictionManager.lastCommittedText
-                                serviceScope.launch {
-                                    val candidates = predictionManager.getChineseAssociations(text, PredictionManager.MAX_ASSOCIATION_COUNT)
-                                    candidateState.value = candidateState.value.copy(associationCandidates = candidates)
-                                }
-                            } else {
-                                candidateState.value = candidateState.value.copy(
-                                    candidates = emptyArray(),
-                                    candidateComments = emptyArray(),
-                                    associationCandidates = emptyArray(),
-                                    isShowingRecentClipboard = false
-                                )
-                            }
+                            candidateState.value = candidateState.value.copy(
+                                candidates = emptyArray(),
+                                candidateComments = emptyArray(),
+                                associationCandidates = emptyArray(),
+                                isShowingRecentClipboard = false
+                            )
                         }
                     }
                 }
