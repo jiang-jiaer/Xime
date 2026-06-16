@@ -1,71 +1,178 @@
 package com.kingzcheung.xime.ui.keyboard
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Typeface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.keyboard.KeyboardDimensions
 import com.kingzcheung.xime.settings.SettingsPreferences
-import com.kingzcheung.xime.ui.theme.KeyBackground
-import com.kingzcheung.xime.ui.theme.KeyBackgroundDark
-import kotlin.math.roundToInt
 
 private val BubbleBodyHeight = KeyboardDimensions.BubbleHeightDown
 private val BubblePointerHeight = KeyboardDimensions.BubblePointerHeight
 private val BubbleCornerRadius = KeyboardDimensions.BubbleCornerRadius
 private val BubbleScreenMargin = 4.dp
 
-/**
- * 构建倒"凸"字形路径：
- *
- *   ┌──────────────────────┐  ← 宽体 rounded rect
- *   │        text          │
- *   └──────┬──────────┬────┘  ← "肩膀"过渡
- *          │          │         ← 窄体 rounded rect
- *          └──────────┘
- */
-private fun buildInvertedConvexPath(
-    bodyLeft: Float, bodyWidth: Float, bodyHeight: Float,
-    pointerLeft: Float, pointerWidth: Float, pointerHeight: Float,
-    cornerRadius: Float,
-    isLeftFlush: Boolean = false,
-    isRightFlush: Boolean = false
-): Path {
+data class BubbleDrawData(
+    val boxLeft: Float,
+    val boxTop: Float,
+    val pathBodyLeft: Float,
+    val pathBodyWidth: Float,
+    val pointerLeftInBox: Float,
+    val keyWidthPx: Float,
+    val bodyHeightPx: Float,
+    val pointerHeightPx: Float,
+    val cornerRadiusPx: Float,
+    val isLeftFlush: Boolean,
+    val isRightFlush: Boolean,
+    val bgColor: Int,
+    val textColor: Int,
+    val displayText: String?,
+    val isLongPressMode: Boolean,
+    val longPressItems: List<String>,
+    val selectedLongPressIndex: Int,
+    val bodyWidth: Float,
+    val textStartX: Float,
+    val chaiTypeface: Typeface,
+    val shadowRadiusPx: Float,
+    val textSizePx: Float,
+    val selectedFontSizePx: Float,
+    val normalFontSizePx: Float,
+    val selectedBgRadiusPx: Float,
+)
+
+@Composable
+fun rememberSwipeBubbleDrawData(
+    swipeState: SwipeState,
+    keyBounds: Rect,
+    isDarkTheme: Boolean,
+    keyWidth: Float,
+    keyboardWidth: Float,
+): BubbleDrawData? {
+    val context = LocalContext.current
+    val showPressBubble = SettingsPreferences.shouldShowPressBubble(context)
+    if (!swipeState.isSwiping && !(showPressBubble && swipeState.isPressed) && !swipeState.isLongPress) return null
+
+    val isLongPressMode = swipeState.isLongPress && swipeState.longPressItems.isNotEmpty()
+    val displayText = if (isLongPressMode) null
+        else if (swipeState.isPressed) swipeState.pressedText
+        else swipeState.swipeText
+    if (!isLongPressMode && displayText == null) return null
+
+    val density = LocalDensity.current
+    val bodyHeightPx = with(density) { BubbleBodyHeight.toPx() }
+    val pointerHeightPx = with(density) { (BubblePointerHeight + 5.dp).toPx() }
+    val cornerRadiusPx = with(density) { BubbleCornerRadius.toPx() }
+    val screenMarginPx = with(density) { BubbleScreenMargin.toPx() }
+    val keyWidthPx = keyWidth
+    val minBodyWidthPx = keyWidthPx + with(density) { 24.dp.toPx() }
+    val totalHeightPx = bodyHeightPx + pointerHeightPx
+    val shadowRadiusPx = with(density) { 4.dp.toPx() }
+
+    val bgColor = (if (swipeState.isDanger) {
+        if (swipeState.isSwipeDown) Color(0xFF1A73E8) else Color(0xFFD93025)
+    } else if (isDarkTheme) com.kingzcheung.xime.ui.theme.KeyBackgroundDark
+    else com.kingzcheung.xime.ui.theme.KeyBackground).toArgb()
+    val textColor = (if (swipeState.isDanger) Color.White
+    else if (isDarkTheme) Color(0xFFE8EAED) else Color(0xFF202124)).toArgb()
+
+    val chaiTypeface = remember {
+        Typeface.createFromAsset(context.assets, "ChaiPUA-0.2.7-snow.ttf")
+    }
+
+    val textPaint = remember {
+        Paint().apply {
+            textSize = with(density) { 14.sp.toPx() }
+            isAntiAlias = true
+        }
+    }
+
+    val bodyWidth = if (isLongPressMode) {
+        maxOf(swipeState.longPressItems.size, 3) * keyWidthPx
+    } else {
+        maxOf(textPaint.measureText(displayText!!) + with(density) { 20.dp.toPx() }, minBodyWidthPx)
+    }
+
+    val textSizePx = with(density) { 14.sp.toPx() }
+    val selectedFontSizePx = with(density) { 18.sp.toPx() }
+    val normalFontSizePx = with(density) { 14.sp.toPx() }
+    val selectedBgRadiusPx = with(density) { 6.dp.toPx() }
+
+    val pointerCenterX = keyBounds.left + keyBounds.width / 2f
+    val bodyLeft = (pointerCenterX - bodyWidth / 2f).coerceIn(
+        screenMarginPx,
+        maxOf(screenMarginPx, keyboardWidth - bodyWidth - screenMarginPx)
+    )
+    val bodyRight = bodyLeft + bodyWidth
+    val pointerLeft = pointerCenterX - keyWidthPx / 2f
+    val pointerRight = pointerLeft + keyWidthPx
+    val boxLeft = minOf(bodyLeft, pointerLeft)
+    val boxTop = keyBounds.top + keyBounds.height - totalHeightPx
+    val boxRight = maxOf(bodyRight, pointerRight)
+
+    val rightRoom = bodyRight - pointerRight
+    val leftRoom = pointerLeft - bodyLeft
+    val flushTolerancePx = with(density) { 10.dp.toPx() }
+    val isLeftFlush = leftRoom < cornerRadiusPx + flushTolerancePx || kotlin.math.abs(bodyLeft - pointerLeft) < 1f
+    val isRightFlush = rightRoom < cornerRadiusPx + flushTolerancePx || kotlin.math.abs(bodyRight - pointerRight) < 1f
+    val bodyLeftInBox = bodyLeft - boxLeft
+    val pointerLeftInBox = pointerLeft - boxLeft
+    val pointerRightInBox = pointerLeftInBox + keyWidthPx
+    val pathBodyLeft = if (isLeftFlush) pointerLeftInBox else bodyLeftInBox
+    val pathBodyWidth = (if (isRightFlush) pointerRightInBox else (bodyLeftInBox + bodyWidth)) - pathBodyLeft
+
+    val paddingPx = with(density) { 10.dp.toPx() }
+
+    return BubbleDrawData(
+        boxLeft = boxLeft,
+        boxTop = boxTop,
+        pathBodyLeft = pathBodyLeft,
+        pathBodyWidth = pathBodyWidth,
+        pointerLeftInBox = pointerLeftInBox,
+        keyWidthPx = keyWidthPx,
+        bodyHeightPx = bodyHeightPx,
+        pointerHeightPx = pointerHeightPx,
+        cornerRadiusPx = cornerRadiusPx,
+        isLeftFlush = isLeftFlush,
+        isRightFlush = isRightFlush,
+        bgColor = bgColor,
+        textColor = textColor,
+        displayText = displayText,
+        isLongPressMode = isLongPressMode,
+        longPressItems = swipeState.longPressItems,
+        selectedLongPressIndex = swipeState.selectedLongPressIndex,
+        bodyWidth = bodyWidth,
+        textStartX = bodyLeftInBox + paddingPx,
+        chaiTypeface = chaiTypeface,
+        shadowRadiusPx = shadowRadiusPx,
+        textSizePx = textSizePx,
+        selectedFontSizePx = selectedFontSizePx,
+        normalFontSizePx = normalFontSizePx,
+        selectedBgRadiusPx = selectedBgRadiusPx,
+    )
+}
+
+private fun buildBubblePath(data: BubbleDrawData): Path {
+    val bodyLeft = data.pathBodyLeft
+    val bodyWidth = data.pathBodyWidth
+    val bodyHeight = data.bodyHeightPx
+    val pointerLeft = data.pointerLeftInBox
+    val pointerWidth = data.keyWidthPx
+    val pointerHeight = data.pointerHeightPx
+    val cornerRadius = data.cornerRadiusPx
+    val isLeftFlush = data.isLeftFlush
+    val isRightFlush = data.isRightFlush
+
     val bodyRight = bodyLeft + bodyWidth
     val bodyBottom = bodyHeight
     val pointerRight = pointerLeft + pointerWidth
@@ -76,262 +183,103 @@ private fun buildInvertedConvexPath(
 
     return Path().apply {
         moveTo(bodyLeft + r, 0f)
-
-        // ── 主体上边 ──
         lineTo(bodyRight - r, 0f)
-        quadraticBezierTo(bodyRight, 0f, bodyRight, r)
+        quadTo(bodyRight, 0f, bodyRight, r)
 
-        // ── 主体右边 ──
         if (isRightFlush) {
-            // 直角落底 → 圆弧过渡到 pointer 右边（坐标已对齐，退化为直线）
             lineTo(bodyRight, bodyBottom)
-            quadraticBezierTo(pointerRight, bodyBottom, pointerRight, bodyBottom + pr)
+            quadTo(pointerRight, bodyBottom, pointerRight, bodyBottom + pr)
         } else {
             lineTo(bodyRight, bodyBottom - r)
-            quadraticBezierTo(bodyRight, bodyBottom, bodyRight - r, bodyBottom)
+            quadTo(bodyRight, bodyBottom, bodyRight - r, bodyBottom)
             lineTo(pointerRight + pr, bodyBottom)
-            quadraticBezierTo(pointerRight, bodyBottom, pointerRight, bodyBottom + pr)
+            quadTo(pointerRight, bodyBottom, pointerRight, bodyBottom + pr)
         }
 
-        // ── pointer 右边 ──
         lineTo(pointerRight, pointerBottom - pr)
-        quadraticBezierTo(pointerRight, pointerBottom, pointerRight - pr, pointerBottom)
-
-        // ── pointer 底边 ──
+        quadTo(pointerRight, pointerBottom, pointerRight - pr, pointerBottom)
         lineTo(pointerLeft + pr, pointerBottom)
-        quadraticBezierTo(pointerLeft, pointerBottom, pointerLeft, pointerBottom - pr)
-
-        // ── pointer 左边 ──
+        quadTo(pointerLeft, pointerBottom, pointerLeft, pointerBottom - pr)
         lineTo(pointerLeft, bodyBottom + pr)
 
         if (isLeftFlush) {
-            // 直角落底 → 圆弧过渡到 pointer 左边（坐标已对齐，退化为直线）
             lineTo(pointerLeft, bodyBottom)
             lineTo(bodyLeft, bodyBottom)
             lineTo(bodyLeft, r)
-            quadraticBezierTo(bodyLeft, 0f, bodyLeft + r, 0f)
+            quadTo(bodyLeft, 0f, bodyLeft + r, 0f)
         } else {
-            quadraticBezierTo(pointerLeft, bodyBottom, pointerLeft - pr, bodyBottom)
+            quadTo(pointerLeft, bodyBottom, pointerLeft - pr, bodyBottom)
             lineTo(bodyLeft + r, bodyBottom)
-            quadraticBezierTo(bodyLeft, bodyBottom, bodyLeft, bodyBottom - r)
+            quadTo(bodyLeft, bodyBottom, bodyLeft, bodyBottom - r)
             lineTo(bodyLeft, r)
-            quadraticBezierTo(bodyLeft, 0f, bodyLeft + r, 0f)
+            quadTo(bodyLeft, 0f, bodyLeft + r, 0f)
         }
 
         close()
     }
 }
 
-/**
- * 自定义 Shape，使 Modifier.shadow() 能沿倒"凸"轮廓投射阴影
- */
-private class InvertedConvexShape(
-    private val builder: (Size) -> Path
-) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        return Outline.Generic(builder(size))
-    }
-}
+fun DrawScope.drawSwipeBubble(data: BubbleDrawData) {
+    val path = buildBubblePath(data)
 
-/** 绘制倒"凸"字形气泡 — 每次绘制创建新 Path，避免共享可变 Path 对象 */
-private fun DrawScope.drawInvertedConvexShape(
-    bodyLeft: Float, bodyWidth: Float, bodyHeight: Float,
-    pointerLeft: Float, pointerWidth: Float, pointerHeight: Float,
-    cornerRadius: Float, color: Color,
-    isLeftFlush: Boolean = false,
-    isRightFlush: Boolean = false
-) {
-    val path = buildInvertedConvexPath(
-        bodyLeft, bodyWidth, bodyHeight,
-        pointerLeft, pointerWidth, pointerHeight,
-        cornerRadius,
-        isLeftFlush, isRightFlush
-    )
-    drawPath(path, color)
-}
+    drawIntoCanvas { composeCanvas ->
+        val canvas = composeCanvas.nativeCanvas
+        canvas.save()
+        canvas.translate(data.boxLeft, data.boxTop)
 
-@Composable
-fun SwipeBubble(
-    swipeState: SwipeState,
-    keyBounds: Rect,
-    isDarkTheme: Boolean,
-    keyWidth: Float,
-    keyboardWidth: Float,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val showPressBubble = SettingsPreferences.shouldShowPressBubble(context)
-    val shouldShowBubble = swipeState.isSwiping || (showPressBubble && swipeState.isPressed) || swipeState.isLongPress
-    val isLongPressMode = swipeState.isLongPress && swipeState.longPressItems.isNotEmpty()
+        val fillPaint = Paint().apply {
+            color = data.bgColor
+            isAntiAlias = true
+            setShadowLayer(data.shadowRadiusPx, 0f, 0f, android.graphics.Color.argb(0x44, 0, 0, 0))
+        }
+        canvas.drawPath(path, fillPaint)
 
-    val displayText = if (isLongPressMode) null
-        else if (swipeState.isPressed) swipeState.pressedText
-        else swipeState.swipeText
-    if (!shouldShowBubble) return
-    if (!isLongPressMode && displayText == null) return
+        if (data.isLongPressMode) {
+            canvas.save()
+            canvas.clipRect(0f, 0f, data.bodyWidth, data.bodyHeightPx)
+            val accentColor = android.graphics.Color.argb(0xFF, 0x8F, 0x73, 0xE2)
+            val selectedBgColor = android.graphics.Color.argb(0x33, 0x8F, 0x73, 0xE2)
+            val cellWidth = data.bodyWidth / data.longPressItems.size
 
-    val density = LocalDensity.current
-
-    val bgColor = if (swipeState.isDanger) {
-        if (swipeState.isSwipeDown) Color(0xFF1A73E8) else Color(0xFFD93025)
-    } else if (isDarkTheme) KeyBackgroundDark else KeyBackground
-    val textColor = if (swipeState.isDanger) Color.White
-    else if (isDarkTheme) Color(0xFFE8EAED) else Color(0xFF202124)
-
-    // ── 尺寸（px） ──
-    val bodyHeightPx = with(density) { BubbleBodyHeight.toPx() }
-    val pointerHeightPx = with(density) { (BubblePointerHeight + 5.dp).toPx() }
-    val cornerRadiusPx = with(density) { BubbleCornerRadius.toPx() }
-    val screenMarginPx = with(density) { BubbleScreenMargin.toPx() }
-    val keyWidthPx = keyWidth
-    val minBodyWidthPx = keyWidthPx + with(density) { 24.dp.toPx() }
-    val totalHeightPx = bodyHeightPx + pointerHeightPx
-
-    // ── 计算气泡宽度 ──
-    val bodyWidth = if (isLongPressMode) {
-        // 长按：多个选项，宽度 = 按键宽度 × max(选项数, 3)
-        val cellCount = maxOf(swipeState.longPressItems.size, 3)
-        cellCount * keyWidthPx
-    } else {
-        // 单文本：测量文本宽度
-        val textPaint = remember {
-            android.graphics.Paint().apply {
-                textSize = with(density) { 14.sp.toPx() }
+            data.longPressItems.forEachIndexed { index, item ->
+                val itemLeft = index * cellWidth
+                if (index == data.selectedLongPressIndex) {
+                    val bgPaint = Paint().apply {
+                        color = selectedBgColor
+                        isAntiAlias = true
+                    }
+                    val r = minOf(data.selectedBgRadiusPx, cellWidth / 2f)
+                    canvas.drawRoundRect(
+                        itemLeft, 0f, itemLeft + cellWidth, data.bodyHeightPx, r, r, bgPaint
+                    )
+                }
+                val fontSize = if (index == data.selectedLongPressIndex) data.selectedFontSizePx else data.normalFontSizePx
+                val labelPaint = Paint().apply {
+                    color = if (index == data.selectedLongPressIndex) accentColor else data.textColor
+                    textSize = fontSize
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                val textY = data.bodyHeightPx / 2f - (labelPaint.fontMetrics.ascent + labelPaint.fontMetrics.descent) / 2f
+                canvas.drawText(item, itemLeft + cellWidth / 2f, textY, labelPaint)
+            }
+            canvas.restore()
+        } else if (data.displayText != null) {
+            canvas.save()
+            canvas.clipRect(0f, 0f, data.bodyWidth, data.bodyHeightPx)
+            val textPaint = Paint().apply {
+                color = data.textColor
+                textSize = data.textSizePx
+                textAlign = Paint.Align.CENTER
+                typeface = data.chaiTypeface
                 isAntiAlias = true
             }
+            val textCenterX = data.pathBodyLeft + data.pathBodyWidth / 2f
+            val textY = data.bodyHeightPx / 2f - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f
+            canvas.drawText(data.displayText, textCenterX, textY, textPaint)
+            canvas.restore()
         }
-        val textWidthPx = textPaint.measureText(displayText!!)
-        maxOf(textWidthPx + with(density) { 20.dp.toPx() }, minBodyWidthPx)
-    }
 
-    // ── pointer 居中于按键 ──
-    val pointerCenterX = keyBounds.left + keyBounds.width / 2f
-
-    // ── body 居中于 pointerCenterX ──
-    val idealBodyLeft = pointerCenterX - bodyWidth / 2f
-    val bodyLeft = idealBodyLeft.coerceIn(
-        screenMarginPx,
-        keyboardWidth - bodyWidth - screenMarginPx
-    )
-    val bodyRight = bodyLeft + bodyWidth
-    val pointerLeft = pointerCenterX - keyWidthPx / 2f
-    val pointerRight = pointerLeft + keyWidthPx
-    val boxLeft = minOf(bodyLeft, pointerLeft)
-    val boxRight = maxOf(bodyRight, pointerRight)
-    val boxWidth = boxRight - boxLeft
-    val boxTop = keyBounds.top + keyBounds.height - totalHeightPx
-    // 肩膀圆弧需要 pr 横向空间，空间不够时强制平齐
-    // cornerRadiusPx ≈ pr，作为近似判断
-    val rightRoom = bodyRight - pointerRight  // 宽体右边缘到窄体右边缘的距离
-    val leftRoom = pointerLeft - bodyLeft     // 窄体左边缘到宽体左边缘的距离
-
-    val isLeftFlush = if (isLongPressMode)
-        kotlin.math.abs(bodyLeft - pointerLeft) < 1f
-    else
-        leftRoom < cornerRadiusPx || kotlin.math.abs(bodyLeft - pointerLeft) < 1f
-    val isRightFlush = if (isLongPressMode)
-        kotlin.math.abs((bodyLeft + bodyWidth) - (pointerLeft + keyWidthPx)) < 1f
-    else
-        rightRoom < cornerRadiusPx || kotlin.math.abs(bodyRight - pointerRight) < 1f
-    val bodyLeftInBox = bodyLeft - boxLeft
-    val pointerLeftInBox = pointerLeft - boxLeft
-    val boxWidthDp = with(density) { boxWidth.toDp() }
-    val totalHeightDp = with(density) { totalHeightPx.toDp() }
-
-    // 对齐宽体和窄体的边缘坐标
-    val pointerRightInBox = pointerLeftInBox + keyWidthPx
-    val pathBodyLeft = if (isLeftFlush && !isLongPressMode) pointerLeftInBox else bodyLeftInBox
-    val pathBodyRight = if (isRightFlush && !isLongPressMode) pointerRightInBox else (bodyLeftInBox + bodyWidth)
-    val pathBodyWidth = pathBodyRight - pathBodyLeft
-
-    val bubbleShape = remember(pathBodyLeft, pathBodyWidth, bodyHeightPx,
-        pointerLeftInBox, keyWidthPx, pointerHeightPx, cornerRadiusPx,
-        isLeftFlush, isRightFlush) {
-        InvertedConvexShape { _ ->
-            buildInvertedConvexPath(
-                bodyLeft = pathBodyLeft, bodyWidth = pathBodyWidth, bodyHeight = bodyHeightPx,
-                pointerLeft = pointerLeftInBox, pointerWidth = keyWidthPx,
-                pointerHeight = pointerHeightPx, cornerRadius = cornerRadiusPx,
-                isLeftFlush = isLeftFlush, isRightFlush = isRightFlush
-            )
-        }
-    }
-
-    val chaiFontFamily = remember {
-        FontFamily(
-            androidx.compose.ui.text.font.Typeface(
-                android.graphics.Typeface.createFromAsset(context.assets, "ChaiPUA-0.2.7-snow.ttf")
-            )
-        )
-    }
-
-    Box(
-        modifier = modifier
-            .offset { IntOffset(boxLeft.roundToInt(), boxTop.roundToInt()) }
-            .width(boxWidthDp)
-            .height(totalHeightDp)
-            .shadow(10.dp, shape = bubbleShape, clip = false,
-                ambientColor = Color(0x88000000), spotColor = Color(0x88000000))
-            .drawBehind {
-                drawInvertedConvexShape(
-                    bodyLeft = pathBodyLeft, bodyWidth = pathBodyWidth, bodyHeight = bodyHeightPx,
-                    pointerLeft = pointerLeftInBox, pointerWidth = keyWidthPx,
-                    pointerHeight = pointerHeightPx, cornerRadius = cornerRadiusPx,
-                    color = bgColor, isLeftFlush = isLeftFlush, isRightFlush = isRightFlush
-                )
-            }
-    ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .then(
-                    if (isLongPressMode) Modifier
-                        .width(with(density) { bodyWidth.toDp() })
-                    else Modifier.padding(horizontal = 10.dp)
-                )
-                .height(BubbleBodyHeight),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isLongPressMode) {
-                // 长按：横向排列多个选项
-                val accentColor = Color(0xFF8F73E2)
-                val selectedBgColor = Color(0x338F73E2)
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    swipeState.longPressItems.forEachIndexed { index, item ->
-                        val isSelected = index == swipeState.selectedLongPressIndex.toInt()
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .then(
-                                    if (isSelected) Modifier
-                                        .background(selectedBgColor, RoundedCornerShape(6.dp))
-                                    else Modifier
-                                )
-                                .padding(vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = item,
-                                color = if (isSelected) accentColor else textColor,
-                                fontSize = if (isSelected) 18.sp else 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                textAlign = TextAlign.Center,
-                                softWrap = false
-                            )
-                        }
-                    }
-                }
-            } else {
-                Text(
-                    text = displayText!!, color = textColor, fontSize = 14.sp,
-                    fontFamily = chaiFontFamily, fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center, softWrap = false
-                )
-            }
-        }
+        canvas.restore()
     }
 }
