@@ -45,6 +45,7 @@ import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.keyboard.GestureAction
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -158,11 +159,23 @@ fun KeyboardLayout(
         )
     }
 
+    val bubbleData = rememberSwipeBubbleDrawData(
+        swipeState = swipeState,
+        keyBounds = lastKeyBounds,
+        isDarkTheme = isDarkTheme,
+        keyWidth = if (swipeState.isSwiping || swipeState.isPressed) lastKeyBounds.width else 0f,
+        keyboardWidth = keyboardBounds.width
+    )
+
     Box(
         modifier = modifier
             .background(keyboardBackgroundColor)
             .onGloballyPositioned { coordinates ->
                 keyboardBounds = coordinates.boundsInRoot()
+            }
+            .drawWithContent {
+                drawContent()
+                bubbleData?.let { drawSwipeBubble(it) }
             }
     ) {
         if (isLandscape) {
@@ -669,15 +682,6 @@ fun KeyboardLayout(
             }
         }
 
-        Box(Modifier.fillMaxSize()) {
-            SwipeBubble(
-                swipeState = swipeState,
-                keyBounds = lastKeyBounds,
-                isDarkTheme = isDarkTheme,
-                keyWidth = if (swipeState.isSwiping || swipeState.isPressed) lastKeyBounds.width else 0f,
-                keyboardWidth = keyboardBounds.width
-            )
-        }
     }
 }
 

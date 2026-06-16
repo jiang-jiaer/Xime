@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -65,11 +66,23 @@ fun NumberKeyboardLayout(
 
     val isDarkTheme = keyTextColor == Color(0xFFE8EAED)
 
+    val bubbleData = rememberSwipeBubbleDrawData(
+        swipeState = swipeState,
+        keyBounds = lastKeyBounds,
+        isDarkTheme = isDarkTheme,
+        keyWidth = if (swipeState.isSwiping || swipeState.isPressed) lastKeyBounds.width else 0f,
+        keyboardWidth = keyboardBounds.width
+    )
+
     Box(
         modifier = modifier
             .background(keyboardBackgroundColor)
             .onGloballyPositioned { coordinates ->
                 keyboardBounds = coordinates.boundsInRoot()
+            }
+            .drawWithContent {
+                drawContent()
+                bubbleData?.let { drawSwipeBubble(it) }
             }
     ) {
         if (isLandscape) {
@@ -191,15 +204,6 @@ fun NumberKeyboardLayout(
             }
         }
 
-        Box(Modifier.fillMaxSize()) {
-            SwipeBubble(
-                swipeState = swipeState,
-                keyBounds = lastKeyBounds,
-                isDarkTheme = isDarkTheme,
-                keyWidth = if (swipeState.isSwiping || swipeState.isPressed) lastKeyBounds.width else 0f,
-                keyboardWidth = keyboardBounds.width
-            )
-        }
     }
 }
 
