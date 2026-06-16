@@ -171,6 +171,11 @@ class RimeEngine {
         return nativeProcessKeyAndGetResult(keycode, mask)
     }
 
+    fun getProcessResult(processed: Boolean): RimeProcessResult {
+        if (!isInitialized) return RimeProcessResult(false, "", "", emptyArray(), false, false, false)
+        return nativeGetProcessResult(processed)
+    }
+
     fun getCandidates(): Array<String> {
         if (!nativeHasSession()) return emptyArray()
         return nativeGetCandidates() ?: emptyArray()
@@ -279,6 +284,7 @@ class RimeEngine {
     private external fun nativeGetCurrentSchema(): String?
     private external fun nativeProcessKey(keycode: Int, mask: Int): Boolean
     private external fun nativeProcessKeyAndGetResult(keycode: Int, mask: Int): RimeProcessResult
+    private external fun nativeGetProcessResult(processed: Boolean): RimeProcessResult
     private external fun nativeGetCandidates(): Array<String>?
     private external fun nativeGetCandidatesWithComments(): Array<Array<String>>?
     private external fun nativeGetInput(): String?

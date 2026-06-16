@@ -121,7 +121,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }.asCoroutineDispatcher()
     
     private val keyJobs = Channel<Job>(Channel.UNLIMITED)
-
     private val uiEventChannel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
 
     init {
@@ -1317,12 +1316,24 @@ onVoiceModeChange = { enabled ->
                         needsUIUpdate = true
                         Log.d(TAG, "Delete English pending: '$newPending'")
                     } else if (candState.isComposing || candState.inputText.isNotEmpty()) {
-                        val result = rimeEngine.processKeyAndGetResult(0xff08, 0)
+                        rimeEngine.processKey(0xff08, 0)
+                        val result = rimeEngine.getProcessResult(true)
                         if (result.inputText.isEmpty()) {
                             rimeEngine.clearComposition()
                         }
-                        pendingResult = result
-                        needsUIUpdate = true
+                        val pending = candidateState.value.pendingEnglishText
+                        uiEventChannel.trySend {
+                            updateUIWithResult(result)
+                            if (calculatorEngine.isActive()) updateCalculatorCandidates()
+                            if (pending.isNotEmpty()) {
+                                serviceScope.launch {
+                                    val candidates = predictionManager.getEnglishAssociations(pending, PredictionManager.MAX_ASSOCIATION_COUNT)
+                                    withContext(Dispatchers.Main) {
+                                        candidateState.value = candidateState.value.copy(associationCandidates = candidates)
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         predictionManager.deleteLastChar()
                         Log.d(TAG, "Delete committed text, remaining: '${predictionManager.lastCommittedText}'")
@@ -1548,21 +1559,17 @@ onVoiceModeChange = { enabled ->
                         val mask = if (isShifted) KeyEvent.META_SHIFT_ON else 0
 
                         val t0 = System.nanoTime()
-                        val result = rimeEngine.processKeyAndGetResult(keyCode, mask)
-                        val elapsed = (System.nanoTime() - t0) / 1_000_000
-                        if (elapsed > 5) {
-                            FileLogger.d(KEY_PERF, "Rime processKey '${char}' mask=$mask: ${elapsed}ms")
+                        val processed = rimeEngine.processKey(keyCode, mask)
+                        val pElapsed = (System.nanoTime() - t0) / 1_000_000
+                        if (pElapsed > 5) {
+                            FileLogger.d(KEY_PERF, "Rime processKey '${char}' mask=$mask: ${pElapsed}ms")
                         }
-                        if (elapsed > 10) {
-                            FileLogger.w(KEY_PERF, "Rime slow processKey '${char}' mask=$mask: ${elapsed}ms")
-                        }
-
-                        if (result.processed) {
-                            needsUIUpdate = true
-                            pendingResult = result
-                            
-                            if (result.committedText.isNotEmpty()) {
-                                committedText = result.committedText
+                        if (processed) {
+                            val result = rimeEngine.getProcessResult(processed)
+                            uiEventChannel.trySend {
+                                if (result.committedText.isNotEmpty()) commitText(result.committedText)
+                                updateUIWithResult(result)
+                                if (calculatorEngine.isActive()) updateCalculatorCandidates()
                             }
                         } else {
                             val isAscii = state.isAsciiMode
@@ -1571,15 +1578,13 @@ onVoiceModeChange = { enabled ->
                                     val charToCommit = if (isShifted) char.uppercase() else char.lowercase()
                                     val currentPending = candState.pendingEnglishText
                                     val newPending = currentPending + charToCommit
-                                    
-                                    withContext(Dispatchers.Main) {
+                                    uiEventChannel.trySend {
                                         commitText(charToCommit)
                                         candidateState.value = candidateState.value.copy(
                                             pendingEnglishText = newPending,
                                             associationCandidates = emptyArray()
                                         )
                                     }
-                                    
                                     needsUIUpdate = true
                                     Log.d(TAG, "English mode: committed '$charToCommit', pending text '$newPending'")
                                 } else {

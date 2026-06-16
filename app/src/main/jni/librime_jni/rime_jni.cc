@@ -156,7 +156,25 @@ public:
         }
 
         result.processed = rime->process_key(session_id_, keycode, mask);
+        readCurrentState(result);
+        return result;
+    }
 
+    ProcessResult readResult(bool processed) {
+        ProcessResult result;
+        result.processed = processed;
+        result.isAsciiMode = false;
+        result.hasNextPage = false;
+        result.hasPrevPage = false;
+        if (!rime || !session_id_) {
+            LOGE("readResult: rime or session not available");
+            return result;
+        }
+        readCurrentState(result);
+        return result;
+    }
+
+    void readCurrentState(ProcessResult& result) {
         RIME_STRUCT(RimeCommit, commit);
         if (rime->get_commit(session_id_, &commit)) {
             result.committedText = commit.text ? commit.text : "";
@@ -188,8 +206,6 @@ public:
             result.isAsciiMode = status.is_ascii_mode;
             rime->free_status(&status);
         }
-
-        return result;
     }
 
     const char* getInput() {
@@ -694,6 +710,48 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeProcessKeyAndGetResult(
     ensureJniCache(env);
 
     ProcessResult result = Rime::Instance().processKeyAndGetResult(keycode, mask);
+
+    jobjectArray candidateArray = env->NewObjectArray(
+        result.candidates.size(), gRimeCandidateClass, nullptr);
+
+    for (size_t i = 0; i < result.candidates.size(); ++i) {
+        jstring text = env->NewStringUTF(result.candidates[i].first.c_str());
+        jstring comment = env->NewStringUTF(result.candidates[i].second.c_str());
+        jobject candidate = env->NewObject(gRimeCandidateClass, gRimeCandidateCtor, text, comment);
+        env->SetObjectArrayElement(candidateArray, i, candidate);
+        env->DeleteLocalRef(text);
+        env->DeleteLocalRef(comment);
+        env->DeleteLocalRef(candidate);
+    }
+
+    jstring jCommitted = env->NewStringUTF(result.committedText.c_str());
+    jstring jInput = env->NewStringUTF(result.inputText.c_str());
+
+    jobject jResult = env->NewObject(gRimeProcessResultClass, gRimeProcessResultCtor,
+        result.processed ? JNI_TRUE : JNI_FALSE,
+        jCommitted,
+        jInput,
+        candidateArray,
+        result.isAsciiMode ? JNI_TRUE : JNI_FALSE,
+        result.hasNextPage ? JNI_TRUE : JNI_FALSE,
+        result.hasPrevPage ? JNI_TRUE : JNI_FALSE);
+
+    env->DeleteLocalRef(jCommitted);
+    env->DeleteLocalRef(jInput);
+    env->DeleteLocalRef(candidateArray);
+
+    return jResult;
+}
+
+JNIEXPORT jobject JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativeGetProcessResult(
+    JNIEnv* env,
+    jobject thiz,
+    jboolean processed
+) {
+    ensureJniCache(env);
+
+    ProcessResult result = Rime::Instance().readResult(processed);
 
     jobjectArray candidateArray = env->NewObjectArray(
         result.candidates.size(), gRimeCandidateClass, nullptr);
