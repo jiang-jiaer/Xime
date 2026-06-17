@@ -144,7 +144,7 @@ object SettingsPreferences {
     }
     
     fun getSoundVolume(context: Context): Int {
-        return getPrefs(context).getInt(KEY_SOUND_VOLUME, 50)
+        return getPrefs(context).getInt(KEY_SOUND_VOLUME, 20)
     }
     
     fun setSoundVolume(context: Context, volume: Int) {
@@ -160,7 +160,7 @@ object SettingsPreferences {
     }
     
     fun getVibrationIntensity(context: Context): Int {
-        return getPrefs(context).getInt(KEY_VIBRATION_INTENSITY, 50)
+        return getPrefs(context).getInt(KEY_VIBRATION_INTENSITY, 30)
     }
     
     fun setVibrationIntensity(context: Context, intensity: Int) {

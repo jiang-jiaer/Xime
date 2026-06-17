@@ -986,6 +986,9 @@ onVoiceModeChange = { enabled ->
             isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService)
         )
 
+        // 先重置候选状态到初始值，避免前一 session 的残留状态影响新输入
+        candidateState.value = CandidateState()
+
         // 获取最近30秒的剪切板内容
         ensureClipboardManagerInitialized()
         try {
@@ -1133,7 +1136,11 @@ onVoiceModeChange = { enabled ->
             candidateComments = emptyArray(),
             inputText = "",
             isComposing = false,
-            isShowingRecentClipboard = false
+            isShowingRecentClipboard = false,
+            associationCandidates = emptyArray(),
+            pendingEnglishText = "",
+            hasNextPage = false,
+            hasPrevPage = false
         )
     }
 
@@ -1153,7 +1160,7 @@ onVoiceModeChange = { enabled ->
     }
     
     private fun hideKeyboard() {
-        candidateState.value = candidateState.value.copy(associationCandidates = emptyArray())
+        clearInputState()
         requestHideSelf(0)
     }
     
