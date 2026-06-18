@@ -31,8 +31,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun FloatingCandidateBar(
     inputText: String,
-    candidates: Array<String>,
-    candidateComments: Array<String>,
+    candidates: List<String>,
+    candidateComments: List<String>,
     isComposing: Boolean,
     onCandidateSelect: (Int) -> Unit,
     onDrag: (dx: Int, dy: Int) -> Unit

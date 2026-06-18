@@ -15,8 +15,7 @@ import kotlinx.coroutines.withContext
 class PredictionManager(
     private val context: Context,
     private val serviceScope: CoroutineScope,
-    private val onStateChanged: (InputUIState) -> Unit,
-    private val getState: () -> InputUIState
+    private val onPredictionResult: (List<String>) -> Unit,
 ) {
     companion object {
         private const val TAG = "PredictionManager"
@@ -79,12 +78,12 @@ class PredictionManager(
     
     fun getPrediction(contextText: String) {
         if (contextText.isEmpty()) {
-            onStateChanged(getState().copy(associationCandidates = emptyArray()))
+            onPredictionResult(emptyList())
             return
         }
         
         if (!SettingsPreferences.isSmartPredictionEnabled(context)) {
-            onStateChanged(getState().copy(associationCandidates = emptyArray()))
+            onPredictionResult(emptyList())
             return
         }
         
@@ -98,7 +97,7 @@ class PredictionManager(
                     if (!initSuccess) {
                         Log.e(TAG, "Failed to initialize AssociationManager")
                         withContext(Dispatchers.Main) {
-                            onStateChanged(getState().copy(associationCandidates = emptyArray()))
+                            onPredictionResult(emptyList())
                         }
                         return@launch
                     }
@@ -109,12 +108,12 @@ class PredictionManager(
                 Log.d(TAG, "Prediction candidates: ${candidates.map { it.text }}")
                 
                 withContext(Dispatchers.Main) {
-                    onStateChanged(getState().copy(associationCandidates = candidates.map { it.text }.toTypedArray()))
+                    onPredictionResult(candidates.map { it.text })
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Prediction failed", e)
                 withContext(Dispatchers.Main) {
-                    onStateChanged(getState().copy(associationCandidates = emptyArray()))
+                    onPredictionResult(emptyList())
                 }
             }
         }
@@ -132,16 +131,16 @@ class PredictionManager(
         }
     }
     
-    suspend fun getEnglishAssociations(text: String, limit: Int = MAX_ASSOCIATION_COUNT): Array<String> {
+    suspend fun getEnglishAssociations(text: String, limit: Int = MAX_ASSOCIATION_COUNT): List<String> {
         return try {
-            AssociationService.getAssociations(context, text, true, limit).toTypedArray()
+            AssociationService.getAssociations(context, text, true, limit)
         } catch (e: Exception) {
             Log.e(TAG, "English association failed", e)
-            emptyArray()
+            emptyList()
         }
     }
     
-    suspend fun getChineseAssociations(text: String, limit: Int = MAX_ASSOCIATION_COUNT): Array<String> {
+    suspend fun getChineseAssociations(text: String, limit: Int = MAX_ASSOCIATION_COUNT): List<String> {
         return try {
             if (!AssociationManager.isInitialized()) {
                 Log.d(TAG, "AssociationManager not initialized, initializing...")
@@ -149,10 +148,10 @@ class PredictionManager(
             }
             
             val candidates = AssociationManager.predict(text, limit)
-            candidates.map { it.text }.toTypedArray()
+            candidates.map { it.text }
         } catch (e: Exception) {
             Log.e(TAG, "Chinese association failed", e)
-            emptyArray()
+            emptyList()
         }
     }
 }

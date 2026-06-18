@@ -64,8 +64,8 @@ val LocalStretchFactor = compositionLocalOf { 1f }
 
 @Composable
 fun KeyboardView(
-    candidates: Array<String> = emptyArray(),
-    candidateComments: Array<String> = emptyArray(),
+    candidates: List<String> = emptyList(),
+    candidateComments: List<String> = emptyList(),
     inputText: String = "",
     isComposing: Boolean = false,
     isAsciiMode: Boolean = false,
@@ -80,7 +80,7 @@ fun KeyboardView(
     clipboardItems: List<ClipboardItem> = emptyList(),
     quickSendItems: List<ClipboardItem> = emptyList(),
     recentClipboardItems: List<ClipboardItem> = emptyList(),
-    associationCandidates: Array<String> = emptyArray(),
+    associationCandidates: List<String> = emptyList(),
     keyboardHeightDp: Int = com.kingzcheung.xime.settings.SettingsPreferences.DEFAULT_KEYBOARD_HEIGHT_DP,
     keyboardBottomPaddingDp: Int = 0,
     isDeploying: Boolean = false,
@@ -129,6 +129,7 @@ fun KeyboardView(
     onUpdateToolbarButtons: ((List<String>) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onKeyboardModeChange: ((Boolean) -> Unit)? = null,
+    isCalculatorMode: Boolean = false,
 ) {
     var isShifted by remember { mutableStateOf(false) }
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -178,13 +179,26 @@ fun KeyboardView(
                 .fillMaxWidth()
                 .fillMaxHeight()
         ) {
+            val candidateBarState = remember(
+                candidates, candidateComments, inputText, isComposing,
+                associationCandidates, candState.isShowingRecentClipboard, candState.hasNextPage,
+                isCalculatorMode,
+            ) {
+                CandidateBarState.from(
+                    candidates = candidates,
+                    candidateComments = candidateComments,
+                    inputText = inputText,
+                    isComposing = isComposing,
+                    associationCandidates = associationCandidates,
+                    isShowingRecentClipboard = candState.isShowingRecentClipboard,
+                    hasNextPage = candState.hasNextPage,
+                    isCalculatorActive = isCalculatorMode,
+                )
+            }
+
             CandidateBar(
-                candidates = candidates.toList(),
-                candidateComments = candidateComments.toList(),
-                inputText = inputText,
-                isComposing = isComposing,
+                state = candidateBarState,
                 currentRoute = currentRoute,
-                associationCandidates = associationCandidates.toList(),
                 toolbarActions = toolbarButtons.mapNotNull { id ->
                     val button = ToolbarButton.fromId(id) ?: return@mapNotNull null
                     val onClick: () -> Unit = when (button) {
@@ -203,7 +217,6 @@ fun KeyboardView(
                 },
                 visuals = CandidateBarVisuals(
                     backgroundColor = candidateBarBg,
-                    showClipboardHeader = candState.isShowingRecentClipboard,
                     textColor = candidateTextColor,
                     dividerColor = dividerColor,
                     accentColor = accentColor,

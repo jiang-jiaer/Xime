@@ -160,12 +160,11 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private val predictionManager = PredictionManager(
         context = this,
         serviceScope = serviceScope,
-        onStateChanged = { newState ->
+        onPredictionResult = { candidates ->
             candidateState.value = candidateState.value.copy(
-                associationCandidates = newState.associationCandidates
+                associationCandidates = candidates
             )
         },
-        getState = { uiState.value }
     )
     
     private val voiceRecognitionHandler = VoiceRecognitionHandler(
@@ -687,14 +686,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 handleToolbarEditingAction(action)
                             },
                             associationCandidates = if (cand.pendingEnglishText.isNotEmpty()) {
-                                arrayOf(cand.pendingEnglishText) + cand.associationCandidates
+                                listOf(cand.pendingEnglishText) + cand.associationCandidates
                             } else {
                                 cand.associationCandidates
                             },
                             onAssociationSelect = { index ->
                                 val cs = candidateState.value
                                 val adjustedCandidates = if (cs.pendingEnglishText.isNotEmpty()) {
-                                    arrayOf(cs.pendingEnglishText) + cs.associationCandidates
+                                    listOf(cs.pendingEnglishText) + cs.associationCandidates
                                 } else {
                                     cs.associationCandidates
                                 }
@@ -707,7 +706,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                         if (index == 0 && text == pendingEnglish) {
                                             candidateState.value = candidateState.value.copy(
                                                 pendingEnglishText = "",
-                                                associationCandidates = emptyArray()
+                                                associationCandidates = emptyList()
                                             )
                                             Log.d(TAG, "Confirmed pending English: '$text'")
                                         } else {
@@ -715,7 +714,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                             commitText(text)
                                             candidateState.value = candidateState.value.copy(
                                                 pendingEnglishText = "",
-                                                associationCandidates = emptyArray()
+                                                associationCandidates = emptyList()
                                             )
                                             Log.d(TAG, "Replaced '$pendingEnglish' with association: '$text'")
                                         }
@@ -769,10 +768,11 @@ onVoiceModeChange = { enabled ->
                                     if (isChineseMode != chineseMode) {
                                         isChineseMode = chineseMode
                                         if (!chineseMode) {
-                                            candidateState.value = candidateState.value.copy(associationCandidates = emptyArray())
+                                            candidateState.value = candidateState.value.copy(associationCandidates = emptyList())
                                         }
                                     }
-                                }
+                                },
+                                isCalculatorMode = calculatorEngine.isActive()
                                 )
                          }
                      }
@@ -995,8 +995,8 @@ onVoiceModeChange = { enabled ->
             recentClipboardItemsState.value = clipboardManager.getRecentItems(30)
             // 将最近剪切板内容显示在候选栏
             candidateState.value = candidateState.value.copy(
-                candidates = recentClipboardItemsState.value.map { it.text }.toTypedArray(),
-                candidateComments = emptyArray(),
+                candidates = recentClipboardItemsState.value.map { it.text },
+                candidateComments = emptyList(),
                 isShowingRecentClipboard = true
             )
         } catch (e: Exception) {
@@ -1013,18 +1013,18 @@ onVoiceModeChange = { enabled ->
                     // 清空Rime联想词等
                     rimeEngine.clearComposition()
                     candidateState.value = candidateState.value.copy(
-                        candidates = items.map { it.text.take(8) + if (it.text.length > 8) "..." else "" }.toTypedArray(),
-                        candidateComments = emptyArray(),
+                        candidates = items.map { it.text.take(8) + if (it.text.length > 8) "..." else "" },
+                        candidateComments = emptyList(),
                         inputText = "",
                         isComposing = false,
-                        associationCandidates = emptyArray(),
+                        associationCandidates = emptyList(),
                         isShowingRecentClipboard = true
                     )
                 } else if (candidateState.value.isShowingRecentClipboard) {
                     // 如果没有recent items，清空候选栏
                     candidateState.value = candidateState.value.copy(
-                        candidates = emptyArray(),
-                        candidateComments = emptyArray(),
+                        candidates = emptyList(),
+                        candidateComments = emptyList(),
                         isShowingRecentClipboard = false
                     )
                 }
@@ -1132,12 +1132,12 @@ onVoiceModeChange = { enabled ->
         calculatorEngine.clear()
         rimeEngine.clearComposition()
         candidateState.value = candidateState.value.copy(
-            candidates = emptyArray(),
-            candidateComments = emptyArray(),
+            candidates = emptyList(),
+            candidateComments = emptyList(),
             inputText = "",
             isComposing = false,
             isShowingRecentClipboard = false,
-            associationCandidates = emptyArray(),
+            associationCandidates = emptyList(),
             pendingEnglishText = "",
             hasNextPage = false,
             hasPrevPage = false
@@ -1177,9 +1177,9 @@ onVoiceModeChange = { enabled ->
             val filtered = candidatesWithComments.filterNot { candidate ->
                 candidate.text.any { it.code in 0x4E00..0x9FFF }
             }
-            filtered.map { it.text }.toTypedArray() to filtered.map { it.comment }.toTypedArray()
+            filtered.map { it.text } to filtered.map { it.comment }
         } else {
-            candidatesWithComments.map { it.text }.toTypedArray() to candidatesWithComments.map { it.comment }.toTypedArray()
+            candidatesWithComments.map { it.text } to candidatesWithComments.map { it.comment }
         }
         
         candidateState.value = candidateState.value.copy(
@@ -1187,7 +1187,7 @@ onVoiceModeChange = { enabled ->
             candidates = filteredTexts,
             candidateComments = filteredComments,
             isComposing = inputText.isNotEmpty(),
-            associationCandidates = if ((isAsciiMode || !isChineseMode) && pendingEnglish.isEmpty()) emptyArray() else candidateState.value.associationCandidates,
+            associationCandidates = if ((isAsciiMode || !isChineseMode) && pendingEnglish.isEmpty()) emptyList() else candidateState.value.associationCandidates,
             isShowingRecentClipboard = false,
             hasNextPage = hasNextPage,
             hasPrevPage = hasPrevPage
@@ -1219,9 +1219,9 @@ onVoiceModeChange = { enabled ->
             val filtered = candidatesWithComments.filterNot { candidate ->
                 candidate.text.any { it.code in 0x4E00..0x9FFF }
             }
-            filtered.map { it.text }.toTypedArray() to filtered.map { it.comment }.toTypedArray()
+            filtered.map { it.text } to filtered.map { it.comment }
         } else {
-            candidatesWithComments.map { it.text }.toTypedArray() to candidatesWithComments.map { it.comment }.toTypedArray()
+            candidatesWithComments.map { it.text } to candidatesWithComments.map { it.comment }
         }
         val filterElapsed = (System.nanoTime() - tFilter) / 1_000_000
         if (filterElapsed > 5) {
@@ -1233,7 +1233,7 @@ onVoiceModeChange = { enabled ->
             candidates = filteredTexts,
             candidateComments = filteredComments,
             isComposing = result.inputText.isNotEmpty(),
-            associationCandidates = if ((isAsciiMode || !isChineseMode) && pendingEnglish.isEmpty()) emptyArray() else candidateState.value.associationCandidates,
+            associationCandidates = if ((isAsciiMode || !isChineseMode) && pendingEnglish.isEmpty()) emptyList() else candidateState.value.associationCandidates,
             isShowingRecentClipboard = false,
             hasNextPage = result.hasNextPage,
             hasPrevPage = result.hasPrevPage
@@ -1319,9 +1319,9 @@ onVoiceModeChange = { enabled ->
                                     sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                                     candidateState.value = candidateState.value.copy(
                                         pendingEnglishText = newPending,
-                                        candidates = emptyArray(),
-                                        candidateComments = emptyArray(),
-                                        associationCandidates = emptyArray()
+                                        candidates = emptyList(),
+                                        candidateComments = emptyList(),
+                                        associationCandidates = emptyList()
                                     )
                                 }
                                 serviceScope.launch {
@@ -1336,9 +1336,9 @@ onVoiceModeChange = { enabled ->
                                     sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                                     candidateState.value = candidateState.value.copy(
                                         pendingEnglishText = "",
-                                        candidates = emptyArray(),
-                                        candidateComments = emptyArray(),
-                                        associationCandidates = emptyArray(),
+                                        candidates = emptyList(),
+                                        candidateComments = emptyList(),
+                                        associationCandidates = emptyList(),
                                         isShowingRecentClipboard = false
                                     )
                                 }
@@ -1365,9 +1365,9 @@ onVoiceModeChange = { enabled ->
                             Log.d(TAG, "Delete: cleared predictions, clipboard=${candState.isShowingRecentClipboard}")
                             
                             candidateState.value = candidateState.value.copy(
-                                candidates = emptyArray(),
-                                candidateComments = emptyArray(),
-                                associationCandidates = emptyArray(),
+                                candidates = emptyList(),
+                                candidateComments = emptyList(),
+                                associationCandidates = emptyList(),
                                 isShowingRecentClipboard = false
                             )
                         }
@@ -1382,9 +1382,9 @@ onVoiceModeChange = { enabled ->
                             }
                             
                             candidateState.value = candidateState.value.copy(
-                                candidates = emptyArray(),
-                                candidateComments = emptyArray(),
-                                associationCandidates = emptyArray(),
+                                candidates = emptyList(),
+                                candidateComments = emptyList(),
+                                associationCandidates = emptyList(),
                                 isShowingRecentClipboard = false
                             )
                         }
@@ -1395,9 +1395,9 @@ onVoiceModeChange = { enabled ->
                     updateCalculatorCandidates()
                     rimeEngine.clearComposition()
                     candidateState.value = candidateState.value.copy(
-                        candidates = emptyArray(),
-                        candidateComments = emptyArray(),
-                        associationCandidates = emptyArray(),
+                        candidates = emptyList(),
+                        candidateComments = emptyList(),
+                        associationCandidates = emptyList(),
                         pendingEnglishText = "",
                         isShowingRecentClipboard = false
                     )
@@ -1414,9 +1414,9 @@ onVoiceModeChange = { enabled ->
                     lastClearedText = inputFieldText + candState.inputText
                     rimeEngine.clearComposition()
                     candidateState.value = candidateState.value.copy(
-                        candidates = emptyArray(),
-                        candidateComments = emptyArray(),
-                        associationCandidates = emptyArray(),
+                        candidates = emptyList(),
+                        candidateComments = emptyList(),
+                        associationCandidates = emptyList(),
                         pendingEnglishText = "",
                         inputText = "",
                         isComposing = false,
@@ -1491,9 +1491,9 @@ onVoiceModeChange = { enabled ->
                         candidateState.value = candidateState.value.copy(
                             inputText = "",
                             pendingEnglishText = "",
-                            candidates = emptyArray(),
-                            candidateComments = emptyArray(),
-                            associationCandidates = emptyArray(),
+                            candidates = emptyList(),
+                            candidateComments = emptyList(),
+                            associationCandidates = emptyList(),
                             isComposing = false
                         )
                     }
@@ -1506,7 +1506,7 @@ onVoiceModeChange = { enabled ->
                             commitText(" ")
                             candidateState.value = candidateState.value.copy(
                                 pendingEnglishText = "",
-                                associationCandidates = emptyArray()
+                                associationCandidates = emptyList()
                             )
                         }
                         Log.d(TAG, "Space: added space after pending English '$pendingEnglish'")
@@ -1529,7 +1529,7 @@ onVoiceModeChange = { enabled ->
                         withContext(Dispatchers.Main) {
                             commitText(text)
                             candidateState.value = candidateState.value.copy(
-                                associationCandidates = emptyArray()
+                                associationCandidates = emptyList()
                             )
                         }
                         updateUI()
@@ -1585,7 +1585,7 @@ onVoiceModeChange = { enabled ->
                             commitText(key)
                             candidateState.value = candidateState.value.copy(
                                 pendingEnglishText = "",
-                                associationCandidates = emptyArray()
+                                associationCandidates = emptyList()
                             )
                         }
                         Log.d(TAG, "Symbol: added '$key' after pending English '$pendingEnglish'")
@@ -1619,7 +1619,7 @@ onVoiceModeChange = { enabled ->
                                         commitText(charToCommit)
                                         candidateState.value = candidateState.value.copy(
                                             pendingEnglishText = newPending,
-                                            associationCandidates = emptyArray()
+                                            associationCandidates = emptyList()
                                         )
                                     }
                                     needsUIUpdate = true
@@ -1671,16 +1671,16 @@ onVoiceModeChange = { enabled ->
                             val filtered = capturedCandidates.filterNot { candidate ->
                                 candidate.text.any { it.code in 0x4E00..0x9FFF }
                             }
-                            filtered.map { it.text }.toTypedArray() to filtered.map { it.comment }.toTypedArray()
+                            filtered.map { it.text } to filtered.map { it.comment }
                         } else {
-                            capturedCandidates.map { it.text }.toTypedArray() to capturedCandidates.map { it.comment }.toTypedArray()
+                            capturedCandidates.map { it.text } to capturedCandidates.map { it.comment }
                         }
                         candidateState.value = candidateState.value.copy(
                             inputText = capturedInputText,
                             candidates = filteredTexts,
                             candidateComments = filteredComments,
                             isComposing = capturedInputText.isNotEmpty(),
-                            associationCandidates = if ((capturedIsAscii || !isChineseMode) && pendingEnglish.isEmpty()) emptyArray() else candidateState.value.associationCandidates,
+                            associationCandidates = if ((capturedIsAscii || !isChineseMode) && pendingEnglish.isEmpty()) emptyList() else candidateState.value.associationCandidates,
                             isShowingRecentClipboard = false,
                             hasNextPage = capturedHasNext,
                             hasPrevPage = capturedHasPrev
@@ -1748,8 +1748,8 @@ onVoiceModeChange = { enabled ->
                     commitText(committedText)
                     candidateState.value = candidateState.value.copy(
                         inputText = "",
-                        candidates = emptyArray(),
-                        candidateComments = emptyArray(),
+                        candidates = emptyList(),
+                        candidateComments = emptyList(),
                         isComposing = false,
                         hasNextPage = false,
                         hasPrevPage = false,
@@ -1775,15 +1775,15 @@ onVoiceModeChange = { enabled ->
         val result = calculatorEngine.getResult()
         candidateState.value = if (candidate != null && result.isNotEmpty()) {
             candidateState.value.copy(
-                candidates = arrayOf(result, candidate),
-                candidateComments = emptyArray()
+                candidates = listOf(result, candidate),
+                candidateComments = emptyList()
             )
         } else {
             // 如果计算器之前有显示但现在已清除，也要清空候选栏
             if (candidateState.value.candidates.isNotEmpty() && !calculatorEngine.isActive()) {
                 candidateState.value.copy(
-                    candidates = emptyArray(),
-                    candidateComments = emptyArray()
+                    candidates = emptyList(),
+                    candidateComments = emptyList()
                 )
             } else {
                 candidateState.value
@@ -1816,10 +1816,7 @@ onVoiceModeChange = { enabled ->
                             // 提交选中的文本
                             ic.commitText(textToCommit, textToCommit.length)
                         }
-                        uiState.value = uiState.value.copy(
-                            candidates = emptyArray(),
-                            candidateComments = emptyArray()
-                        )
+                        candidateState.value = CandidateState()
                     }
                 }
             }
@@ -1831,8 +1828,8 @@ onVoiceModeChange = { enabled ->
             selectClipboardItem(text)
             candidateState.value = candidateState.value.copy(
                 isShowingRecentClipboard = false,
-                candidates = emptyArray(),
-                candidateComments = emptyArray()
+                candidates = emptyList(),
+                candidateComments = emptyList()
             )
         } else {
             postRimeJob {
