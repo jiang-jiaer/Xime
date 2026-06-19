@@ -5,16 +5,11 @@ import android.net.Uri
 import android.util.Log
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
-import com.charleskorn.kaml.YamlInput
 import com.charleskorn.kaml.YamlList
+import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlScalar
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -41,41 +36,20 @@ data class SchemaMeta(
 )
 
 @Serializable
-private data class SchemaYaml(val schema: SchemaEntry)
+internal data class SchemaYaml(val schema: SchemaEntry)
 
 @Serializable
-private data class SchemaEntry(
+internal data class SchemaEntry(
     @SerialName("schema_id") val schemaId: String = "",
     val name: String = "",
     val version: String = "",
-    @Serializable(with = AuthorSerializer::class)
-    val author: String = "",
     val description: String? = null,
 )
-
-private object AuthorSerializer : KSerializer<String> {
-    override val descriptor = PrimitiveSerialDescriptor("Author", PrimitiveKind.STRING)
-
-    override fun deserialize(decoder: Decoder): String {
-        val input = decoder as? YamlInput ?: return decoder.decodeString()
-        return when (val node = input.node) {
-            is YamlScalar -> node.content.trim('"')
-            is YamlList -> node.items.firstOrNull()
-                ?.let { if (it is YamlScalar) it.content.trim('"') else "" }
-                ?: ""
-            else -> ""
-        }
-    }
-
-    override fun serialize(encoder: Encoder, value: String) {
-        encoder.encodeString(value)
-    }
-}
 
 object SchemaManager {
     private const val TAG = "SchemaManager"
     private const val CUSTOM_YAML = "default.custom.yaml"
-    private val yaml = Yaml(configuration = YamlConfiguration(strictMode = false))
+    internal val yaml = Yaml(configuration = YamlConfiguration(strictMode = false))
 
     fun getRimeDir(context: Context): File =
         File(context.filesDir, "rime")
@@ -310,19 +284,60 @@ object SchemaManager {
         return schemas
     }
 
-    private fun parseSchemaYaml(file: File): SchemaMeta? {
+    internal fun parseSchemaYaml(file: File): SchemaMeta? {
         return try {
-            val entry = yaml.decodeFromString(SchemaYaml.serializer(), file.readText()).schema
+            val text = file.readText()
+            val entry = yaml.decodeFromString(SchemaYaml.serializer(), text).schema
             if (entry.schemaId.isEmpty()) return null
+
+            // author 可为标量或列表，从原始 YAML 节点手动提取
+            val author = parseAuthorFromText(text)
+
             SchemaMeta(
                 schemaId = entry.schemaId,
                 name = entry.name.ifEmpty { entry.schemaId },
                 version = entry.version,
-                author = entry.author,
+                author = author,
                 description = entry.description ?: ""
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse schema file: ${file.name}", e)
+            try { Log.e(TAG, "Failed to parse schema file: ${file.name}", e) } catch (_: Exception) {}
+            null
+        }
+    }
+
+    private fun parseAuthorFromText(yamlText: String): String {
+        val lines = yamlText.lines()
+        var inAuthor = false
+        for (line in lines) {
+            val trimmed = line.trimStart()
+            if (!inAuthor && trimmed.startsWith("author:")) {
+                val rest = trimmed.removePrefix("author:").trim()
+                if (rest.isNotEmpty()) return rest.removeSurrounding("\"").removePrefix("- ").trim()
+                inAuthor = true
+                continue
+            }
+            if (inAuthor) {
+                if (trimmed.startsWith("- ")) {
+                    return trimmed.removePrefix("- ").trim().removeSurrounding("\"")
+                }
+                if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
+                    inAuthor = false
+                }
+            }
+        }
+        return ""
+    }
+
+    /** 仅从 .schema.yaml 读取显示名，不依赖编译/启用状态。 */
+    fun getSchemaDisplayName(context: Context, schemaId: String): String? {
+        val file = File(getRimeDir(context), "$schemaId.schema.yaml")
+        if (!file.exists()) return null
+        return try {
+            val entry = yaml.decodeFromString(SchemaYaml.serializer(), file.readText()).schema
+            entry.name.ifEmpty { null }
+        } catch (e: Exception) {
+            try { Log.e(TAG, "Failed to parse schema name for $schemaId", e) } catch (_: Exception) {}
             null
         }
     }

@@ -1257,11 +1257,13 @@ onVoiceModeChange = { enabled ->
     }
 
     private fun updateSchemaName() {
+        val context = this@XimeInputMethodService
         serviceScope.launch(Dispatchers.IO) {
-            val context = this@XimeInputMethodService
+            val currentSchemaId = rimeEngine.getCurrentSchema()
+            val name = SchemaManager.getSchemaDisplayName(context, currentSchemaId)
+
             val enabledIds = SchemaManager.getEnabledSchemas(context)
             val allSchemas = SchemaManager.discoverSchemas(context)
-
             val schemas = allSchemas
                 .filter { meta -> meta.schemaId in enabledIds && SchemaManager.isSchemaCompiled(context, meta.schemaId) }
                 .map { meta ->
@@ -1275,12 +1277,9 @@ onVoiceModeChange = { enabled ->
                     )
                 }
 
-            val currentSchemaId = rimeEngine.getCurrentSchema()
-            val schemaInfo = schemas.find { it.schemaId == currentSchemaId }
-
             withContext(Dispatchers.Main) {
                 uiState.value = uiState.value.copy(
-                    schemaName = schemaInfo?.name ?: currentSchemaId,
+                    schemaName = name ?: currentSchemaId,
                     currentSchemaId = currentSchemaId,
                     schemas = schemas
                 )
@@ -1902,7 +1901,6 @@ onVoiceModeChange = { enabled ->
                 val savedSchema = SettingsPreferences.getCurrentSchema(this@XimeInputMethodService)
                 Log.d(TAG, "Saved schema: $savedSchema")
                 if (savedSchema in availableSchemas) {
-                    // 部署完成后写 custom.yaml，switchSchema 会运行时加载
                     applyPageSizeSetting(savedSchema)
                     val switchResult = rimeEngine.switchSchema(savedSchema)
                     Log.d(TAG, "Switch schema result: $switchResult")
@@ -1910,8 +1908,17 @@ onVoiceModeChange = { enabled ->
                     Log.w(TAG, "Schema $savedSchema not found in available schemas")
                 }
                 
+                // 直接在 IO 线程同步读取 name，避免嵌套协程的时序问题
+                val currentSchemaId = rimeEngine.getCurrentSchema()
+                val schemaName = SchemaManager.getSchemaDisplayName(
+                    this@XimeInputMethodService, currentSchemaId
+                ) ?: currentSchemaId
+
                 withContext(Dispatchers.Main) {
-                    updateSchemaName()
+                    uiState.value = uiState.value.copy(
+                        schemaName = schemaName,
+                        currentSchemaId = currentSchemaId,
+                    )
                     updateUI()
                     android.widget.Toast.makeText(this@XimeInputMethodService, "方案部署完成", android.widget.Toast.LENGTH_SHORT).show()
                     Log.d(TAG, "Schema deployed successfully")
@@ -1929,7 +1936,11 @@ onVoiceModeChange = { enabled ->
             val savedSchema = SettingsPreferences.getCurrentSchema(this)
             applyPageSizeSetting(savedSchema)
             rimeEngine.switchSchema(savedSchema)
-            updateSchemaName()
+            val currentSchemaId = rimeEngine.getCurrentSchema()
+            uiState.value = uiState.value.copy(
+                schemaName = SchemaManager.getSchemaDisplayName(this, currentSchemaId) ?: currentSchemaId,
+                currentSchemaId = currentSchemaId,
+            )
             updateUI()
             Log.d(TAG, "Schema deployed successfully")
         } catch (e: Exception) {
