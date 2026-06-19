@@ -121,6 +121,7 @@ fun KeyButton(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .fillMaxWidth()
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
@@ -131,10 +132,8 @@ fun KeyButton(
                         hasTriggeredSwipeDown = false
                         isSwiping = false
                         isSwipeDown = false
-                        // onSwipeStateChange/onPress 由 detectTapGestures.onPress 处理
                     },
                     onDragEnd = {
-                        // onClick is handled by detectTapGestures below — do NOT fire it here
                         isPressed = false
                         dragOffsetX = 0f
                         dragOffsetY = 0f
@@ -160,7 +159,6 @@ fun KeyButton(
                         dragOffsetY += dragAmount.y
                         
                         if (dragOffsetY < 0) {
-                            // 需要垂直远大于水平才触发上滑
                             if (abs(dragOffsetY) > abs(dragOffsetX) * 2f) {
                                 val shouldShowBubble = dragOffsetY < bubbleShowThresholdUp && swipeText != null
                                 if (shouldShowBubble != isSwiping) {
@@ -175,7 +173,6 @@ fun KeyButton(
                                 }
                             }
                         } else if (dragOffsetY > 0) {
-                            // 需要垂直远大于水平才触发下滑
                             if (dragOffsetY > abs(dragOffsetX) * 2f) {
                                 val shouldShowBubble = dragOffsetY > bubbleShowThresholdDown && swipeDownText != null
                                 if (shouldShowBubble != isSwipeDown) {
@@ -195,7 +192,6 @@ fun KeyButton(
             }
             .pointerInput(currentOnLongClick) {
                 if (currentOnLongClick == null) {
-                    // 无长按时使用简单点击检测
                     detectTapGestures(
                         onPress = {
                             isPressed = true
@@ -208,7 +204,6 @@ fun KeyButton(
                         }
                     )
                 } else {
-                    // 有长按回调：利用 detectTapGestures 的 onLongPress
                     detectTapGestures(
                         onPress = {
                             isPressed = true
@@ -232,8 +227,6 @@ fun KeyButton(
                 }
             }
             .padding(horizontal = 2.dp, vertical = 2.dp)
-            .fillMaxWidth()
-            .fillMaxHeight()
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
@@ -327,6 +320,7 @@ fun SwipeableKeyButton(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .fillMaxWidth()
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
@@ -337,10 +331,8 @@ fun SwipeableKeyButton(
                         hasTriggeredSwipeDown = false
                         isSwiping = false
                         isSwipeDown = false
-                        // currentOnSwipeStateChange/currentOnPress 由 detectTapGestures / awaitEachGesture 处理
                     },
                     onDragEnd = {
-                        // onClick is handled by detectTapGestures / awaitEachGesture below
                         isPressed = false
                         dragOffsetX = 0f
                         dragOffsetY = 0f
@@ -365,7 +357,6 @@ fun SwipeableKeyButton(
                         dragOffsetY += dragAmount.y
                         
                         if (dragOffsetY < 0) {
-                            // 需要垂直远大于水平才触发上滑
                             if (abs(dragOffsetY) > abs(dragOffsetX) * 2f) {
                                 val shouldShowBubble = dragOffsetY < bubbleShowThresholdUp && currentSwipeText != null
                                 if (shouldShowBubble != isSwiping) {
@@ -382,7 +373,6 @@ fun SwipeableKeyButton(
                                 }
                             }
                         } else if (dragOffsetY > 0) {
-                            // 需要垂直远大于水平才触发下滑
                             if (dragOffsetY > abs(dragOffsetX) * 2f) {
                                 val shouldShowBubble = dragOffsetY > bubbleShowThresholdDown && currentSwipeDownText != null
                                 if (shouldShowBubble != isSwipeDown) {
@@ -404,7 +394,6 @@ fun SwipeableKeyButton(
             }
             .pointerInput(currentLongPressItems) {
                 if (currentLongPressItems.isNullOrEmpty()) {
-                    // 无长按选项时使用简单点击检测
                     detectTapGestures(
                         onPress = {
                             isPressed = true
@@ -421,7 +410,6 @@ fun SwipeableKeyButton(
                     return@pointerInput
                 }
                 
-                // 有长按选项：自定义手势处理
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     isPressed = true
@@ -473,7 +461,6 @@ fun SwipeableKeyButton(
                             }
                             
                             if (localLongPressTriggered) {
-                                // 水平滑动选择
                                 val deltaX = change.position.x - downX
                                 val itemWidth = buttonBounds.width / items.size
                                 selectedIdx = ((deltaX / itemWidth) + if (items.size > 1) 0.5f else 0f).toInt()
@@ -497,7 +484,6 @@ fun SwipeableKeyButton(
                             if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Release) {
                                 completed = true
                                 if (localLongPressTriggered) {
-                                    // 长按选择后抬起：上屏选中项
                                     val selected = items.getOrNull(selectedIdx)
                                     if (selected != null) {
                                         currentOnLongPressSelect?.invoke(selected)
@@ -514,13 +500,11 @@ fun SwipeableKeyButton(
                     }
                 }
             }
-            .padding(horizontal = 2.dp, vertical = 2.dp)
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .then(shadowModifier)
             .onGloballyPositioned { coordinates ->
                 buttonBounds = coordinates.boundsInRoot()
             }
+            .padding(horizontal = 2.dp, vertical = 2.dp)
+            .then(shadowModifier)
             .clip(shadowShape)
             .background(
                 if (isPressed) backgroundColor.copy(alpha = 0.7f)
@@ -640,6 +624,7 @@ fun IconKeyButton(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .fillMaxWidth()
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
@@ -654,8 +639,6 @@ fun IconKeyButton(
                 )
             }
             .padding(horizontal = 2.dp, vertical = 2.dp)
-            .fillMaxWidth()
-            .fillMaxHeight()
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
@@ -764,6 +747,7 @@ fun SwipeableIconKeyButton(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .fillMaxWidth()
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
@@ -804,7 +788,6 @@ fun SwipeableIconKeyButton(
                         onPress?.invoke()
                     },
                     onDragEnd = {
-                        // 手指抬起时才执行，给用户反悔的机会
                         if (hasReachedClearThreshold && onSwipeUp != null) {
                             onSwipeUp()
                         } else if (hasReachedUndoThreshold && onSwipeDown != null) {
@@ -851,13 +834,11 @@ fun SwipeableIconKeyButton(
                         dragOffsetY += dragAmount.y
                         dragOffsetX += dragAmount.x
                         
-                        // 左滑检测（优先于垂直滑动）
                         if (dragOffsetX < swipeLeftThreshold && !hasTriggeredSwipeLeft && onSwipeLeft != null) {
                             hasTriggeredSwipeLeft = true
                             onSwipeLeft()
                         }
                         
-                        // 上滑
                         if (dragOffsetY < 0 && dragOffsetX >= swipeLeftThreshold) {
                             val showUp = dragOffsetY < bubbleShowThresholdUp && swipeUpLabel != null
                             if (showUp != isSwipingUp) {
@@ -869,7 +850,6 @@ fun SwipeableIconKeyButton(
                                 )
                             }
                             
-                            // 上滑清空需要更大的滑动距离
                             val inDanger = dragOffsetY < clearActionThreshold
                             if (inDanger != isDangerZone) {
                                 isDangerZone = inDanger
@@ -882,7 +862,6 @@ fun SwipeableIconKeyButton(
                             hasReachedClearThreshold = inDanger
                         }
                         
-                        // 下滑
                         if (dragOffsetY > 0 && dragOffsetX >= swipeLeftThreshold) {
                             val showDown = dragOffsetY > bubbleShowThresholdDown && swipeDownLabel != null
                             if (showDown != isSwipingDown) {
@@ -894,7 +873,6 @@ fun SwipeableIconKeyButton(
                                 )
                             }
                             
-                            // 下滑撤回也需要更大的滑动距离
                             val inDanger = dragOffsetY > undoActionThreshold
                             if (inDanger != isDangerZone) {
                                 isDangerZone = inDanger
@@ -909,13 +887,11 @@ fun SwipeableIconKeyButton(
                     }
                 )
             }
-            .padding(horizontal = 2.dp, vertical = 2.dp)
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .then(shadowModifier)
             .onGloballyPositioned { coordinates ->
                 buttonBounds = coordinates.boundsInRoot()
             }
+            .padding(horizontal = 2.dp, vertical = 2.dp)
+            .then(shadowModifier)
             .clip(shadowShape)
             .background(
                 if (isPressed) darkenColor(backgroundColor, 0.2f)

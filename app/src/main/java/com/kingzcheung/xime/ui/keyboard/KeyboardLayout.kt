@@ -1248,6 +1248,7 @@ fun CompactSwipeableKeyButton(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .fillMaxWidth()
             .pointerInput(currentLongPressItems, currentOnLongPressSelect) {
                 if (currentLongPressItems.isNullOrEmpty() || currentOnLongPressSelect == null) {
                     detectTapGestures(
@@ -1430,13 +1431,11 @@ fun CompactSwipeableKeyButton(
                     }
                 )
             }
-            .padding(horizontal = 2.dp, vertical = 3.dp)
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .then(shadowModifier)
             .onGloballyPositioned { coordinates ->
                 buttonBounds = coordinates.boundsInRoot()
             }
+            .padding(horizontal = 2.dp, vertical = 3.dp)
+            .then(shadowModifier)
             .clip(shadowShape)
             .background(if (isPressed) darkenColor(backgroundColor) else backgroundColor),
         contentAlignment = Alignment.TopStart
