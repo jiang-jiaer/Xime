@@ -407,8 +407,6 @@ fun SwipeableKeyButton(
                             if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) currentOnClick?.invoke()
                         }
                     )
-                    // Add the long press gesture manually using custom detection, since SwipeableKeyButton uses
-                    // delay(400L) in a custom gesture handler below
                     return@pointerInput
                 }
                 
@@ -426,7 +424,7 @@ fun SwipeableKeyButton(
                     currentOnPress?.invoke()
                     
                     val longPressJob = scope.launch {
-                        delay(600L)
+                        delay(400L)
                         localLongPressTriggered = true
                         view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                         currentOnSwipeStateChange?.invoke(
@@ -752,7 +750,6 @@ fun SwipeableIconKeyButton(
             .fillMaxWidth()
             .pointerInput(Unit) {
                 detectTapGestures(
-                    longPressTimeout = 600L,
                     onPress = {
                         isPressed = true
                         onPress?.invoke()

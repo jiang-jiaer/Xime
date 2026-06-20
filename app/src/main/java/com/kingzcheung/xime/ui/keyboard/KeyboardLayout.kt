@@ -1276,7 +1276,7 @@ fun CompactSwipeableKeyButton(
                         currentOnPress?.invoke()
 
                         val longPressJob = scope.launch {
-                            delay(600L)
+                            delay(400L)
                             localLongPressTriggered = true
                             view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                             currentOnSwipeStateChange?.invoke(
