@@ -159,7 +159,7 @@ fun KeyButton(
                         dragOffsetY += dragAmount.y
                         
                         if (dragOffsetY < 0) {
-                            if (abs(dragOffsetY) > abs(dragOffsetX) * 2f) {
+                            if (abs(dragOffsetY) > abs(dragOffsetX) * 1.1f) {
                                 val shouldShowBubble = dragOffsetY < bubbleShowThresholdUp && swipeText != null
                                 if (shouldShowBubble != isSwiping) {
                                     isSwiping = shouldShowBubble
@@ -173,7 +173,7 @@ fun KeyButton(
                                 }
                             }
                         } else if (dragOffsetY > 0) {
-                            if (dragOffsetY > abs(dragOffsetX) * 2f) {
+                            if (dragOffsetY > abs(dragOffsetX) * 1.1f) {
                                 val shouldShowBubble = dragOffsetY > bubbleShowThresholdDown && swipeDownText != null
                                 if (shouldShowBubble != isSwipeDown) {
                                     isSwipeDown = shouldShowBubble
@@ -357,7 +357,7 @@ fun SwipeableKeyButton(
                         dragOffsetY += dragAmount.y
                         
                         if (dragOffsetY < 0) {
-                            if (abs(dragOffsetY) > abs(dragOffsetX) * 2f) {
+                            if (abs(dragOffsetY) > abs(dragOffsetX) * 1.1f) {
                                 val shouldShowBubble = dragOffsetY < bubbleShowThresholdUp && currentSwipeText != null
                                 if (shouldShowBubble != isSwiping) {
                                     isSwiping = shouldShowBubble
@@ -373,7 +373,7 @@ fun SwipeableKeyButton(
                                 }
                             }
                         } else if (dragOffsetY > 0) {
-                            if (dragOffsetY > abs(dragOffsetX) * 2f) {
+                            if (dragOffsetY > abs(dragOffsetX) * 1.1f) {
                                 val shouldShowBubble = dragOffsetY > bubbleShowThresholdDown && currentSwipeDownText != null
                                 if (shouldShowBubble != isSwipeDown) {
                                     isSwipeDown = shouldShowBubble
