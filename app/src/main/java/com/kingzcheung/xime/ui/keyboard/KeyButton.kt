@@ -98,8 +98,8 @@ fun KeyButton(
     val view = LocalView.current
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnLongClick by rememberUpdatedState(onLongClick)
-    val swipeUpThreshold = with(density) { (-30).dp.toPx() }
-    val swipeDownThreshold = with(density) { 30.dp.toPx() }
+    val swipeUpThreshold = with(density) { (-50).dp.toPx() }
+    val swipeDownThreshold = with(density) { 50.dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
 
@@ -307,8 +307,8 @@ fun SwipeableKeyButton(
     val view = LocalView.current
     
     val density = LocalDensity.current
-    val swipeUpThreshold = with(density) { (-30).dp.toPx() }
-    val swipeDownThreshold = with(density) { 30.dp.toPx() }
+    val swipeUpThreshold = with(density) { (-50).dp.toPx() }
+    val swipeDownThreshold = with(density) { 50.dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
 
@@ -407,6 +407,8 @@ fun SwipeableKeyButton(
                             if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) currentOnClick?.invoke()
                         }
                     )
+                    // Add the long press gesture manually using custom detection, since SwipeableKeyButton uses
+                    // delay(400L) in a custom gesture handler below
                     return@pointerInput
                 }
                 
@@ -424,7 +426,7 @@ fun SwipeableKeyButton(
                     currentOnPress?.invoke()
                     
                     val longPressJob = scope.launch {
-                        delay(400L)
+                        delay(600L)
                         localLongPressTriggered = true
                         view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                         currentOnSwipeStateChange?.invoke(
@@ -710,15 +712,15 @@ fun SwipeableIconKeyButton(
     var buttonBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
     
     val density = LocalDensity.current
-    val swipeUpThreshold = with(density) { (-30).dp.toPx() }
-    val swipeDownThreshold = with(density) { 30.dp.toPx() }
+    val swipeUpThreshold = with(density) { (-50).dp.toPx() }
+    val swipeDownThreshold = with(density) { 50.dp.toPx() }
     val swipeLeftThreshold = with(density) { (-24).dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
     
     // 上滑清空/下滑撤回需要更大的滑动距离，防止误�?
-    val clearActionThreshold = with(density) { (-30).dp.toPx() }
-    val undoActionThreshold = with(density) { 30.dp.toPx() }
+    val clearActionThreshold = with(density) { (-50).dp.toPx() }
+    val undoActionThreshold = with(density) { 50.dp.toPx() }
     
     LaunchedEffect(isLongPress) {
         if (isLongPress && onLongClick != null) {
@@ -750,6 +752,7 @@ fun SwipeableIconKeyButton(
             .fillMaxWidth()
             .pointerInput(Unit) {
                 detectTapGestures(
+                    longPressTimeout = 600L,
                     onPress = {
                         isPressed = true
                         onPress?.invoke()

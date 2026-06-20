@@ -56,7 +56,7 @@ fun SpaceKeyButton(
     var hasTriggeredSwipeRight by remember { mutableStateOf(false) }
     
     val swipeThreshold = 80f
-    val longPressTimeout = 400L
+    val longPressTimeout = 600L
     val scope = rememberCoroutineScope()
     
     Box(

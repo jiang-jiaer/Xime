@@ -196,11 +196,13 @@ fun KeyboardView(
                     val currentOnCursorMove = rememberUpdatedState(callbacks.onCursorMove)
                     val cursorMod = if (callbacks.onCursorMove != null) {
                         Modifier.pointerInput(Unit) {
-                            val cursorThresholdPx = 25.dp.toPx()
+                            val stepThresholdPx = 25.dp.toPx()
+                            val activationThresholdPx = 60.dp.toPx()
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false)
                                 var isCursorGesture = false
                                 var lastSteps = 0
+                                var activationAnchorX = down.position.x
 
                                 do {
                                     val event = awaitPointerEvent()
@@ -214,13 +216,18 @@ fun KeyboardView(
                                         }
                                         break
                                     }
-
-                                    if (abs(dx) > abs(dy) * 2f) {
+                                    //4倍的横向距离
+                                    if (abs(dx) > abs(dy) * 4f) {
                                         event.changes.forEach { it.consume() }
 
-                                        if (abs(dx) > cursorThresholdPx) {
+                                        if (!isCursorGesture && abs(dx) > activationThresholdPx) {
                                             isCursorGesture = true
-                                            val steps = (dx / cursorThresholdPx).toInt()
+                                            activationAnchorX = change.position.x
+                                        }
+
+                                        if (isCursorGesture) {
+                                            val dxFromAnchor = change.position.x - activationAnchorX
+                                            val steps = (dxFromAnchor / stepThresholdPx).toInt()
                                             if (steps != lastSteps) {
                                                 val delta = steps - lastSteps
                                                 currentOnCursorMove.value?.invoke(delta)
