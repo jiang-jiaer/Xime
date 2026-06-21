@@ -1516,6 +1516,18 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         }
                     }
                 }
+                "word_separator" -> {
+                    val processed = rimeEngine.processKey(0x20, 0)
+                    if (processed) {
+                        val result = rimeEngine.getProcessResult(processed)
+                        uiEventChannel.trySend {
+                            if (result.committedText.isNotEmpty()) commitText(result.committedText)
+                            updateUIWithResult(result)
+                        }
+                    } else {
+                        needsUIUpdate = true
+                    }
+                }
                 "shift" -> {
                 }
                 "mode_change" -> {

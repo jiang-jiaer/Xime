@@ -115,6 +115,21 @@ fun KeyboardLayoutScreen(
             )
         }
 
+        is KeyboardLayoutState.Stroke -> {
+            StrokeKeyboardLayout(
+                onKeyPress = onKeyPress,
+                keyBackgroundColor = keyBgColor,
+                keyTextColor = keyTextColor,
+                specialKeyBackgroundColor = specialKeyBgColor,
+                keyboardBackgroundColor = keyboardBgColor,
+                shadowEnabled = kbShadow.enabled,
+                shadowElevation = kbShadow.elevation.dp,
+                shadowShapeRadius = kbShadow.shapeRadius.dp,
+                modifier = modifier,
+                onKeyPressDown = callbacks.onKeyPressDown,
+            )
+        }
+
         is KeyboardLayoutState.Symbol -> {
             // 符号键盘已改为路由，此处不应到达
         }
