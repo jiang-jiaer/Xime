@@ -272,6 +272,8 @@ fun SwipeableKeyButton(
     swipeDownText: String? = null,
     /** 下滑文本显示在按键上（气泡为空，用于 display:key�? */
     swipeDownKeyLabel: String? = null,
+    /** 上滑文本显示在按键上（气泡则为空，用于 display:bubble） */
+    swipeUpKeyLabel: String? = null,
     onSwipe: ((String) -> Unit)? = null,
     onSwipeDown: ((String) -> Unit)? = null,
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
@@ -522,8 +524,9 @@ fun SwipeableKeyButton(
             maxLines = 1
         )
         
-        if (!swipeText.isNullOrEmpty()) {
-            val displayText = if (swipeText.length <= 2) swipeText else swipeText.take(2)
+        if (!(swipeUpKeyLabel ?: swipeText).isNullOrEmpty()) {
+            val keyLabel = (swipeUpKeyLabel ?: swipeText)!!
+            val displayText = if (keyLabel.length <= 2) keyLabel else keyLabel.take(2)
             Text(
                 text = displayText,
                 color = textColor.copy(alpha = 0.6f),

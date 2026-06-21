@@ -193,6 +193,62 @@ class KeyboardGestureConfigTest {
         assertEquals("\\", keys["c"]!!.swipeUp!!.value)
     }
 
+    // ── action:none ──
+
+    @Test
+    fun `swipe_up 对象格式 action none 不产生任何值`() {
+        val keys = parseKeys("""
+            s: { tap: "s", swipe_up: { action: "none" } }
+        """.trimIndent())
+        val su = keys["s"]!!.swipeUp!!
+        assertEquals("", su.label)
+        assertEquals(GestureAction.NONE, su.action)
+        assertEquals("", su.value)
+    }
+
+    @Test
+    fun `swipe_up 对象格式 action none 有 label 仍无值`() {
+        val keys = parseKeys("""
+            s: { tap: "s", swipe_up: { label: "S", action: "none", display: "bubble" } }
+        """.trimIndent())
+        val su = keys["s"]!!.swipeUp!!
+        assertEquals("S", su.label)
+        assertEquals(GestureAction.NONE, su.action)
+        assertEquals("", su.value)
+    }
+
+    @Test
+    fun `swipe_up 对象格式 action commit 无 value 时 label 为回退值`() {
+        val keys = parseKeys("""
+            s: { tap: "s", swipe_up: { label: "S", action: "commit" } }
+        """.trimIndent())
+        val su = keys["s"]!!.swipeUp!!
+        assertEquals("S", su.label)
+        assertEquals(GestureAction.COMMIT, su.action)
+        assertEquals("", su.value)
+    }
+
+    @Test
+    fun `swipe_up 对象格式 action commit 有 value 优先`() {
+        val keys = parseKeys("""
+            s: { tap: "s", swipe_up: { label: "S", action: "commit", value: "s_swipe" } }
+        """.trimIndent())
+        val su = keys["s"]!!.swipeUp!!
+        assertEquals("S", su.label)
+        assertEquals("s_swipe", su.value)
+    }
+
+    @Test
+    fun `swipe_up 字符串简写解析为 COMMIT`() {
+        val keys = parseKeys("""
+            a: { tap: "a", swipe_up: "@" }
+        """.trimIndent())
+        val su = keys["a"]!!.swipeUp!!
+        assertEquals("@", su.label)
+        assertEquals(GestureAction.COMMIT, su.action)
+        assertEquals("@", su.value)
+    }
+
     // ── DisplayMode ──
 
     @Test
