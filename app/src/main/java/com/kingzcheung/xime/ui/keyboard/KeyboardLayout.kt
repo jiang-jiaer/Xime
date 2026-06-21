@@ -335,6 +335,10 @@ fun KeyboardLayout(
                                     val rawSwipeUpText = KeysConfigHelper.getSwipeUpText(key)
                                     val swipeUpText =
                                         if (swipeUpHintsEnabled) rawSwipeUpText else null
+                                    val swipeUpAction = KeysConfigHelper.getSwipeUpAction(key)
+                                    val swipeUpDisplay = KeysConfigHelper.getSwipeUpDisplay(key)
+                                    val swipeUpKeyLabel =
+                                        if (swipeUpDisplay != DisplayMode.BUBBLE && swipeUpHintsEnabled) swipeUpText else null
                                     val swipeDownRaw =
                                         KeysConfigHelper.getKeyGesture(key)?.swipeDown
                                     val swipeDownLabel =
@@ -395,8 +399,9 @@ fun KeyboardLayout(
                                         modifier = Modifier.weight(1f),
                                         swipeText = swipeUpText,
                                         swipeDownText = swipeDownBubbleText,
+                                        swipeUpKeyLabel = swipeUpKeyLabel,
                                         swipeDownKeyLabel = if (swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH) swipeDownLabel else null,
-                                        onSwipe = if (swipeUpText != null) onKeyPress else null,
+                                        onSwipe = if (swipeUpText != null && swipeUpAction != GestureAction.NONE) onKeyPress else null,
                                         onSwipeDown = onSwipeDown,
                                         onSwipeStateChange = onSwipeStateChange,
                                         onPress = onPress,
@@ -766,6 +771,10 @@ fun KeyboardRowWithConfig(
         keys.forEach { key ->
             val rawSwipeUpText = KeysConfigHelper.getSwipeUpText(key)
             val swipeUpText = if (swipeUpHintsEnabled) rawSwipeUpText else null
+            val swipeUpAction = KeysConfigHelper.getSwipeUpAction(key)
+            val swipeUpDisplay = KeysConfigHelper.getSwipeUpDisplay(key)
+            val swipeUpKeyLabel =
+                if (swipeUpDisplay != DisplayMode.BUBBLE && swipeUpHintsEnabled) swipeUpText else null
             val swipeDownRaw = KeysConfigHelper.getKeyGesture(key)?.swipeDown
             val swipeDownLabel = swipeDownRaw?.label?.takeIf { it.isNotEmpty() }
             val swipeDownAction = swipeDownRaw?.action
@@ -826,8 +835,9 @@ fun KeyboardRowWithConfig(
                 modifier = Modifier.weight(1f),
                 swipeText = swipeUpText,
                 swipeDownText = swipeDownBubbleText,
+                swipeUpKeyLabel = swipeUpKeyLabel,
                 swipeDownKeyLabel = if ((swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH) && swipeDownHintsEnabled) swipeDownLabel else null,
-                onSwipe = if (swipeUpText != null) onKeyPress else null,
+                onSwipe = if (swipeUpText != null && swipeUpAction != GestureAction.NONE) onKeyPress else null,
                 onSwipeDown = onSwipeDown,
                 onSwipeStateChange = onSwipeStateChange,
                 onPress = onPress,
@@ -1222,6 +1232,8 @@ fun CompactSwipeableKeyButton(
     modifier: Modifier = Modifier,
     swipeText: String? = null,
     swipeDownText: String? = null,
+    swipeUpKeyLabel: String? = null,
+    swipeDownKeyLabel: String? = null,
     onSwipe: ((String) -> Unit)? = null,
     onSwipeDown: ((String) -> Unit)? = null,
     onPress: (() -> Unit)? = null,
@@ -1491,9 +1503,10 @@ fun CompactSwipeableKeyButton(
             )
         }
 
-        if (swipeText != null) {
+        val keyLabel = swipeUpKeyLabel ?: swipeText
+        if (keyLabel != null) {
             Text(
-                text = swipeText,
+                text = keyLabel,
                 color = textColor.copy(alpha = 0.5f),
                 fontSize = swipeFontSize,
                 fontWeight = FontWeight.Normal,
@@ -1556,6 +1569,10 @@ fun CompactKeyboardRowWithConfig(
         keys.forEach { key ->
             val rawSwipeUpText = KeysConfigHelper.getSwipeUpText(key)
             val swipeUpText = if (swipeUpHintsEnabled) rawSwipeUpText else null
+            val swipeUpAction = KeysConfigHelper.getSwipeUpAction(key)
+            val swipeUpDisplay = KeysConfigHelper.getSwipeUpDisplay(key)
+            val swipeUpKeyLabel =
+                if (swipeUpDisplay != DisplayMode.BUBBLE && swipeUpHintsEnabled) swipeUpText else null
             val swipeDownRaw = KeysConfigHelper.getKeyGesture(key)?.swipeDown
             val swipeDownLabel = swipeDownRaw?.label?.takeIf { it.isNotEmpty() }
             val swipeDownAction = swipeDownRaw?.action
@@ -1612,7 +1629,8 @@ fun CompactKeyboardRowWithConfig(
                 modifier = Modifier.weight(1f),
                 swipeText = swipeUpText,
                 swipeDownText = swipeDownBubbleText,
-                    onSwipe = if (swipeUpText != null) onKeyPress else null,
+                swipeUpKeyLabel = swipeUpKeyLabel,
+                onSwipe = if (swipeUpText != null && swipeUpAction != GestureAction.NONE) onKeyPress else null,
                     onSwipeDown = compactOnSwipeDown,
                     onSwipeStateChange = onSwipeStateChange,
                     onPress = compactOnPress,

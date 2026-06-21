@@ -172,11 +172,6 @@ private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
     return GestureDef()
 }
 
-private fun parseGestureList(node: com.charleskorn.kaml.YamlNode): List<GestureDef>? {
-    val list = node as? YamlList ?: return null
-    return list.items.map { parseGestureNode(it) }
-}
-
 // ── 原有配置类 ──
 
 @Serializable
@@ -591,9 +586,16 @@ object KeysConfigHelper {
     fun getConfig(): KeysConfig = config
     
     fun getSwipeUpText(key: String): String? {
-        val fromYaml = keyGestureConfig[key.lowercase()]?.swipeUp?.value
-        if (fromYaml != null && fromYaml.isNotEmpty()) return fromYaml
+        val gesture = keyGestureConfig[key.lowercase()]?.swipeUp
+        if (gesture != null) {
+            if (gesture.value.isNotEmpty()) return gesture.value
+            if (gesture.label.isNotEmpty()) return gesture.label
+        }
         return config.swipeUp[key.lowercase()]
+    }
+
+    fun getSwipeUpAction(key: String): GestureAction? {
+        return keyGestureConfig[key.lowercase()]?.swipeUp?.action
     }
     
     fun getSwipeDownEnglishText(key: String): String? {
@@ -611,9 +613,13 @@ object KeysConfigHelper {
     fun getSwipeDownDisplay(key: String): DisplayMode {
         return keyGestureConfig[key.lowercase()]?.swipeDown?.display ?: DisplayMode.BOTH
     }
-    
 
-    
+    /** 获取上滑显示位置：key（按键上）或 bubble（气泡） */
+    fun getSwipeUpDisplay(key: String): DisplayMode {
+        return keyGestureConfig[key.lowercase()]?.swipeUp?.display ?: DisplayMode.BOTH
+    }
+
+
     private fun getDefaultSwipeUp(): Map<String, String> = mapOf(
         "q" to "1", "w" to "2", "e" to "3", "r" to "4", "t" to "5",
         "y" to "6", "u" to "7", "i" to "8", "o" to "9", "p" to "0",
