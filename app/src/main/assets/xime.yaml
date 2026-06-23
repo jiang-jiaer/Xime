@@ -146,12 +146,8 @@ keyboard:
     n: { tap: "n", swipe_up: "%", swipe_down: { label: "已己巳心忄羽乙𠃜", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["n", "N", "ñ"] } }
     m: { tap: "m", swipe_up: "#", swipe_down: { label: "山由贝冂冎几", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["m", "M"] } }
 
-    # ── 功能键（第三行第一个，默认表情按钮） ──
-    # action 支持 switch_route（切换面板）、commit（上屏文本）等
-    row3_key1: { tap: { action: "switch_route", value: "emoji" } }
-
     # ── 功能键（第四行） ──
     # row4_key2: 逗号键，tap 为点按输出，swipe_up 为上滑输出
     row4_key2: { tap: "，", swipe_up: "。" }
     # row4_key4: 中/英切换键，label 为按键显示文字
-    row4_key4: { tap: { label: "中", action: "toggle_ascii" } }
+    row4_key4: { tap: { label: "英", action: "toggle_ascii" } }

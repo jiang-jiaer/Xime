@@ -498,11 +498,20 @@ fun KeyboardLayout(
                             )
 
                             val row4k2 = KeysConfigHelper.getKeyGesture("row4_key2")
-                            val k2Tap = row4k2?.tap?.value?.takeIf { it.isNotEmpty() } ?: "，"
+                            val k2Action = row4k2?.tap?.action
+                            val k2Tap = row4k2?.tap?.value?.takeIf { it.isNotEmpty() }
+                                ?: row4k2?.tap?.label?.takeIf { it.isNotEmpty() }
+                                ?: "，"
                             val k2Swipe = row4k2?.swipeUp?.value?.takeIf { it.isNotEmpty() } ?: "。"
                             SwipeableKeyButton(
                                 text = k2Tap,
-                                onClick = { onKeyPress(k2Tap) },
+                                onClick = {
+                                    if (k2Action != null && k2Action != GestureAction.COMMIT) {
+                                        onGestureAction?.invoke(k2Action, k2Tap)
+                                    } else {
+                                        onKeyPress(k2Tap)
+                                    }
+                                },
                                 backgroundColor = keyBackgroundColor,
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(0.8f),
@@ -1092,11 +1101,20 @@ private fun LandscapeKeyboardContent(
                     shadowShapeRadius = shadowShapeRadius,
                 )
                 val row4k2 = KeysConfigHelper.getKeyGesture("row4_key2")
-                val k2Tap = row4k2?.tap?.value?.takeIf { it.isNotEmpty() } ?: "，"
+                val k2Action = row4k2?.tap?.action
+                val k2Tap = row4k2?.tap?.value?.takeIf { it.isNotEmpty() }
+                    ?: row4k2?.tap?.label?.takeIf { it.isNotEmpty() }
+                    ?: "，"
                 val k2Swipe = row4k2?.swipeUp?.value?.takeIf { it.isNotEmpty() } ?: "。"
                 CompactSwipeableKeyButton(
                     text = k2Tap,
-                    onClick = { onKeyPress(k2Tap) },
+                    onClick = {
+                        if (k2Action != null && k2Action != GestureAction.COMMIT) {
+                            onGestureAction?.invoke(k2Action, k2Tap)
+                        } else {
+                            onKeyPress(k2Tap)
+                        }
+                    },
                     backgroundColor = keyBackgroundColor,
                     textColor = keyTextColor,
                     modifier = Modifier.weight(0.8f),
