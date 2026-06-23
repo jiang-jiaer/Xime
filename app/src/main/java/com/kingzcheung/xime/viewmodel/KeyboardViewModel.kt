@@ -83,11 +83,11 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
 
     fun singleTapShift() {
         when (_shiftMode.value) {
-            ShiftMode.OFF, ShiftMode.SINGLE -> {
+            ShiftMode.OFF -> {
                 _isShifted.value = true
                 _shiftMode.value = ShiftMode.SINGLE
             }
-            ShiftMode.CAPS -> {
+            ShiftMode.SINGLE, ShiftMode.CAPS -> {
                 _isShifted.value = false
                 _shiftMode.value = ShiftMode.OFF
             }

@@ -82,6 +82,7 @@ import com.kingzcheung.xime.keyboard.KeyboardRoute
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
+import androidx.compose.material.icons.twotone.KeyboardControlKey
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -1096,8 +1097,12 @@ private fun ShiftCapsKeyButton(
             ),
         contentAlignment = Alignment.Center
     ) {
+        val painter = when (shiftMode) {
+            ShiftMode.OFF -> rememberVectorPainter(Icons.TwoTone.KeyboardControlKey)
+            else -> rememberVectorPainter(Icons.TwoTone.KeyboardCapslock)
+        }
         Icon(
-            painter = rememberVectorPainter(Icons.TwoTone.KeyboardCapslock),
+            painter = painter,
             contentDescription = null,
             tint = iconColor,
             modifier = Modifier.size(20.dp)
