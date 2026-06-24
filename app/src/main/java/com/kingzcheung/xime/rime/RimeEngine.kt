@@ -11,6 +11,7 @@ data class RimeProcessResult(
     val processed: Boolean,
     val committedText: String,
     val inputText: String,
+    val preeditText: String,
     val candidates: Array<RimeCandidate>,
     val isAsciiMode: Boolean,
     val hasNextPage: Boolean,
@@ -22,6 +23,7 @@ data class RimeProcessResult(
         return processed == other.processed &&
                 committedText == other.committedText &&
                 inputText == other.inputText &&
+                preeditText == other.preeditText &&
                 candidates.contentEquals(other.candidates) &&
                 isAsciiMode == other.isAsciiMode &&
                 hasNextPage == other.hasNextPage &&
@@ -32,6 +34,7 @@ data class RimeProcessResult(
         var result = processed.hashCode()
         result = 31 * result + committedText.hashCode()
         result = 31 * result + inputText.hashCode()
+        result = 31 * result + preeditText.hashCode()
         result = 31 * result + candidates.contentHashCode()
         result = 31 * result + isAsciiMode.hashCode()
         result = 31 * result + hasNextPage.hashCode()
@@ -165,14 +168,14 @@ class RimeEngine {
     }
 
     fun processKeyAndGetResult(keycode: Int, mask: Int): RimeProcessResult {
-        if (!isInitialized) return RimeProcessResult(false, "", "", emptyArray(), false, false, false)
+        if (!isInitialized) return RimeProcessResult(false, "", "", "", emptyArray(), false, false, false)
         if (!nativeHasSession() && !nativeCreateSession())
-            return RimeProcessResult(false, "", "", emptyArray(), false, false, false)
+            return RimeProcessResult(false, "", "", "", emptyArray(), false, false, false)
         return nativeProcessKeyAndGetResult(keycode, mask)
     }
 
     fun getProcessResult(processed: Boolean): RimeProcessResult {
-        if (!isInitialized) return RimeProcessResult(false, "", "", emptyArray(), false, false, false)
+        if (!isInitialized) return RimeProcessResult(false, "", "", "", emptyArray(), false, false, false)
         return nativeGetProcessResult(processed)
     }
 

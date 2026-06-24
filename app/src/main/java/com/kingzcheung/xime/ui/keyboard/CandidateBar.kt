@@ -193,8 +193,9 @@ fun CandidateBar(
             .padding(horizontal = horizontalPadding),
         verticalArrangement = Arrangement.Center
     ) {
-        val inputText = (state as? CandidateBarState.ChineseCandidates)?.inputText ?: ""
-        val showInputText = showInputTextRow && inputText.isNotEmpty()
+        val displayText = (state as? CandidateBarState.ChineseCandidates)?.preeditText
+            ?: (state as? CandidateBarState.ChineseCandidates)?.inputText ?: ""
+        val showInputText = showInputTextRow && displayText.isNotEmpty()
 
         if (showInputText) {
             val inputTextInteractionSource = remember { MutableInteractionSource() }
@@ -209,7 +210,7 @@ fun CandidateBar(
 
             ) {
                 Text(
-                    text = inputText,
+                    text = displayText,
                     color = visuals.textColor.copy(alpha = 0.8f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Normal,

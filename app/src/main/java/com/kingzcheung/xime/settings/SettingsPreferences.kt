@@ -17,7 +17,6 @@ object SettingsPreferences {
     private const val KEY_VIBRATION_ENABLED = "vibration_enabled"
     private const val KEY_VIBRATION_INTENSITY = "vibration_intensity"
     private const val KEY_KEYBOARD_THEME = "keyboard_theme"
-    private const val KEY_SHOW_BOTTOM_BUTTONS = "show_bottom_buttons"
     
     private const val KEY_SMART_PREDICTION_ENABLED = "smart_prediction_enabled"
     private const val KEY_PREDICTION_MODEL_REPO = "prediction_model_repo"
@@ -40,10 +39,8 @@ object SettingsPreferences {
     
     private const val KEY_KEYBOARD_HEIGHT_DP = "keyboard_height_dp"
     private const val KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE = "keyboard_height_dp_landscape"
-    const val DEFAULT_KEYBOARD_HEIGHT_DP = 308
-    
-    private const val KEY_KEYBOARD_BOTTOM_PADDING_DP = "keyboard_bottom_padding_dp"
-    private const val DEFAULT_KEYBOARD_BOTTOM_PADDING_DP = 0
+    const val DEFAULT_KEYBOARD_HEIGHT_PERCENT = 35
+    const val DEFAULT_KEYBOARD_HEIGHT_PERCENT_LANDSCAPE = 49
 
     private const val KEY_TOOLBAR_BUTTONS = "toolbar_buttons"
     private val DEFAULT_TOOLBAR_BUTTONS = com.kingzcheung.xime.keyboard.ToolbarButton.DEFAULT_VISIBLE.joinToString(",") { it.id }
@@ -175,14 +172,6 @@ object SettingsPreferences {
         getPrefs(context).edit().putString(KEY_KEYBOARD_THEME, themeId).apply()
     }
     
-    fun showBottomButtons(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_SHOW_BOTTOM_BUTTONS, false)
-    }
-    
-    fun setShowBottomButtons(context: Context, show: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_SHOW_BOTTOM_BUTTONS, show).apply()
-    }
-    
     fun isPluginEnabled(context: Context, pluginId: String): Boolean {
         val prefs = getPrefs(context)
         val key = "plugin_enabled_$pluginId"
@@ -289,41 +278,39 @@ object SettingsPreferences {
     }
     
     fun getKeyboardHeightDp(context: Context): Int {
-        return getPrefs(context).getInt(KEY_KEYBOARD_HEIGHT_DP, DEFAULT_KEYBOARD_HEIGHT_DP)
+        return getKeyboardHeightDp(context, false)
     }
 
     fun getKeyboardHeightDp(context: Context, isLandscape: Boolean): Int {
         val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
         val alt = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP else KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE
-        // 先读本方向的值，如果没有则用另一个方向的，最后用默认值
-        return getPrefs(context).getInt(key, getPrefs(context).getInt(alt, DEFAULT_KEYBOARD_HEIGHT_DP))
+        val stored = getPrefs(context).getInt(key, -1)
+        if (stored > 0) return stored
+        val altStored = getPrefs(context).getInt(alt, -1)
+        if (altStored > 0) return altStored
+        return getDefaultKeyboardHeightDp(context, isLandscape)
     }
 
-    fun setKeyboardHeightDp(context: Context, heightDp: Int) {
-        getPrefs(context).edit().putInt(KEY_KEYBOARD_HEIGHT_DP, heightDp).apply()
-    }
-
-    fun setKeyboardHeightDp(context: Context, heightDp: Int, isLandscape: Boolean) {
+    fun setKeyboardHeightDp(context: Context, heightDp: Int, isLandscape: Boolean = false) {
         val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
         getPrefs(context).edit().putInt(key, heightDp).apply()
     }
-    
-    fun getDefaultKeyboardHeightDp(): Int = DEFAULT_KEYBOARD_HEIGHT_DP
 
-    fun getOrientationDefaultKeyboardHeightDp(context: Context, isLandscape: Boolean): Int {
-        val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
-        return getPrefs(context).getInt(key, DEFAULT_KEYBOARD_HEIGHT_DP)
+    fun getDefaultKeyboardHeightDp(context: Context, isLandscape: Boolean = false): Int {
+        val percent = if (isLandscape) DEFAULT_KEYBOARD_HEIGHT_PERCENT_LANDSCAPE else DEFAULT_KEYBOARD_HEIGHT_PERCENT
+        return context.resources.configuration.screenHeightDp * percent / 100
     }
-    
+
+    private const val KEY_KEYBOARD_BOTTOM_PADDING_DP = "keyboard_bottom_padding_dp"
+    private const val DEFAULT_KEYBOARD_BOTTOM_PADDING_DP = 0
+
     fun getKeyboardBottomPaddingDp(context: Context): Int {
         return getPrefs(context).getInt(KEY_KEYBOARD_BOTTOM_PADDING_DP, DEFAULT_KEYBOARD_BOTTOM_PADDING_DP)
     }
-    
+
     fun setKeyboardBottomPaddingDp(context: Context, paddingDp: Int) {
         getPrefs(context).edit().putInt(KEY_KEYBOARD_BOTTOM_PADDING_DP, paddingDp).apply()
     }
-    
-    fun getDefaultKeyboardBottomPaddingDp(): Int = DEFAULT_KEYBOARD_BOTTOM_PADDING_DP
 
     fun getWebDavUrl(context: Context): String {
         return getPrefs(context).getString(KEY_WEBDAV_URL, "") ?: ""

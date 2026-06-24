@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Keyboard
@@ -34,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -105,7 +108,7 @@ fun KeyboardView(
                 .fillMaxHeight()
         ) {
             val candidateBarState = remember(
-                state.candidates, state.candidateComments, state.inputText, state.isComposing,
+                state.candidates, state.candidateComments, state.inputText, state.preeditText, state.isComposing,
                 state.associationCandidates, state.isShowingRecentClipboard, state.hasNextPage,
                 state.isCalculatorMode,
             ) {
@@ -113,6 +116,7 @@ fun KeyboardView(
                     candidates = state.candidates,
                     candidateComments = state.candidateComments,
                     inputText = state.inputText,
+                    preeditText = state.preeditText,
                     isComposing = state.isComposing,
                     associationCandidates = state.associationCandidates,
                     isShowingRecentClipboard = state.isShowingRecentClipboard,
@@ -335,62 +339,15 @@ fun KeyboardView(
                             onKeyPress = currentOnKeyPress,
                             modifier = Modifier.weight(1f).then(cursorMod),
                         )
+                        if (state.keyboardBottomPaddingDp > 0) {
+                            Spacer(modifier = Modifier.height(state.keyboardBottomPaddingDp.dp))
+                        }
                     }
                 }
             }
-
-            val gapAbove = maxOf(0, state.keyboardBottomPaddingDp)
-            val bottomReduction = minOf(0, state.keyboardBottomPaddingDp)
-            Spacer(modifier = Modifier.height(gapAbove.dp))
 
             val configuration = LocalConfiguration.current
             val isLandscapeBottom = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-            if (state.showBottomButtons && currentRoute !is KeyboardRoute.Voice && !isLandscapeBottom) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clickable(
-                                onClick = {
-                                    callbacks.onHideKeyboard?.invoke()
-                                    viewModel.resetKeyboard(state.isAsciiMode, state.currentSchemaId)
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = "收起键盘",
-                            tint = keyTextColor,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clickable(onClick = { callbacks.onSwitchKeyboard?.invoke() }),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Keyboard,
-                            contentDescription = "切换键盘",
-                            tint = keyTextColor,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            } else if (currentRoute !is KeyboardRoute.Voice && !isLandscapeBottom) {
-                val bottomSpacer = (40 + bottomReduction).coerceAtLeast(0)
-                Spacer(modifier = Modifier.height(bottomSpacer.dp))
-            } else if (currentRoute !is KeyboardRoute.Voice && isLandscapeBottom) {
-                val bottomSpacer = (15 + bottomReduction).coerceAtLeast(0)
-                Spacer(modifier = Modifier.height(bottomSpacer.dp))
-            }
         }
 
         if (state.isDeploying) {

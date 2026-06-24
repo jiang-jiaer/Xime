@@ -32,6 +32,7 @@ struct ProcessResult {
     bool processed;
     std::string committedText;
     std::string inputText;
+    std::string preeditText;
     std::vector<std::pair<std::string, std::string>> candidates;
     bool isAsciiMode;
     bool hasNextPage;
@@ -183,14 +184,10 @@ public:
 
     RIME_STRUCT(RimeContext, context);
     if (rime->get_context(session_id_, &context)) {
-        // 优先使用 preedit（经过 preedit_format 格式化后的文本），
-        // 例如 stroke 方案中会将 hspnz 转为 一丨丿丶乛
-        if (context.composition.preedit && strlen(context.composition.preedit) > 0) {
-            result.inputText = context.composition.preedit;
-        } else {
-            const char* input = rime->get_input(session_id_);
-            result.inputText = input ? input : "";
-        }
+        const char* input = rime->get_input(session_id_);
+        result.inputText = input ? input : "";
+        result.preeditText = context.composition.preedit ?
+            context.composition.preedit : "";
         if (context.menu.num_candidates > 0) {
             for (int i = 0; i < context.menu.num_candidates; ++i) {
                 const char* text = context.menu.candidates[i].text;
@@ -207,6 +204,7 @@ public:
     } else {
         const char* input = rime->get_input(session_id_);
         result.inputText = input ? input : "";
+        result.preeditText = "";
     }
 
         RIME_STRUCT(RimeStatus, status);
@@ -656,7 +654,7 @@ static void ensureJniCache(JNIEnv* env) {
         jclass cls = env->FindClass("com/kingzcheung/xime/rime/RimeProcessResult");
         gRimeProcessResultClass = (jclass)env->NewGlobalRef(cls);
         gRimeProcessResultCtor = env->GetMethodID(gRimeProcessResultClass, "<init>",
-            "(ZLjava/lang/String;Ljava/lang/String;[Lcom/kingzcheung/xime/rime/RimeCandidate;ZZZ)V");
+            "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Lcom/kingzcheung/xime/rime/RimeCandidate;ZZZ)V");
         env->DeleteLocalRef(cls);
     }
 }
@@ -753,11 +751,13 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeProcessKeyAndGetResult(
 
     jstring jCommitted = env->NewStringUTF(result.committedText.c_str());
     jstring jInput = env->NewStringUTF(result.inputText.c_str());
+    jstring jPreedit = env->NewStringUTF(result.preeditText.c_str());
 
     jobject jResult = env->NewObject(gRimeProcessResultClass, gRimeProcessResultCtor,
         result.processed ? JNI_TRUE : JNI_FALSE,
         jCommitted,
         jInput,
+        jPreedit,
         candidateArray,
         result.isAsciiMode ? JNI_TRUE : JNI_FALSE,
         result.hasNextPage ? JNI_TRUE : JNI_FALSE,
@@ -765,6 +765,7 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeProcessKeyAndGetResult(
 
     env->DeleteLocalRef(jCommitted);
     env->DeleteLocalRef(jInput);
+    env->DeleteLocalRef(jPreedit);
     env->DeleteLocalRef(candidateArray);
 
     return jResult;
@@ -795,11 +796,13 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeGetProcessResult(
 
     jstring jCommitted = env->NewStringUTF(result.committedText.c_str());
     jstring jInput = env->NewStringUTF(result.inputText.c_str());
+    jstring jPreedit = env->NewStringUTF(result.preeditText.c_str());
 
     jobject jResult = env->NewObject(gRimeProcessResultClass, gRimeProcessResultCtor,
         result.processed ? JNI_TRUE : JNI_FALSE,
         jCommitted,
         jInput,
+        jPreedit,
         candidateArray,
         result.isAsciiMode ? JNI_TRUE : JNI_FALSE,
         result.hasNextPage ? JNI_TRUE : JNI_FALSE,
@@ -807,6 +810,7 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeGetProcessResult(
 
     env->DeleteLocalRef(jCommitted);
     env->DeleteLocalRef(jInput);
+    env->DeleteLocalRef(jPreedit);
     env->DeleteLocalRef(candidateArray);
 
     return jResult;
