@@ -12,6 +12,7 @@ import androidx.compose.material.icons.twotone.Paid
 import androidx.compose.material.icons.twotone.Quickreply
 import androidx.compose.material.icons.twotone.SelectAll
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.twotone.ContentPasteGo
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -25,12 +26,12 @@ enum class ToolbarButton(
     SCHEMA("schema", "方案选择", Icons.TwoTone.KeyboardAlt),
     QUICK_PHRASE("quick_phrase", "快捷发送", Icons.TwoTone.Quickreply),
     SYMBOL("symbol", "符号", Icons.TwoTone.Paid),
+    FLOAT("float", "悬浮", Icons.Default.PictureInPicture),
     SELECT_ALL("select_all", "全选", Icons.TwoTone.SelectAll),
     COPY("copy", "复制", Icons.TwoTone.ContentCopy),
     PASTE("paste", "黏贴", Icons.TwoTone.ContentPaste),
     HOME("home", "段首", Icons.TwoTone.FirstPage),
-    END("end", "段尾", Icons.AutoMirrored.TwoTone.LastPage),
-    FLOAT("float", "悬浮", Icons.Default.Computer);
+    END("end", "段尾", Icons.AutoMirrored.TwoTone.LastPage);
 
     companion object {
         val DEFAULT_VISIBLE = emptySet<ToolbarButton>()
