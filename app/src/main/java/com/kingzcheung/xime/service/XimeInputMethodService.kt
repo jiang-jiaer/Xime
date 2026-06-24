@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -553,6 +554,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 }
                 Log.d(TAG, "ComposeHeight: showResize=${state.showKeyboardResize} orientHeight=$orientationHeight displayHeight=$displayHeight keyboardHeight=$keyboardHeight")
                 
+                // 一次性计算导航栏高度，供后续布局复用
+                val density = LocalDensity.current
+                val navBarPx = WindowInsets.navigationBars.getBottom(density)
+                val navBarDp = with(density) { navBarPx.toDp() }
+                val hasNavBar = navBarDp > 0.dp
+                val actualNavBarDp = if (hasNavBar) navBarDp.value.toInt() else 0
+                
                 XimeTheme(darkTheme = isDarkTheme, themeId = state.themeId) {
                     Box(
                         modifier = Modifier
@@ -574,28 +582,15 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 if (state.isCompact) {
                                     if (cand.isComposing) 110.dp else 1.dp
                                 } else if (state.showKeyboardResize) ((screenHeightDp * 7) / 10 + 100).dp
-                                else {
-                                    val density = LocalDensity.current
-                                    val navBarPx = WindowInsets.navigationBars.getBottom(density)
-                                    val navBarDp = with(density) { navBarPx.toDp() }
-                                    (keyboardHeight + state.keyboardBottomPaddingDp).dp + (if (navBarDp > 0.dp) navBarDp else 0.dp)
-                                }
+                                else (keyboardHeight + state.keyboardBottomPaddingDp).dp + (if (hasNavBar) navBarDp else 0.dp)
                             )
                     ) {
                         // Sync FrameLayout height with Compose content height
-                        val density = LocalDensity.current
-                        val navBarPx = WindowInsets.navigationBars.getBottom(density)
-                        val navBarDp = with(density) { navBarPx.toDp() }
-                        val hasNavBar = navBarDp > 0.dp
-                        val actualNavBarDp = if (hasNavBar) navBarDp.value.toInt() else 0
-                        val height = if (state.showKeyboardResize) state.resizePreviewHeightDp else keyboardHeight
-                        val totalDp = height + state.keyboardBottomPaddingDp + actualNavBarDp
-                        Log.d(TAG, "HeightSync: mode=${if (state.showKeyboardResize) "resize" else "normal"} height=$height navBarDp=${navBarDp.value} padding=${state.keyboardBottomPaddingDp} hasNavBar=$hasNavBar totalDp=$totalDp")
+                        val contentHeight = if (state.showKeyboardResize) state.resizePreviewHeightDp else keyboardHeight
+                        val totalDp = contentHeight + state.keyboardBottomPaddingDp + actualNavBarDp
+                        Log.d(TAG, "HeightSync: mode=${if (state.showKeyboardResize) "resize" else "normal"} height=$contentHeight navBarDp=${navBarDp.value} padding=${state.keyboardBottomPaddingDp} hasNavBar=$hasNavBar totalDp=$totalDp")
                         SideEffect {
                             keyboardContainer.updateHeight(totalDp)
-                        }
-                        if (hasNavBar) {
-                            Spacer(modifier = Modifier.fillMaxWidth().height(navBarDp))
                         }
                         if (state.isCompact && cand.isComposing) {
                             FloatingCandidateBar(
@@ -804,61 +799,60 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 state = kbState,
                                 callbacks = callbacks,
                             )
+                           }
+                           if (state.showKeyboardResize) {
+                              KeyboardResizeOverlay(
+                                     initialHeightDp = state.resizePreviewHeightDp,
+                                     defaultHeightDp = SettingsPreferences.getDefaultKeyboardHeightDp(this@XimeInputMethodService, isLandscape),
+                                    maxContainerHeightDp = state.resizePreviewHeightDp + state.keyboardBottomPaddingDp,
+                                   currentBottomPaddingDp = state.keyboardBottomPaddingDp,
+                                  onHeightChange = { newHeight ->
+                                       uiState.value = uiState.value.copy(
+                                           resizePreviewHeightDp = newHeight
+                                       )
+                                   },
+                                  onBottomPaddingChange = { newPadding ->
+                                       uiState.value = uiState.value.copy(
+                                           keyboardBottomPaddingDp = newPadding
+                                       )
+                                   },
+                                  onReset = { defaultHeight ->
+                                       uiState.value = uiState.value.copy(
+                                           resizePreviewHeightDp = defaultHeight,
+                                           keyboardBottomPaddingDp = 0,
+                                           stretchFactor = 1f
+                                       )
+                                   },
+                                  onConfirm = { newHeight, newPadding ->
+                                       Log.d(TAG, "onConfirm: newHeight=$newHeight newPadding=$newPadding")
+                                       setKeyboardHeight(newHeight)
+                                       SettingsPreferences.setKeyboardBottomPaddingDp(this@XimeInputMethodService, newPadding)
+                                       uiState.value = uiState.value.copy(
+                                           showKeyboardResize = false,
+                                           keyboardHeightDp = newHeight,
+                                           keyboardBottomPaddingDp = newPadding,
+                                       )
+                                    },
+                                    onCancel = {
+                                        val restoreHeight = SettingsPreferences.getKeyboardHeightDp(this@XimeInputMethodService, isLandscape)
+                                        val restorePadding = SettingsPreferences.getKeyboardBottomPaddingDp(this@XimeInputMethodService)
+                                        uiState.value = uiState.value.copy(
+                                            showKeyboardResize = false,
+                                            keyboardHeightDp = restoreHeight,
+                                            keyboardBottomPaddingDp = restorePadding,
+                                        )
+                                    },
+                                    modifier = Modifier
+                                       .fillMaxSize()
+                              )
                           }
-                          }
-                          if (navBarDp > 0.dp) {
-                              Spacer(modifier = Modifier.fillMaxWidth().height(navBarDp))
-                          }
-                      }
-                      }
-                          if (state.showKeyboardResize) {
-                             KeyboardResizeOverlay(
-                                 initialHeightDp = state.resizePreviewHeightDp,
-                                 defaultHeightDp = SettingsPreferences.getDefaultKeyboardHeightDp(this@XimeInputMethodService, isLandscape),
-                                maxContainerHeightDp = keyboardHeight,
-                                currentBottomPaddingDp = state.keyboardBottomPaddingDp,
-                               onHeightChange = { newHeight ->
-                                   uiState.value = uiState.value.copy(
-                                       resizePreviewHeightDp = newHeight
-                                   )
-                               },
-                               onBottomPaddingChange = { newPadding ->
-                                   uiState.value = uiState.value.copy(
-                                       keyboardBottomPaddingDp = newPadding
-                                   )
-                               },
-                               onReset = { defaultHeight ->
-                                   uiState.value = uiState.value.copy(
-                                       resizePreviewHeightDp = defaultHeight,
-                                       keyboardBottomPaddingDp = 0,
-                                       stretchFactor = 1f
-                                   )
-                               },
-                               onConfirm = { newHeight, newPadding ->
-                                   Log.d(TAG, "onConfirm: newHeight=$newHeight newPadding=$newPadding")
-                                   setKeyboardHeight(newHeight)
-                                   SettingsPreferences.setKeyboardBottomPaddingDp(this@XimeInputMethodService, newPadding)
-                                   uiState.value = uiState.value.copy(
-                                       showKeyboardResize = false,
-                                       keyboardHeightDp = newHeight,
-                                       keyboardBottomPaddingDp = newPadding,
-                                   )
-                                },
-                                onCancel = {
-                                    val restoreHeight = SettingsPreferences.getKeyboardHeightDp(this@XimeInputMethodService, isLandscape)
-                                    val restorePadding = SettingsPreferences.getKeyboardBottomPaddingDp(this@XimeInputMethodService)
-                                    uiState.value = uiState.value.copy(
-                                        showKeyboardResize = false,
-                                        keyboardHeightDp = restoreHeight,
-                                        keyboardBottomPaddingDp = restorePadding,
-                                    )
-                                },
-                                modifier = Modifier
-                                   .align(androidx.compose.ui.Alignment.BottomCenter)
-                                   .fillMaxWidth()
-                          )
-                      }
-                    }
+                           }
+                           if (navBarDp > 0.dp) {
+                               Spacer(modifier = Modifier.fillMaxWidth().height(navBarDp))
+                           }
+                       }
+                       }
+                     }
                 }
             }
         }

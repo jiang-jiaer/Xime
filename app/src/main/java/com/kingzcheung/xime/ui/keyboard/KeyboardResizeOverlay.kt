@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -61,8 +62,8 @@ fun KeyboardResizeOverlay(
         maxKeyboardHeightDp = (screenHeightDp * 7) / 10
         maxBottomPaddingDp = 80
     } else {
-        minKeyboardHeightDp = (screenHeightDp * 20) / 100
-        maxKeyboardHeightDp = (screenHeightDp * 50) / 100
+        minKeyboardHeightDp = (screenHeightDp * 28) / 100
+        maxKeyboardHeightDp = (screenHeightDp * 45) / 100
         maxBottomPaddingDp = 80
     }
 
@@ -75,6 +76,10 @@ fun KeyboardResizeOverlay(
     val currentOnHeightChange by rememberUpdatedState(onHeightChange)
     val currentOnBottomPaddingChange by rememberUpdatedState(onBottomPaddingChange)
     val currentOnReset by rememberUpdatedState(onReset)
+
+    val dragThrottleMs = 50L
+    var lastHeightCallbackMs by remember { mutableLongStateOf(0L) }
+    var lastPaddingCallbackMs by remember { mutableLongStateOf(0L) }
 
     Box(
         modifier = modifier
@@ -89,7 +94,7 @@ fun KeyboardResizeOverlay(
     ) {
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
+                .align(Alignment.TopCenter)
                 .height((currentHeightDp + currentBottomPaddingDpState).roundToInt().dp)
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.5f))
@@ -100,9 +105,15 @@ fun KeyboardResizeOverlay(
                             val paddingChangeDp = with(density) { -dragAmount.y.toDp().value }
                             currentBottomPaddingDpState = (currentBottomPaddingDpState + paddingChangeDp)
                                 .coerceIn(0f, maxBottomPaddingDp.toFloat())
-                            currentOnBottomPaddingChange(currentBottomPaddingDpState.roundToInt())
+                            val now = System.currentTimeMillis()
+                            if (now - lastPaddingCallbackMs >= dragThrottleMs) {
+                                currentOnBottomPaddingChange(currentBottomPaddingDpState.roundToInt())
+                                lastPaddingCallbackMs = now
+                            }
                         },
-                        onDragEnd = { }
+                        onDragEnd = {
+                            currentOnBottomPaddingChange(currentBottomPaddingDpState.roundToInt())
+                        }
                     )
                 }
         ) {
@@ -119,9 +130,15 @@ fun KeyboardResizeOverlay(
                                 val heightChangeDp = with(density) { -dragAmount.y.toDp().value }
                                 currentHeightDp = (currentHeightDp + heightChangeDp)
                                     .coerceIn(minKeyboardHeightDp.toFloat(), maxKeyboardHeightDp.toFloat())
-                                currentOnHeightChange(currentHeightDp.roundToInt())
+                                val now = System.currentTimeMillis()
+                                if (now - lastHeightCallbackMs >= dragThrottleMs) {
+                                    currentOnHeightChange(currentHeightDp.roundToInt())
+                                    lastHeightCallbackMs = now
+                                }
                             },
-                            onDragEnd = { }
+                            onDragEnd = {
+                                currentOnHeightChange(currentHeightDp.roundToInt())
+                            }
                         )
                     },
                 contentAlignment = Alignment.Center
