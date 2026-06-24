@@ -94,8 +94,8 @@ fun KeyboardResizeOverlay(
     ) {
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .height(currentHeightDp.roundToInt().dp)
+                .align(Alignment.TopCenter)
+                .height((currentHeightDp + currentBottomPaddingDpState).roundToInt().dp)
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.5f))
                 .pointerInput(Unit) {
