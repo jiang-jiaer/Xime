@@ -91,8 +91,8 @@ fun KeyButton(
     var hasTriggeredSwipeDown by remember { mutableStateOf(false) }
     var isSwiping by remember { mutableStateOf(false) }
     var isSwipeDown by remember { mutableStateOf(false) }
-    /** 防止拖动手势和长按手势双重点击 */
     var longPressActivated by remember { mutableStateOf(false) }
+    var dragActivated by remember { mutableStateOf(false) }
     
     val density = LocalDensity.current
     val view = LocalView.current
@@ -100,8 +100,8 @@ fun KeyButton(
     val currentOnLongClick by rememberUpdatedState(onLongClick)
     val swipeUpThreshold = with(density) { (-50).dp.toPx() }
     val swipeDownThreshold = with(density) { 50.dp.toPx() }
-    val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
-    val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
+    val bubbleShowThresholdUp = swipeUpThreshold
+    val bubbleShowThresholdDown = swipeDownThreshold
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
@@ -125,6 +125,7 @@ fun KeyButton(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
+                        dragActivated = true
                         isPressed = true
                         dragOffsetX = 0f
                         dragOffsetY = 0f
@@ -134,6 +135,9 @@ fun KeyButton(
                         isSwipeDown = false
                     },
                     onDragEnd = {
+                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) {
+                            currentOnClick()
+                        }
                         isPressed = false
                         dragOffsetX = 0f
                         dragOffsetY = 0f
@@ -142,9 +146,13 @@ fun KeyButton(
                         isSwiping = false
                         isSwipeDown = false
                         longPressActivated = false
+                        dragActivated = false
                         onSwipeStateChange?.invoke(SwipeState(false, null, false))
                     },
                     onDragCancel = {
+                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) {
+                            currentOnClick()
+                        }
                         isPressed = false
                         dragOffsetX = 0f
                         dragOffsetY = 0f
@@ -152,6 +160,7 @@ fun KeyButton(
                         hasTriggeredSwipeDown = false
                         isSwiping = false
                         isSwipeDown = false
+                        dragActivated = false
                         onSwipeStateChange?.invoke(SwipeState(false, null, false))
                     },
                     onDrag = { change, dragAmount ->
@@ -200,7 +209,7 @@ fun KeyButton(
                             isPressed = false
                         },
                         onTap = {
-                            if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) onClick()
+                            if (!dragActivated && !hasTriggeredSwipeUp && !hasTriggeredSwipeDown) onClick()
                         }
                     )
                 } else {
@@ -213,7 +222,7 @@ fun KeyButton(
                             isPressed = false
                         },
                         onTap = {
-                            if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown && !longPressActivated) {
+                            if (!dragActivated && !hasTriggeredSwipeUp && !hasTriggeredSwipeDown && !longPressActivated) {
                                 currentOnClick()
                             }
                             longPressActivated = false
@@ -294,6 +303,7 @@ fun SwipeableKeyButton(
     var isSwiping by remember { mutableStateOf(false) }
     var isSwipeDown by remember { mutableStateOf(false) }
     var buttonBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
+    var dragActivated by remember { mutableStateOf(false) }
     
     val currentText by rememberUpdatedState(text)
     val currentSwipeText by rememberUpdatedState(swipeText)
@@ -311,8 +321,8 @@ fun SwipeableKeyButton(
     val density = LocalDensity.current
     val swipeUpThreshold = with(density) { (-50).dp.toPx() }
     val swipeDownThreshold = with(density) { 50.dp.toPx() }
-    val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
-    val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
+    val bubbleShowThresholdUp = swipeUpThreshold
+    val bubbleShowThresholdDown = swipeDownThreshold
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
@@ -326,6 +336,7 @@ fun SwipeableKeyButton(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
+                        dragActivated = true
                         isPressed = true
                         dragOffsetX = 0f
                         dragOffsetY = 0f
@@ -335,6 +346,9 @@ fun SwipeableKeyButton(
                         isSwipeDown = false
                     },
                     onDragEnd = {
+                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) {
+                            currentOnClick()
+                        }
                         isPressed = false
                         dragOffsetX = 0f
                         dragOffsetY = 0f
@@ -342,9 +356,13 @@ fun SwipeableKeyButton(
                         hasTriggeredSwipeDown = false
                         isSwiping = false
                         isSwipeDown = false
+                        dragActivated = false
                         currentOnSwipeStateChange?.invoke(SwipeState(false, null, false, emptyList(), false, null), buttonBounds)
                     },
                     onDragCancel = {
+                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) {
+                            currentOnClick()
+                        }
                         isPressed = false
                         dragOffsetX = 0f
                         dragOffsetY = 0f
@@ -352,6 +370,7 @@ fun SwipeableKeyButton(
                         hasTriggeredSwipeDown = false
                         isSwiping = false
                         isSwipeDown = false
+                        dragActivated = false
                         currentOnSwipeStateChange?.invoke(SwipeState(false, null, false, emptyList(), false, null), buttonBounds)
                     },
                     onDrag = { change, dragAmount ->
@@ -406,7 +425,7 @@ fun SwipeableKeyButton(
                             currentOnSwipeStateChange?.invoke(SwipeState(false, null, false, emptyList(), false, null), buttonBounds)
                         },
                         onTap = {
-                            if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown) currentOnClick?.invoke()
+                            if (!dragActivated && !hasTriggeredSwipeUp && !hasTriggeredSwipeDown) currentOnClick()
                         }
                     )
                     return@pointerInput
@@ -490,8 +509,8 @@ fun SwipeableKeyButton(
                                     if (selected != null) {
                                         currentOnLongPressSelect?.invoke(selected)
                                     }
-                                } else if (!swipeDetected) {
-                                    currentOnClick?.invoke()
+                                } else if (!dragActivated && !swipeDetected) {
+                                    currentOnClick()
                                 }
                             }
                         }
@@ -711,13 +730,15 @@ fun SwipeableIconKeyButton(
     var isLongPress by remember { mutableStateOf(false) }
     var hasTriggeredLongPress by remember { mutableStateOf(false) }
     var buttonBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
+    var dragActivated by remember { mutableStateOf(false) }
+    val currentOnClick by rememberUpdatedState(onClick)
     
     val density = LocalDensity.current
     val swipeUpThreshold = with(density) { (-50).dp.toPx() }
     val swipeDownThreshold = with(density) { 50.dp.toPx() }
     val swipeLeftThreshold = with(density) { (-50).dp.toPx() }
-    val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
-    val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
+    val bubbleShowThresholdUp = swipeUpThreshold
+    val bubbleShowThresholdDown = swipeDownThreshold
     
     // 上滑清空/下滑撤回需要更大的滑动距离，防止误触
     val clearActionThreshold = with(density) { (-50).dp.toPx() }
@@ -761,7 +782,7 @@ fun SwipeableIconKeyButton(
                         isLongPress = false
                     },
                     onTap = {
-                        if (!isDragging && !hasTriggeredLongPress) {
+                        if (!dragActivated && !isDragging && !hasTriggeredLongPress) {
                             onClick()
                         }
                         hasTriggeredLongPress = false
@@ -774,6 +795,7 @@ fun SwipeableIconKeyButton(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
+                        dragActivated = true
                         isDragging = true
                         isPressed = true
                         isLongPress = false
@@ -801,7 +823,10 @@ fun SwipeableIconKeyButton(
                         } else if (dragOffsetY < swipeUpThreshold && !hasTriggeredSwipe && onSwipe != null) {
                             hasTriggeredSwipe = true
                             onSwipe()
+                        } else {
+                            currentOnClick()
                         }
+                        dragActivated = false
                         isPressed = false
                         dragOffsetY = 0f
                         dragOffsetX = 0f
@@ -818,6 +843,8 @@ fun SwipeableIconKeyButton(
                         onSwipeStateChange?.invoke(SwipeState(), buttonBounds)
                     },
                     onDragCancel = {
+                        currentOnClick()
+                        dragActivated = false
                         isPressed = false
                         dragOffsetY = 0f
                         dragOffsetX = 0f
