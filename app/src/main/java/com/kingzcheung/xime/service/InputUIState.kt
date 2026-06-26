@@ -43,6 +43,8 @@ data class InputUIState(
     val hasPrevPage: Boolean = false,
     val inputSessionId: Long = 0,
     val t9ResetSignal: Long = 0,
+    val t9RightCandidateSelectedCount: Long = 0,
+    val t9SelectedCandidatePinyin: String = "",
     val toolbarButtons: List<String> = ToolbarButton.DEFAULT_VISIBLE.map { it.id },
     val isCompact: Boolean = false
 ) {
@@ -89,6 +91,8 @@ data class InputUIState(
         if (hasPrevPage != other.hasPrevPage) return false
         if (inputSessionId != other.inputSessionId) return false
         if (t9ResetSignal != other.t9ResetSignal) return false
+        if (t9RightCandidateSelectedCount != other.t9RightCandidateSelectedCount) return false
+        if (t9SelectedCandidatePinyin != other.t9SelectedCandidatePinyin) return false
         if (toolbarButtons != other.toolbarButtons) return false
         if (isCompact != other.isCompact) return false
 
@@ -132,6 +136,8 @@ data class InputUIState(
         result = 31 * result + hasNextPage.hashCode()
         result = 31 * result + hasPrevPage.hashCode()
         result = 31 * result + t9ResetSignal.hashCode()
+        result = 31 * result + t9RightCandidateSelectedCount.hashCode()
+        result = 31 * result + t9SelectedCandidatePinyin.hashCode()
         result = 31 * result + toolbarButtons.hashCode()
         result = 31 * result + isCompact.hashCode()
         return result

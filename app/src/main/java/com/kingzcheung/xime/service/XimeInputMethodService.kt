@@ -66,15 +66,19 @@ import com.kingzcheung.xime.plugin.ExtensionManager
 import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
+import com.kingzcheung.xime.rime.RimeProcessResult
+import com.kingzcheung.xime.rime.T9InputController
 import com.kingzcheung.xime.settings.SchemaConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
+import com.kingzcheung.xime.ui.InputMode
 import com.kingzcheung.xime.ui.KeyboardView
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.XimeTheme
 import com.kingzcheung.xime.util.FileLogger
 import com.kingzcheung.xime.util.PermissionHelper
+import com.kingzcheung.xime.util.PreeditMergeHelper
 import com.kingzcheung.xime.keyboard.ActionExecutor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -142,6 +146,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private var isTrackingVoiceButtons = false
     private var voiceRecordingStarted = false
     private var lastClearedText: String = ""
+    /** 累积的 partial commit 文本列表（多段选词场景下逐段追加） */
+    private val t9PartialCommitTexts = mutableListOf<String>()
     private var t9UpdateJob: kotlinx.coroutines.Job? = null
     private var isChineseMode = true
     
@@ -763,15 +769,36 @@ onVoiceModeChange = { enabled ->
                                    uiState.value = uiState.value.copy(toolbarButtons = buttons)
                                },
                                 onT9ReplaceFullPinyin = { pinyin ->
-                                    if (pinyin.isEmpty()) {
-                                        rimeEngine.clearComposition()
-                                    } else {
-                                        rimeEngine.clearComposition()
-                                        for (char in pinyin) {
-                                            rimeEngine.processKey(char.code, 0)
+                                    when {
+                                        pinyin == T9InputController.CLEAR_COMPOSITION_ONLY -> {
+                                            // 仅清除 RIME composition，保留 partial commit 累积文本
+                                            // 场景：删除数字后 buffer 为空，但仍有 RightCommit 未撤销
+                                            rimeEngine.clearComposition()
+                                        }
+                                        pinyin == T9InputController.CLEAR_ALL -> {
+                                            // 彻底清除：清空 partial commit 累积文本并清除 RIME composition
+                                            t9PartialCommitTexts.clear()
+                                            rimeEngine.clearComposition()
+                                        }
+                                        pinyin.isEmpty() -> {
+                                            // 仅清除 RIME composition，保留 partial commit 累积文本
+                                            //（例如 UNDO_COMMIT 后重发剩余数字序列）
+                                            rimeEngine.clearComposition()
+                                        }
+                                        else -> {
+                                            rimeEngine.setInput(pinyin)
                                         }
                                     }
                                     updateUI()
+                                },
+                                /** 查询当前 RIME composition，供 T9 分词键通过候选 comment 反推最优音节切分 */
+                                onT9QueryRimeComposition = {
+                                    rimeEngine.getComposition()
+                                },
+                                /** 撤销一次右侧候选选词：同步删除已提交文本，并从 partial commit 列表中移除最近一次候选 */
+                                onT9RightCommitUndone = { count ->
+                                    currentInputConnection?.deleteSurroundingText(count, 0)
+                                    t9PartialCommitTexts.removeLastOrNull()
                                 },
                                 onKeyboardModeChange = { chineseMode ->
                                     if (isChineseMode != chineseMode) {
@@ -1140,6 +1167,7 @@ onVoiceModeChange = { enabled ->
     
     private fun clearInputState() {
         calculatorEngine.clear()
+        t9PartialCommitTexts.clear()
         rimeEngine.clearComposition()
         candidateState.value = candidateState.value.copy(
             candidates = emptyArray(),
@@ -1148,6 +1176,9 @@ onVoiceModeChange = { enabled ->
             isComposing = false,
             isShowingRecentClipboard = false
         )
+        // 同步重置 KeyboardView 中的 T9InputController，避免在 IME 隐藏/熄屏后
+        // 服务层候选栏已清空而左侧 T9 候选区仍保留旧状态。
+        uiState.value = uiState.value.copy(t9ResetSignal = uiState.value.t9ResetSignal + 1)
     }
 
     override fun onDestroy() {
@@ -1171,14 +1202,18 @@ onVoiceModeChange = { enabled ->
     }
     
     private fun updateUI() {
-        val inputText = rimeEngine.getInput()
-        val candidatesWithComments = rimeEngine.getCandidatesWithComments()
-        val isAsciiMode = rimeEngine.isAsciiMode()
-        val hasNextPage = rimeEngine.hasNextPage()
-        val hasPrevPage = rimeEngine.hasPrevPage()
-        
+        // 一次性查询 RIME composition 全部状态，替代 getInput + getPreedit +
+        // getCandidatesWithComments + isAsciiMode + hasNextPage + hasPrevPage 的多次 JNI 调用。
+        val composition = rimeEngine.getComposition()
+        val inputText = composition.input
+        val preeditText = composition.preedit
+        val candidatesWithComments = composition.candidates.toList()
+        val isAsciiMode = composition.isAsciiMode
+        val hasNextPage = composition.hasNextPage
+        val hasPrevPage = composition.hasPrevPage
+
         val pendingEnglish = candidateState.value.pendingEnglishText
-        
+
         val (filteredTexts, filteredComments) = if (isAsciiMode) {
             val filtered = candidatesWithComments.filterNot { candidate ->
                 candidate.text.any { it.code in 0x4E00..0x9FFF }
@@ -1187,12 +1222,27 @@ onVoiceModeChange = { enabled ->
         } else {
             candidatesWithComments.map { it.text }.toTypedArray() to candidatesWithComments.map { it.comment }.toTypedArray()
         }
-        
+
+        // 使用 preedit 文本（经过 preedit_format 和 lua_filter 处理）作为显示文本
+        // 对于 T9 九键方案，t9_preedit.lua 会将数字序列转为拼音
+        // 对于非 T9 方案，preedit 和 input 通常相同
+        val displayText = if (preeditText.isNotEmpty()) preeditText else inputText
+        // T9 模式：通过最长后缀重叠检测，将 partial commit 累积文本与 RIME pre-edit 智能拼接
+        val isT9Schema = InputMode.isT9Schema(uiState.value.currentSchemaId)
+        val t9DisplayText = if (isT9Schema) {
+            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, displayText)
+        } else {
+            displayText
+        }
+        // T9 模式下，只要还有 partial commit 未最终上屏，就应保持 composing 状态，
+        // 以便预编辑区域继续显示已提交的候选文本（如场景 6 BS5 的"策"）
+        val isComposing = inputText.isNotEmpty() || (isT9Schema && t9PartialCommitTexts.isNotEmpty())
+
         candidateState.value = candidateState.value.copy(
-            inputText = inputText,
+            inputText = t9DisplayText,
             candidates = filteredTexts,
             candidateComments = filteredComments,
-            isComposing = inputText.isNotEmpty(),
+            isComposing = isComposing,
             associationCandidates = if ((isAsciiMode || !isChineseMode) && pendingEnglish.isEmpty()) emptyArray() else candidateState.value.associationCandidates,
             isShowingRecentClipboard = false,
             hasNextPage = hasNextPage,
@@ -1201,7 +1251,7 @@ onVoiceModeChange = { enabled ->
         uiState.value = uiState.value.copy(isAsciiMode = isAsciiMode)
 
         // 悬浮候选栏通过 Compose 内联显示（见 onCreateInputView），拖拽由 pointerInput 处理
-        
+
         if (pendingEnglish.isNotEmpty()) {
             serviceScope.launch {
                 val candidates = predictionManager.getEnglishAssociations(pendingEnglish, PredictionManager.MAX_ASSOCIATION_COUNT)
@@ -1615,7 +1665,7 @@ onVoiceModeChange = { enabled ->
         val selectedCandidate = if (index < candidateState.value.candidates.size) {
             candidateState.value.candidates[index]
         } else null
-        
+
         if (rimeEngine.selectCandidate(index)) {
             val committedText = rimeEngine.commit()
             if (committedText.isNotEmpty()) {
@@ -1626,8 +1676,16 @@ onVoiceModeChange = { enabled ->
                         Log.d(TAG, "Learned: '$lastChar' + '$selectedCandidate'")
                     }
                 }
+                // T9 模式：将 partial commit 累积文本与 RIME committedText 合并后上屏，
+                // 避免之前 partial commit 的文本丢失
+                val fullCommitText = if (InputMode.isT9Schema(uiState.value.currentSchemaId)) {
+                    PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, committedText)
+                } else {
+                    committedText
+                }
                 withContext(Dispatchers.Main) {
-                    commitText(committedText)
+                    commitText(fullCommitText)
+                    t9PartialCommitTexts.clear()
                     candidateState.value = candidateState.value.copy(
                         inputText = "",
                         candidates = emptyArray(),
@@ -1637,10 +1695,28 @@ onVoiceModeChange = { enabled ->
                         hasPrevPage = false,
                         isShowingRecentClipboard = false
                     )
-                    uiState.value = uiState.value.copy(t9ResetSignal = uiState.value.t9ResetSignal + 1)
+                    uiState.value = uiState.value.copy(
+                        t9ResetSignal = uiState.value.t9ResetSignal + 1,
+                        t9RightCandidateSelectedCount = 0,
+                        t9SelectedCandidatePinyin = ""
+                    )
                 }
             } else {
                 withContext(Dispatchers.Main) {
+                    if (InputMode.isT9Schema(uiState.value.currentSchemaId)) {
+                        val candidatePinyin = if (index < candidateState.value.candidateComments.size) {
+                            candidateState.value.candidateComments[index]
+                        } else ""
+                        // partial commit：把本次选中的候选文本追加到累积列表，供后续合并显示
+                        if (selectedCandidate != null) {
+                            t9PartialCommitTexts.add(selectedCandidate)
+                        }
+                        // 原子性更新拼音和计数器，确保 Compose 侧 LaunchedEffect 在拼音就绪后触发
+                        uiState.value = uiState.value.copy(
+                            t9RightCandidateSelectedCount = uiState.value.t9RightCandidateSelectedCount + 1,
+                            t9SelectedCandidatePinyin = candidatePinyin
+                        )
+                    }
                     updateUI()
                 }
             }

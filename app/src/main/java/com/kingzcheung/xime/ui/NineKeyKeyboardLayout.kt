@@ -1,8 +1,11 @@
 package com.kingzcheung.xime.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,18 +14,21 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,16 +38,22 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kingzcheung.xime.rime.T9Decoder
+import com.kingzcheung.xime.rime.T9InputController
+import com.kingzcheung.xime.rime.T9PinyinMap
 import com.kingzcheung.xime.util.CharInfo
+import com.kingzcheung.xime.util.PermissionHelper
 import com.kingzcheung.xime.util.SubcharHelper
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun NineKeyKeyboardLayout(
@@ -54,10 +66,15 @@ fun NineKeyKeyboardLayout(
     isDarkTheme: Boolean = false,
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
-    resetSignal: Long = 0
+    schemaName: String = "",
+    enterKeyText: String = "发送",
+    isSttEnabled: Boolean = true,
+    onVoiceModeChange: ((Boolean) -> Unit)? = null,
+    onCursorMove: ((Int) -> Unit)? = null,
+    /** T9 输入控制器实例。由 KeyboardView 层级持有，确保路由切换时状态不丢失。
+     *  NineKeyKeyboardLayout 重建时复用同一实例，避免 LaunchedEffect 误触 reset()。 */
+    t9Controller: T9InputController
 ) {
-    val context = LocalContext.current
-    val decoder = remember { T9Decoder(context) }
     var swipeState by remember { mutableStateOf(SwipeState()) }
     var keyboardBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
     var lastKeyBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
@@ -76,66 +93,23 @@ fun NineKeyKeyboardLayout(
             bottom = bounds.bottom - keyboardBounds.top
         )
     }
-    var digits by remember { mutableStateOf("") }
-    var confirmedPinyins by remember { mutableStateOf(listOf<String>()) }
-    var firstOptions by remember { mutableStateOf<List<T9Decoder.SyllableOption>>(emptyList()) }
 
-    LaunchedEffect(resetSignal) {
-        digits = ""
-        confirmedPinyins = emptyList()
-        firstOptions = emptyList()
-    }
-
-    fun updateCandidates() {
-        firstOptions = decoder.firstSyllableOptions(digits, maxResults = 12)
-    }
-
-    fun sendToRime() {
-        val fullPinyin = confirmedPinyins.joinToString("") + decoder.bestPinyin(digits)
-        onReplaceFullPinyin(fullPinyin)
-    }
-
-    fun onDigitPressed(digit: String) {
-        if (digit == "1") {
-            val best = firstOptions.firstOrNull()
-            if (best != null) {
-                confirmedPinyins = confirmedPinyins + best.pinyin
-                digits = digits.drop(best.digitLength)
-                updateCandidates()
+    /** 退格键处理：T9 输入非空时由控制器处理，否则发送原生 delete 事件 */
+    fun handleDelete() {
+        when (val result = t9Controller.onDeleted()) {
+            T9InputController.DeleteResult.UNDO_COMMIT -> {
+                // 撤销右侧候选选词：清除 RIME composition 后重新发送完整数字序列。
+                // clearRimeAndResend 内部通过 onRightCommitUndone 同步删除已提交文本（如"策"）
+                // 并从 partial commit 列表中移除该候选，避免异步 KEYCODE_DEL 干扰新 composition。
+                t9Controller.clearRimeAndResend()
             }
-            sendToRime()
-            return
-        }
-        digits += digit
-        updateCandidates()
-        sendToRime()
-    }
-
-    fun onChoiceSelected(option: T9Decoder.SyllableOption) {
-        confirmedPinyins = confirmedPinyins + option.pinyin
-        digits = digits.drop(option.digitLength)
-        updateCandidates()
-        sendToRime()
-    }
-
-    fun onDeleted() {
-        if (digits.isNotEmpty()) {
-            digits = digits.dropLast(1)
-            updateCandidates()
-            if (digits.isEmpty() && confirmedPinyins.isEmpty()) {
-                onReplaceFullPinyin("")
-            } else {
-                sendToRime()
+            T9InputController.DeleteResult.NOT_CONSUMED -> {
+                // 无内容可删 → 发给软键盘框架处理
+                onKeyPress("delete")
             }
-        } else if (confirmedPinyins.isNotEmpty()) {
-            confirmedPinyins = confirmedPinyins.dropLast(1)
-            if (confirmedPinyins.isNotEmpty()) {
-                onReplaceFullPinyin(confirmedPinyins.joinToString(""))
-            } else {
-                onReplaceFullPinyin("")
+            else -> {
+                // UNDO_CHOICE 和 DELETED 已由控制器内部处理
             }
-        } else {
-            onKeyPress("delete")
         }
     }
 
@@ -167,9 +141,9 @@ fun NineKeyKeyboardLayout(
                         .weight(3f),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    val showCandidates = firstOptions.isNotEmpty()
+                    val showCandidates = t9Controller.firstOptions.isNotEmpty()
                     val displayItems: List<String> = if (showCandidates) {
-                        firstOptions.map { it.pinyin }
+                        t9Controller.firstOptions.map { it.pinyin }
                     } else {
                         listOf("，", "。", "？", "！")
                     }
@@ -183,10 +157,10 @@ fun NineKeyKeyboardLayout(
                             verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
                             itemsIndexed(displayItems) { index, item ->
-                                val option = firstOptions[index]
+                                val option = t9Controller.firstOptions[index]
                                 PinyinChoiceKey(
                                     text = option.pinyin,
-                                    onClick = { onChoiceSelected(option) },
+                                    onClick = { t9Controller.onChoiceSelected(option) },
                                     backgroundColor = keyBackgroundColor,
                                     textColor = keyTextColor,
                                     modifier = Modifier.fillMaxWidth().height(32.dp),
@@ -207,10 +181,10 @@ fun NineKeyKeyboardLayout(
                         ) {
                             displayItems.forEachIndexed { index, item ->
                                 if (showCandidates) {
-                                    val option = firstOptions[index]
+                                    val option = t9Controller.firstOptions[index]
                                     PinyinChoiceKey(
                                         text = option.pinyin,
-                                        onClick = { onChoiceSelected(option) },
+                                        onClick = { t9Controller.onChoiceSelected(option) },
                                         backgroundColor = keyBackgroundColor,
                                         textColor = keyTextColor,
                                         modifier = Modifier.weight(1f),
@@ -248,21 +222,21 @@ fun NineKeyKeyboardLayout(
                         ) {
                             NineKeyButton2(
                                 digit = "1", letters = "分词",
-                                onClick = { onDigitPressed("1") },
+                                onClick = { t9Controller.onDigitPressed("1") },
                                 backgroundColor = keyBackgroundColor, textColor = keyTextColor,
                                 modifier = Modifier.weight(1f),
                                 onPress = { onKeyPressDown?.invoke("1") }
                             )
-                            NineKeyButton2(digit = "2", letters = "ABC", onClick = { onDigitPressed("2") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("2") })
-                            NineKeyButton2(digit = "3", letters = "DEF", onClick = { onDigitPressed("3") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("3") })
+                            NineKeyButton2(digit = "2", letters = "ABC", onClick = { t9Controller.onDigitPressed("2") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("2") })
+                            NineKeyButton2(digit = "3", letters = "DEF", onClick = { t9Controller.onDigitPressed("3") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("3") })
                             SwipeableIconKeyButton(
                                 icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
-                                onClick = { onDeleted() },
-                                backgroundColor = keyBackgroundColor, iconColor = keyTextColor,
+                                onClick = { handleDelete() },
+                                backgroundColor = specialKeyBackgroundColor, iconColor = keyTextColor,
                                 modifier = Modifier.weight(1f),
                                 swipeText = "清空",
                                 onSwipe = { onKeyPress("clear_composition") },
-                                onLongClick = { onDeleted() },
+                                onLongClick = { handleDelete() },
                                 onPress = { onKeyPressDown?.invoke("delete") },
                                 swipeUpLabel = "上滑清空",
                                 swipeDownLabel = "下滑撤回",
@@ -278,30 +252,48 @@ fun NineKeyKeyboardLayout(
                                 .weight(1f),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            NineKeyButton2(digit = "4", letters = "GHI", onClick = { onDigitPressed("4") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("4") })
-                            NineKeyButton2(digit = "5", letters = "JKL", onClick = { onDigitPressed("5") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("5") })
-                            NineKeyButton2(digit = "6", letters = "MNO", onClick = { onDigitPressed("6") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("6") })
-                            val hasInput = digits.isNotEmpty() || firstOptions.isNotEmpty() || confirmedPinyins.isNotEmpty()
-                            val resetKeyText = if (hasInput) "重输" else "换行"
-                            KeyButton(
-                                text = resetKeyText,
-                                onClick = {
-                                    if (hasInput) {
-                                        digits = ""
-                                        confirmedPinyins = emptyList()
-                                        firstOptions = emptyList()
-                                        onReplaceFullPinyin("")
-                                    } else {
-                                        onKeyPress("enter")
-                                    }
-                                },
-                                backgroundColor = keyBackgroundColor,
-                                textColor = keyTextColor,
-                                modifier = Modifier.weight(1f),
-                                onPress = {
-                                    onKeyPressDown?.invoke(if (hasInput) "clear" else "enter")
+                            NineKeyButton2(digit = "4", letters = "GHI", onClick = { t9Controller.onDigitPressed("4") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("4") })
+                            NineKeyButton2(digit = "5", letters = "JKL", onClick = { t9Controller.onDigitPressed("5") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("5") })
+                            NineKeyButton2(digit = "6", letters = "MNO", onClick = { t9Controller.onDigitPressed("6") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("6") })
+                            // 重输键：主题色背景，Refresh图标居中，"重输"文本在图标之上
+                            val resetModifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .shadow(1.dp, RoundedCornerShape(8.dp), ambientColor = Color(0x80000000), spotColor = Color(0x80000000))
+                                .clip(RoundedCornerShape(8.dp))
+                            Box(
+                                modifier = resetModifier
+                                    .background(specialKeyBackgroundColor)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                onKeyPressDown?.invoke("clear")
+                                            },
+                                            onTap = { t9Controller.clearAll() }
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = "重输",
+                                        color = keyTextColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "重输",
+                                        tint = keyTextColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
-                            )
+                            }
                         }
                         Row(
                             modifier = Modifier
@@ -309,10 +301,10 @@ fun NineKeyKeyboardLayout(
                                 .weight(1f),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            NineKeyButton2(digit = "7", letters = "PQRS", onClick = { onDigitPressed("7") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("7") })
-                            NineKeyButton2(digit = "8", letters = "TUV", onClick = { onDigitPressed("8") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("8") })
-                            NineKeyButton2(digit = "9", letters = "WXYZ", onClick = { onDigitPressed("9") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("9") })
-                            IconKeyButton(icon = rememberVectorPainter(Icons.Default.EmojiEmotions), onClick = { onKeyPress("emoji") }, backgroundColor = keyBackgroundColor, iconColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("emoji") })
+                            NineKeyButton2(digit = "7", letters = "PQRS", onClick = { t9Controller.onDigitPressed("7") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("7") })
+                            NineKeyButton2(digit = "8", letters = "TUV", onClick = { t9Controller.onDigitPressed("8") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("8") })
+                            NineKeyButton2(digit = "9", letters = "WXYZ", onClick = { t9Controller.onDigitPressed("9") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("9") })
+                            NineKeyButton2(digit = "", letters = "0", onClick = { onKeyPress("0") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1f), onPress = { onKeyPressDown?.invoke("0") })
                         }
                     }
                 }
@@ -323,11 +315,113 @@ fun NineKeyKeyboardLayout(
                         .weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    KeyButton(text = "符号", onClick = { onKeyPress("symbol") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1.2f), onPress = { onKeyPressDown?.invoke("symbol") })
+                    KeyButton(text = "符", onClick = { onKeyPress("symbol") }, backgroundColor = specialKeyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1.2f), onPress = { onKeyPressDown?.invoke("symbol") })
                     KeyButton(text = "123", onClick = { onKeyPress("mode_change") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(0.8f), onPress = { onKeyPressDown?.invoke("mode_change") })
-                    KeyButton(text = "空格", onClick = { onKeyPress("space") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(2f), onPress = { onKeyPressDown?.invoke("space") })
-                    KeyButton(text = "abc", onClick = { onKeyPress("abc") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(0.8f), onPress = { onKeyPressDown?.invoke("abc") })
-                    KeyButton(text = "确定", onClick = { onKeyPress("enter") }, backgroundColor = specialKeyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1.2f), onPress = { onKeyPressDown?.invoke("enter") })
+
+                    // 空格键 - 支持左右滑动控制光标、长按语音
+                    val currentOnKeyPress by rememberUpdatedState(onKeyPress)
+                    val currentOnKeyPressDown by rememberUpdatedState(onKeyPressDown)
+                    val currentOnVoiceModeChange by rememberUpdatedState(onVoiceModeChange)
+                    val currentOnCursorMove by rememberUpdatedState(onCursorMove)
+                    val scope = rememberCoroutineScope()
+                    val context = LocalContext.current
+                    Box(
+                        modifier = Modifier
+                            .weight(2f)
+                            .fillMaxHeight()
+                            .pointerInput(isSttEnabled) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    currentOnKeyPressDown?.invoke("space")
+
+                                    var longPressTriggered = false
+                                    val longPressJob = scope.launch {
+                                        delay(400)
+                                        longPressTriggered = true
+                                        if (isSttEnabled) {
+                                            if (!PermissionHelper.hasRecordAudioPermission(context)) {
+                                                Toast.makeText(context, "需要麦克风权限才能使用语音输入", Toast.LENGTH_SHORT).show()
+                                                PermissionHelper.requestRecordAudioPermission(context)
+                                            } else {
+                                                currentOnVoiceModeChange?.invoke(true)
+                                            }
+                                        } else {
+                                            while (true) {
+                                                currentOnKeyPress("space")
+                                                delay(80)
+                                            }
+                                        }
+                                    }
+
+                                    var isHorizontalSwipe = false
+                                    val cursorThreshold = 60f
+
+                                    drag(down.id) { change ->
+                                        val dx = change.position.x - down.position.x
+                                        val dy = change.position.y - down.position.y
+                                        if (kotlin.math.abs(dx) > cursorThreshold) {
+                                            if (!isHorizontalSwipe) {
+                                                isHorizontalSwipe = true
+                                                longPressJob.cancel()
+                                            }
+                                            if (kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2f) {
+                                                val steps = (dx / cursorThreshold).toInt()
+                                                if (steps != 0) {
+                                                    currentOnCursorMove?.invoke(if (steps > 0) 1 else -1)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    longPressJob.cancel()
+                                    if (!longPressTriggered && !isHorizontalSwipe) {
+                                        currentOnKeyPress("space")
+                                    }
+                                }
+                            }
+                            .padding(horizontal = 2.dp, vertical = 3.dp)
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .shadow(1.dp, RoundedCornerShape(8.dp), ambientColor = Color(0x80000000), spotColor = Color(0x80000000))
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(keyBackgroundColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = schemaName,
+                            color = keyTextColor,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
+                        if (isSttEnabled) {
+                            Icon(
+                                painter = painterResource(com.kingzcheung.xime.R.drawable.voice),
+                                contentDescription = "语音输入",
+                                tint = keyTextColor.copy(alpha = 0.3f),
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .align(Alignment.BottomStart)
+                                    .padding(start = 6.dp, bottom = 2.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "空格",
+                                color = keyTextColor.copy(alpha = 0.3f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Normal,
+                                textAlign = TextAlign.Start,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(start = 6.dp, bottom = 2.dp)
+                            )
+                        }
+                    }
+
+                    KeyButton(text = "中", onClick = { onKeyPress("abc") }, backgroundColor = specialKeyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(0.8f), onPress = { onKeyPressDown?.invoke("ime_switch") })
+                    KeyButton(text = enterKeyText, onClick = { onKeyPress("enter") }, backgroundColor = specialKeyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1.2f), onPress = { onKeyPressDown?.invoke("enter") })
                 }
             }
         }

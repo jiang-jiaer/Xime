@@ -7,6 +7,45 @@ data class RimeCandidate(
     val comment: String
 )
 
+/**
+ * 批量查询当前 composition 状态。
+ *
+ * 通过 JNI 一次性返回 input/preedit/commit/candidates/paging/ascii_mode，
+ * 避免 updateUI 中多次独立 JNI 调用带来的固定开销。
+ */
+data class RimeComposition(
+    val input: String,
+    val preedit: String,
+    val committedText: String,
+    val candidates: Array<RimeCandidate>,
+    val hasNextPage: Boolean,
+    val hasPrevPage: Boolean,
+    val isAsciiMode: Boolean
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RimeComposition) return false
+        return input == other.input &&
+                preedit == other.preedit &&
+                committedText == other.committedText &&
+                candidates.contentEquals(other.candidates) &&
+                hasNextPage == other.hasNextPage &&
+                hasPrevPage == other.hasPrevPage &&
+                isAsciiMode == other.isAsciiMode
+    }
+
+    override fun hashCode(): Int {
+        var result = input.hashCode()
+        result = 31 * result + preedit.hashCode()
+        result = 31 * result + committedText.hashCode()
+        result = 31 * result + candidates.contentHashCode()
+        result = 31 * result + hasNextPage.hashCode()
+        result = 31 * result + hasPrevPage.hashCode()
+        result = 31 * result + isAsciiMode.hashCode()
+        return result
+    }
+}
+
 data class RimeProcessResult(
     val processed: Boolean,
     val committedText: String,
@@ -208,6 +247,21 @@ class RimeEngine {
         }
     }
 
+    /**
+     * 批量查询当前 composition 全部信息。
+     *
+     * 一次 JNI 调用返回 input、preedit、committedText、candidates、分页和 ascii_mode，
+     * 是 T9 路径 updateUI 的首选查询接口，可替代多次独立 JNI 调用。
+     */
+    fun getComposition(): RimeComposition {
+        if (!isInitialized) return RimeComposition("", "", "", emptyArray(), false, false, false)
+        synchronized(rimeLock) {
+            if (!nativeHasSession() && !nativeCreateSession())
+                return RimeComposition("", "", "", emptyArray(), false, false, false)
+            return nativeGetComposition()
+        }
+    }
+
     fun selectCandidate(index: Int): Boolean {
         synchronized(rimeLock) {
             if (!nativeHasSession()) return false
@@ -252,6 +306,24 @@ class RimeEngine {
     fun clearComposition() {
         synchronized(rimeLock) {
             nativeClearComposition()
+        }
+    }
+
+    /**
+     * 设置 RIME 引擎的输入字符串。
+     *
+     * 一次 JNI 调用完成整个输入设置，替代逐字符 processKey。
+     * 调用后引擎会重新执行完整的处理管线（Speller → Segmentor → Translator）。
+     * 支持分隔符 '，如 setInput("ji'he") 会告知 RIME 音节边界。
+     *
+     * @param input 拼音或数字字符串，如 "zhongguo" 或 "54482"
+     * @return 是否设置成功
+     */
+    fun setInput(input: String): Boolean {
+        if (!isInitialized) return false
+        synchronized(rimeLock) {
+            if (!nativeHasSession() && !nativeCreateSession()) return false
+            return nativeSetInput(input)
         }
     }
 
@@ -328,6 +400,7 @@ class RimeEngine {
     private external fun nativeGetCandidates(): Array<String>?
     private external fun nativeGetCandidatesWithComments(): Array<Array<String>>?
     private external fun nativeGetInput(): String?
+    private external fun nativeGetComposition(): RimeComposition
     private external fun nativeSelectCandidate(index: Int): Boolean
     private external fun nativePageDown(): Boolean
     private external fun nativePageUp(): Boolean
@@ -335,6 +408,7 @@ class RimeEngine {
     private external fun nativeHasPrevPage(): Boolean
     private external fun nativeCommit(): String?
     private external fun nativeClearComposition()
+    private external fun nativeSetInput(input: String): Boolean
     private external fun nativeToggleAsciiMode(): Boolean
     private external fun nativeIsAsciiMode(): Boolean
     private external fun nativeSwitchSchema(schemaId: String): Boolean

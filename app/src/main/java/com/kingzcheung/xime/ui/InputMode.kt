@@ -27,6 +27,28 @@ enum class InputMode(
     ;
 
     companion object {
+        /** 已知的九键方案精确匹配列表 */
+        private val KNOWN_T9_SCHEMA_IDS = setOf(
+            "t9_pinyin",  // 内置方案
+            "t9",         // 第三方方案
+            "wanxiang_t9" // 第三方方案
+        )
+
+        /** 判断是否为九键（T9）方案
+         * @param schemaId Rime 方案 ID
+         * @param name 方案名称（可选，用于关键词匹配）
+         * @return true 表示九键布局
+         */
+        fun isT9Schema(schemaId: String, name: String = ""): Boolean {
+            // 1. 精确匹配已知方案
+            if (schemaId in KNOWN_T9_SCHEMA_IDS) return true
+
+            // 2. 关键词匹配：schemaId 或 name 包含 "t9"
+            val lowerSchemaId = schemaId.lowercase()
+            val lowerName = name.lowercase()
+            return lowerSchemaId.contains("t9") || lowerName.contains("t9")
+        }
+
         /** 根据 schemaId 查找对应的输入模式，未知 schema 默认返回全键盘 */
         fun fromSchemaId(schemaId: String): InputMode {
             return entries.find { it.schemaId == schemaId } ?: WUBI86

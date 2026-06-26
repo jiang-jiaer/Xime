@@ -59,6 +59,9 @@ import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.ui.SplitWordsView
 import com.kingzcheung.xime.keyboard.GestureAction
+import com.kingzcheung.xime.rime.RimeComposition
+import com.kingzcheung.xime.rime.T9InputController
+import kotlinx.coroutines.delay
 
 val LocalStretchFactor = compositionLocalOf { 1f }
 
@@ -90,6 +93,10 @@ fun KeyboardView(
     onKeyPressDown: ((String) -> Unit)? = null,
     onSchemaSwitch: ((String) -> Unit)? = null,
     onT9ReplaceFullPinyin: ((String) -> Unit)? = null,
+    /** 撤销一次 T9 右侧候选选词的回调。同步删除已提交文本并从 partial commit 列表中移除最近一次候选 */
+    onT9RightCommitUndone: ((Int) -> Unit)? = null,
+    /** 查询当前 RIME composition 的回调。用于分词键时通过候选 comment 反推最优音节切分。 */
+    onT9QueryRimeComposition: (() -> RimeComposition)? = null,
     onCandidateSelect: (Int) -> Unit,
     onAssociationSelect: ((Int) -> Unit)? = null,
     onToggleDarkMode: (() -> Unit)? = null,
@@ -164,6 +171,27 @@ fun KeyboardView(
     val state = uiStateProvider()
     val candState = candidateStateProvider()
     val clipboardTab = (currentRoute as? KeyboardRoute.Clipboard)?.tab ?: 0
+    // T9 输入控制器：在 KeyboardView 层级持有，确保路由切换（如展开候选词页面）时
+    // NineKeyKeyboardLayout 被移除重建后控制器状态不丢失。
+    // 相关 LaunchedEffect 也在此层级管理，避免 NineKeyKeyboardLayout 重建时误触 reset()。
+    val t9Controller = remember { T9InputController(
+        onReplaceFullPinyin = onT9ReplaceFullPinyin ?: {},
+        onQueryRimeComposition = onT9QueryRimeComposition,
+        onRightCommitUndone = onT9RightCommitUndone
+    ) }
+
+    // T9 重置信号：仅在信号值变化时重置控制器
+    LaunchedEffect(state.t9ResetSignal) {
+        t9Controller.reset()
+    }
+
+    // T9 右侧候选选词：由服务在 RIME partial commit 完成后原子性更新计数和拼音，
+    // 计数变化触发 LaunchedEffect，此时拼音已就绪，无竞态。
+    LaunchedEffect(state.t9RightCandidateSelectedCount) {
+        if (state.t9RightCandidateSelectedCount != 0L) {
+            t9Controller.onRightCandidateSelected(state.t9SelectedCandidatePinyin.ifEmpty { null })
+        }
+    }
     // 每次重新开始输入时（inputSessionId 变化），重置导航状态到全键盘
     LaunchedEffect(state.inputSessionId) {
         currentRoute = KeyboardRoute.Keyboard
@@ -243,8 +271,10 @@ fun KeyboardView(
             )
 
             // 显示菜单、剪切板、候选词页面或键盘
+            // 当显示覆盖层时，不渲染键盘布局以避免 Android 10 上的渲染穿透问题
+            val showKeyboardLayout = currentRoute == KeyboardRoute.Keyboard && !isVoiceMode
             when {
-                isVoiceMode -> {
+                isVoiceMode && showKeyboardLayout -> {
                     VoiceKeyboardLayout(
                         keyBackgroundColor = keyBgColor,
                         keyTextColor = keyTextColor,
@@ -262,7 +292,7 @@ fun KeyboardView(
                         amplitude = voiceAmplitude
                     )
                 }
-                !isAsciiMode && currentSchemaId == "t9_pinyin" && keyboardState is KeyboardLayoutState.Chinese -> {
+                !isAsciiMode && InputMode.isT9Schema(currentSchemaId, schemaName) && keyboardState is KeyboardLayoutState.Chinese && showKeyboardLayout -> {
                     NineKeyKeyboardLayout(
                         onReplaceFullPinyin = onT9ReplaceFullPinyin ?: {},
                         onKeyPress = { key ->
@@ -283,10 +313,15 @@ fun KeyboardView(
                         isDarkTheme = isDarkTheme,
                         modifier = Modifier.weight(1f),
                         onKeyPressDown = onKeyPressDown,
-                        resetSignal = state.t9ResetSignal
+                        schemaName = schemaName,
+                        enterKeyText = enterKeyText,
+                        isSttEnabled = isSttEnabled,
+                        onVoiceModeChange = onVoiceModeChange,
+                        onCursorMove = onCursorMove,
+                        t9Controller = t9Controller
                     )
                 }
-                else -> {
+                showKeyboardLayout -> {
                     // 全局左右滑动控制光标
                     // 按键手势只使用垂直（上滑/下滑）和静止（长按），左右滑动没有用到
                     // 所以根据方向判定：水平 > 垂直就消费事件（按键收不到），垂直 > 水平则让按键处理
@@ -401,6 +436,7 @@ fun KeyboardView(
                         currentSchemaId = currentSchemaId,
                     )
                 }
+                else -> {}
             }
             // 间距：正值=键盘与底部的间隙，负值=缩减底部固定空白区
             val gapAbove = maxOf(0, keyboardBottomPaddingDp)
