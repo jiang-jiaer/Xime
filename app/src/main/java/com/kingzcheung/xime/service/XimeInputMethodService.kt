@@ -762,6 +762,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                         selectCandidate(index)
                                     },
                                     onAssociationSelect = { index ->
+                                        feedbackManager.performKeyPressEffect()
                                         val cs = candidateState.value
                                         val adjustedCandidates = if (cs.pendingEnglishText.isNotEmpty()) {
                                             listOf(cs.pendingEnglishText) + cs.associationCandidates
@@ -1968,6 +1969,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
 
     private fun selectCandidate(index: Int) {
+        feedbackManager.performKeyPressEffect()
+
         // 计算器模式
         if (calculatorEngine.isActive()) {
             val result = calculatorEngine.getResult()
