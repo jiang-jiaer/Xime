@@ -37,6 +37,16 @@ object SettingsPreferences {
     const val KEY_SWIPE_UP_HINTS_ENABLED = "swipe_up_hints_enabled"
     const val KEY_SWIPE_DOWN_HINTS_ENABLED = "swipe_down_hints_enabled"
     const val KEY_SHOW_PRESS_BUBBLE = "show_press_bubble"
+
+    private const val KEY_MODE_CHANGE_TARGET = "mode_change_target"
+
+    fun getModeChangeTargetIsNumber(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_MODE_CHANGE_TARGET, false)
+    }
+
+    fun setModeChangeTargetIsNumber(context: Context, isNumber: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_MODE_CHANGE_TARGET, isNumber).apply()
+    }
     
     private const val KEY_KEYBOARD_HEIGHT_DP = "keyboard_height_dp"
     private const val KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE = "keyboard_height_dp_landscape"

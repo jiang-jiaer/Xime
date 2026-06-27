@@ -60,7 +60,8 @@ data class SwipeState(
     // 长按弹出选择
     val isLongPress: Boolean = false,
     val longPressItems: List<String> = emptyList(),
-    val selectedLongPressIndex: Int = 0
+    val selectedLongPressIndex: Int = 0,
+    val longPressDrawableIds: List<Int> = emptyList(),
 )
 
 @Composable
@@ -289,6 +290,7 @@ fun SwipeableKeyButton(
     onPress: (() -> Unit)? = null,
     onLongPressSelect: ((String) -> Unit)? = null,
     longPressItems: List<String>? = null,
+    longPressDrawableIds: List<Int>? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
     swipeFontSize: androidx.compose.ui.unit.TextUnit = 9.sp,
     shadowEnabled: Boolean = true,
@@ -315,6 +317,7 @@ fun SwipeableKeyButton(
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnLongPressSelect by rememberUpdatedState(onLongPressSelect)
     val currentLongPressItems by rememberUpdatedState(longPressItems)
+    val currentLongPressDrawableIds by rememberUpdatedState(longPressDrawableIds)
     val scope = rememberCoroutineScope()
     val view = LocalView.current
     
@@ -453,7 +456,8 @@ fun SwipeableKeyButton(
                                 isPressed = true,
                                 isLongPress = true,
                                 longPressItems = items,
-                                selectedLongPressIndex = 0
+                                selectedLongPressIndex = 0,
+                                longPressDrawableIds = currentLongPressDrawableIds ?: emptyList()
                             ),
                             buttonBounds
                         )
@@ -494,7 +498,8 @@ fun SwipeableKeyButton(
                                             isPressed = true,
                                             isLongPress = true,
                                             longPressItems = items,
-                                            selectedLongPressIndex = selectedIdx
+                                            selectedLongPressIndex = selectedIdx,
+                                            longPressDrawableIds = currentLongPressDrawableIds ?: emptyList()
                                         ),
                                         buttonBounds
                                     )

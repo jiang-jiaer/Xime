@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +35,7 @@ import com.kingzcheung.xime.keyboard.KeyboardRoute
 import com.kingzcheung.xime.keyboard.ToolbarAction
 import com.kingzcheung.xime.keyboard.ToolbarButton
 import com.kingzcheung.xime.settings.KeysConfigHelper
+import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.ui.settings.SchemaListView
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
@@ -277,6 +279,17 @@ fun KeyboardView(
                         Modifier
                     }
 
+                    val context = LocalContext.current
+
+                    var modeChangeTarget: KeyboardLayoutAction by remember {
+                        mutableStateOf(
+                            if (SettingsPreferences.getModeChangeTargetIsNumber(context))
+                                KeyboardLayoutAction.SwitchToNumber
+                            else
+                                KeyboardLayoutAction.SwitchToCommonSymbol
+                        )
+                    }
+
                     val fullScreenOnKeyPress: (String) -> Unit = { key ->
                         when (key) {
                             "shift" -> viewModel.toggleShift()
@@ -284,11 +297,25 @@ fun KeyboardView(
                             "shift_caps" -> viewModel.doubleTapShift()
                             "mode_change" -> {
                                 viewModel.setKeyboardState(keyboardState.transition(
-                                    KeyboardLayoutAction.SwitchToCommonSymbol, state.isAsciiMode
+                                    modeChangeTarget, state.isAsciiMode
                                 ))
                                 callbacks.onKeyPress("clear_composition", false)
                             }
                             "mode_change_symbol" -> viewModel.setRoute(KeyboardRoute.Symbol)
+                            "mode_change_t9" -> {
+                                modeChangeTarget = KeyboardLayoutAction.SwitchToNumber
+                                SettingsPreferences.setModeChangeTargetIsNumber(context, true)
+                                viewModel.setKeyboardState(keyboardState.transition(
+                                    KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
+                                ))
+                            }
+                            "mode_change_t26" -> {
+                                modeChangeTarget = KeyboardLayoutAction.SwitchToCommonSymbol
+                                SettingsPreferences.setModeChangeTargetIsNumber(context, false)
+                                viewModel.setKeyboardState(keyboardState.transition(
+                                    KeyboardLayoutAction.SwitchToCommonSymbol, state.isAsciiMode
+                                ))
+                            }
                             "emoji" -> viewModel.setRoute(KeyboardRoute.Emoji)
                             else -> {
                                 callbacks.onKeyPress(key, isShifted)

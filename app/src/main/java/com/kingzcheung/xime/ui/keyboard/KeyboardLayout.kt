@@ -519,15 +519,21 @@ fun KeyboardLayout(
                                 modifier = Modifier.weight(0.8f)
                             )
                         } else {
-                            // ?123 — 硬编码
-                            KeyButton(
+                            // ?123 — 硬编码（长按弹出 t9/t26 图标）
+                            SwipeableKeyButton(
                                 text = "?123",
                                 onClick = { onKeyPress("mode_change") },
-                                onLongClick = { onKeyPress("mode_change_symbol") },
                                 backgroundColor = specialKeyBackgroundColor,
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(1.2f),
                                 onPress = { onKeyPressDown?.invoke("mode_change") },
+                                onLongPressSelect = { label -> onKeyPress("mode_change_$label") },
+                                longPressItems = listOf("t9", "t26"),
+                                longPressDrawableIds = listOf(
+                                    com.kingzcheung.xime.R.drawable.t9,
+                                    com.kingzcheung.xime.R.drawable.t26
+                                ),
+                                onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
                                 shadowEnabled = shadowEnabled,
                                 shadowElevation = shadowElevation,
                                 shadowShapeRadius = shadowShapeRadius,
@@ -1503,14 +1509,20 @@ private fun LandscapeKeyboardContent(
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
                 )
-                KeyButton(
+                SwipeableKeyButton(
                     text = "?123",
                     onClick = { onKeyPress("mode_change") },
-                    onLongClick = { onKeyPress("mode_change_symbol") },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("mode_change") },
+                    onLongPressSelect = { label -> onKeyPress("mode_change_$label") },
+                    longPressItems = listOf("t9", "t26"),
+                    longPressDrawableIds = listOf(
+                        com.kingzcheung.xime.R.drawable.t9,
+                        com.kingzcheung.xime.R.drawable.t26
+                    ),
+                    onSwipeStateChange = onSwipeStateChange,
                     shadowEnabled = shadowEnabled,
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
