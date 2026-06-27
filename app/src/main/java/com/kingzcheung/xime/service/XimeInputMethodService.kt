@@ -108,7 +108,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
     companion object {
         private const val TAG = "XimeInputMethodService"
-        private const val KEY_PERF = "KeyPerf"
         private const val DARK_MODE_LIGHT = 0
         private const val DARK_MODE_DARK = 1
         private const val DARK_MODE_SYSTEM = 2
@@ -141,12 +140,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     init {
         serviceScope.launch {
             keyJobs.consumeEach { job ->
-                val tBeforeJoin = System.nanoTime()
                 job.join()
-                val joinTime = (System.nanoTime() - tBeforeJoin) / 1_000_000
-                if (joinTime > 20) {
-                    FileLogger.d(KEY_PERF, "Channel join took ${joinTime}ms")
-                }
             }
         }
         serviceScope.launch(Dispatchers.Main) {
@@ -1450,10 +1444,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         } else {
             candidatesWithComments.map { it.text } to candidatesWithComments.map { it.comment }
         }
-        val filterElapsed = (System.nanoTime() - tFilter) / 1_000_000
-        if (filterElapsed > 5) {
-            FileLogger.d(KEY_PERF, "updateUI filter candidates: ${filterElapsed}ms, count=${candidatesWithComments.size}")
-        }
         
         candidateState.value = candidateState.value.copy(
             inputText = result.inputText,
@@ -1478,10 +1468,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             }
         }
         
-        val elapsed = (System.nanoTime() - t0) / 1_000_000
-        if (elapsed > 5) {
-            FileLogger.d(KEY_PERF, "updateUI: ${elapsed}ms")
-        }
     }
 
     private fun updateSchemaName() {
@@ -1516,14 +1502,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
 
     private fun handleKeyPress(key: String, isShifted: Boolean) {
-        val tDispatch = System.nanoTime()
         val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY) {
-            val tStart = System.nanoTime()
-            val dispatchDelay = (tStart - tDispatch) / 1_000_000
-            if (dispatchDelay > 5) {
-                FileLogger.w(KEY_PERF, "Key dispatch delay ${dispatchDelay}ms for '$key'")
-            }
-            
             val state = uiState.value
             val candState = candidateState.value
             var needsUIUpdate = false
@@ -1835,12 +1814,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         val isLetter = key.matches(Regex("[a-zA-Z]"))
                         val isShiftedChinese = isShifted && !state.isAsciiMode && isLetter
 
-                        val t0 = System.nanoTime()
                         val processed = rimeEngine.processKey(keyCode, mask)
-                        val pElapsed = (System.nanoTime() - t0) / 1_000_000
-                        if (pElapsed > 5) {
-                            FileLogger.d(KEY_PERF, "Rime processKey '${char}' mask=$mask: ${pElapsed}ms")
-                        }
                         if (processed) {
                             val result = rimeEngine.getProcessResult(processed)
                             if (isShiftedChinese && result.committedText != char) {
@@ -1893,20 +1867,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 val result = pendingResult
                 val textToCommit = committedText
                 if (result != null) {
-                    val tEnqueue = System.nanoTime()
                     uiEventChannel.trySend {
-                        val tStartMain = System.nanoTime()
                         if (textToCommit != null) {
                             commitText(textToCommit)
                         }
                         updateUIWithResult(result)
                         if (calculatorEngine.isActive()) {
                             updateCalculatorCandidates()
-                        }
-                        val elapsed = (System.nanoTime() - tStartMain) / 1_000_000
-                        val queueDelay = (tStartMain - tEnqueue) / 1_000_000
-                        if (elapsed > 5) {
-                            FileLogger.d(KEY_PERF, "MainThread work: ${elapsed}ms, queue=${queueDelay}ms")
                         }
                     }
                 } else {
@@ -1915,9 +1882,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     val capturedIsAscii = rimeEngine.isAsciiMode()
                     val capturedHasNext = rimeEngine.hasNextPage()
                     val capturedHasPrev = rimeEngine.hasPrevPage()
-                    val tEnqueue = System.nanoTime()
                     uiEventChannel.trySend {
-                        val tStartMain = System.nanoTime()
                         if (textToCommit != null) {
                             commitText(textToCommit)
                         }
@@ -1952,17 +1917,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         if (calculatorEngine.isActive()) {
                             updateCalculatorCandidates()
                         }
-                        val elapsed = (System.nanoTime() - tStartMain) / 1_000_000
-                        val queueDelay = (tStartMain - tEnqueue) / 1_000_000
-                        if (elapsed > 5) {
-                            FileLogger.d(KEY_PERF, "MainThread work: ${elapsed}ms, queue=${queueDelay}ms")
-                        }
                     }
                 }
-            }
-            val totalElapsed = (System.nanoTime() - tStart) / 1_000_000
-            if (totalElapsed > 10) {
-                FileLogger.d(KEY_PERF, "handleKey '$key' total: ${totalElapsed}ms")
             }
         }
         keyJobs.trySend(job)
@@ -1974,12 +1930,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
      */
     private fun postRimeJob(block: suspend CoroutineScope.() -> Unit) {
         val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY) {
-            val t0 = System.nanoTime()
             block()
-            val elapsed = (System.nanoTime() - t0) / 1_000_000
-            if (elapsed > 10) {
-                FileLogger.d(KEY_PERF, "postRimeJob: ${elapsed}ms")
-            }
         }
         keyJobs.trySend(job)
     }
@@ -2391,12 +2342,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
 
     override fun commitText(text: String) {
-        val t0 = System.nanoTime()
         currentInputConnection?.commitText(text, 1)
-        val commitElapsed = (System.nanoTime() - t0) / 1_000_000
-        if (commitElapsed > 5) {
-            FileLogger.d(KEY_PERF, "commitText '$text': ${commitElapsed}ms")
-        }
 
         if (isChineseMode) {
             predictionManager.appendCommittedText(text)
