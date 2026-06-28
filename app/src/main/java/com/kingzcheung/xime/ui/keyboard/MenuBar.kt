@@ -120,8 +120,8 @@ fun MenuBar(
             MenuItem(floatingIcon, floatingLabel, floatingAction),
             MenuItem(darkModeIcon, darkModeLabel, callbacks.onToggleDarkMode),
             MenuItem(deployIcon, "部署方案", callbacks.onReloadConfig),
-            MenuItem(customizeIcon, "定制工具栏", callbacks.onToolbarCustomize),
             MenuItem(schemaIcon, "输入方案", callbacks.onSchemaList),
+            MenuItem(customizeIcon, "定制工具栏", callbacks.onToolbarCustomize),
             MenuItem(settingsIcon, "设置", callbacks.onSettings)
         )
     }

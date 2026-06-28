@@ -31,7 +31,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kingzcheung.xime.keyboard.KeyboardRoute
+import com.kingzcheung.xime.keyboard.KeyboardPage
+import com.kingzcheung.xime.keyboard.MainType
+import com.kingzcheung.xime.keyboard.OverlayRoute
+import com.kingzcheung.xime.keyboard.PanelType
 import com.kingzcheung.xime.keyboard.ToolbarAction
 import com.kingzcheung.xime.keyboard.ToolbarButton
 import com.kingzcheung.xime.settings.KeysConfigHelper
@@ -55,17 +58,18 @@ fun KeyboardView(
 ) {
     val isShifted by viewModel.isShifted.collectAsStateWithLifecycle()
     val keyboardState by viewModel.keyboardState.collectAsStateWithLifecycle()
-    val currentRoute by viewModel.currentRoute.collectAsStateWithLifecycle()
+    val page by viewModel.page.collectAsStateWithLifecycle()
     val isLandscape = if (state.isFloatingMode) false
         else LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     SideEffect {
-        val active = (keyboardState is KeyboardLayoutState.Chinese || keyboardState is KeyboardLayoutState.Stroke) && currentRoute == KeyboardRoute.Keyboard
+        val active = (keyboardState is KeyboardLayoutState.Chinese || keyboardState is KeyboardLayoutState.Stroke)
+            && page is KeyboardPage.Main && (page as KeyboardPage.Main).type == MainType.FULL
         callbacks.onKeyboardModeChange?.invoke(active)
     }
 
     LaunchedEffect(state.inputSessionId) {
-        viewModel.setRoute(KeyboardRoute.Keyboard)
+        viewModel.switchMain(MainType.FULL)
     }
 
     LaunchedEffect(state.isAsciiMode, state.currentSchemaId) {
@@ -109,7 +113,9 @@ fun KeyboardView(
         else longToColor(kbColors.candidateTextColor)
     val dividerColor = if (state.isDarkTheme) androidx.compose.ui.graphics.Color(0xFF3C4043) else androidx.compose.ui.graphics.Color(0xFFDADCE0)
 
-    val clipboardTab = (currentRoute as? KeyboardRoute.Clipboard)?.tab ?: 0
+    val clipboardTab = (page as? KeyboardPage.Overlay)?.let {
+        (it.route as? OverlayRoute.Clipboard)?.tab
+    } ?: 0
     val screenW = LocalConfiguration.current.screenWidthDp
     val screenH = LocalConfiguration.current.screenHeightDp
     val cardWidthDp = (minOf(screenW, screenH) * 0.85f).roundToInt()
@@ -151,16 +157,16 @@ fun KeyboardView(
 
             CandidateBar(
                 state = candidateBarState,
-                currentRoute = currentRoute,
+                page = page,
                 isFloatingMode = state.isFloatingMode,
                 toolbarActions = state.toolbarButtons.mapNotNull { id ->
                     val button = ToolbarButton.fromId(id) ?: return@mapNotNull null
                     val onClick: () -> Unit = when (button) {
-                        ToolbarButton.EMOJI -> ({ viewModel.setRoute(KeyboardRoute.Emoji) })
-                        ToolbarButton.CLIPBOARD -> ({ viewModel.setRoute(KeyboardRoute.Clipboard(0)) })
-                        ToolbarButton.SCHEMA -> ({ viewModel.setRoute(KeyboardRoute.SchemaList) })
-                        ToolbarButton.QUICK_PHRASE -> ({ viewModel.setRoute(KeyboardRoute.Clipboard(1)) })
-                        ToolbarButton.SYMBOL -> ({ viewModel.setRoute(KeyboardRoute.Symbol) })
+                        ToolbarButton.EMOJI -> ({ viewModel.showOverlay(OverlayRoute.Emoji) })
+                        ToolbarButton.CLIPBOARD -> ({ viewModel.showOverlay(OverlayRoute.Clipboard(0)) })
+                        ToolbarButton.SCHEMA -> ({ viewModel.showOverlay(OverlayRoute.SchemaList, listOf(OverlayRoute.Menu)) })
+                        ToolbarButton.QUICK_PHRASE -> ({ viewModel.showOverlay(OverlayRoute.Clipboard(1)) })
+                        ToolbarButton.SYMBOL -> ({ viewModel.showOverlay(OverlayRoute.Symbol) })
                         ToolbarButton.SELECT_ALL -> ({ callbacks.onToolbarEditingAction?.invoke("select_all") })
                         ToolbarButton.COPY -> ({ callbacks.onToolbarEditingAction?.invoke("copy") })
                         ToolbarButton.PASTE -> ({ callbacks.onToolbarEditingAction?.invoke("paste") })
@@ -179,24 +185,23 @@ fun KeyboardView(
                 ),
                 callbacks = CandidateBarCallbacks(
                     onCandidateSelect = callbacks.onCandidateSelect,
-                    onLogoClick = { viewModel.setRoute(KeyboardRoute.Menu) },
+                    onLogoClick = { viewModel.showOverlay(OverlayRoute.Menu) },
                     onBack = {
-                        viewModel.setRoute(when (currentRoute) {
-                            is KeyboardRoute.SchemaList -> KeyboardRoute.Menu
-                            is KeyboardRoute.Clipboard -> KeyboardRoute.Keyboard
-                            is KeyboardRoute.CandidatePage -> KeyboardRoute.Keyboard
-                            is KeyboardRoute.ToolbarCustomize -> KeyboardRoute.Keyboard
-                            is KeyboardRoute.Emoji -> KeyboardRoute.Keyboard
-                            is KeyboardRoute.Symbol -> KeyboardRoute.Keyboard
-                            is KeyboardRoute.SplitWords -> KeyboardRoute.Keyboard
-                            else -> KeyboardRoute.Keyboard
-                        })
+                        when (page) {
+                            is KeyboardPage.Overlay -> {
+                                if ((page as KeyboardPage.Overlay).backStack.isEmpty())
+                                    viewModel.closeOverlay()
+                                else viewModel.popOverlay()
+                            }
+                            is KeyboardPage.Panel -> viewModel.exitPanel()
+                            is KeyboardPage.Main -> {}
+                        }
                     },
                     onHideKeyboard = {
                         callbacks.onHideKeyboard?.invoke()
                         viewModel.resetKeyboard(state.isAsciiMode, state.currentSchemaId)
                     },
-                    onShowMoreCandidates = { viewModel.setRoute(KeyboardRoute.CandidatePage) },
+                    onShowMoreCandidates = { viewModel.showOverlay(OverlayRoute.CandidatePage) },
                     onInputTextClick = {
                         if (state.inputText.isNotEmpty()) {
                             callbacks.onClipboardSelect?.invoke(state.inputText)
@@ -207,214 +212,314 @@ fun KeyboardView(
                 )
             )
 
-            when {
-                currentRoute is KeyboardRoute.Voice -> {
-                    VoiceKeyboardLayout(
-                        keyBackgroundColor = keyBgColor,
-                        keyTextColor = keyTextColor,
-                        specialKeyBackgroundColor = specialKeyBgColor,
-                        keyboardBackgroundColor = keyboardBgColor,
-                        modifier = Modifier.weight(1f),
-                        isDarkTheme = state.isDarkTheme,
-                        themeId = state.themeId,
-                        bottomActive = state.voiceBottomActive,
-                        leftActive = state.voiceLeftActive,
-                        rightActive = state.voiceRightActive,
-                        pluginName = state.voicePluginName,
-                        recognitionState = state.voiceRecognitionState,
-                        recognizedText = state.voiceRecognizedText,
-                        amplitude = state.voiceAmplitude
-                    )
-                }
+            val isMainKeyboard = page is KeyboardPage.Main
+            if (isMainKeyboard) {
+                val mainType = (page as KeyboardPage.Main).type
+                when (mainType) {
+                    MainType.FULL -> {
+                        val currentOnCursorMove = rememberUpdatedState(callbacks.onCursorMove)
+                        val suppressCursorMove = remember { mutableStateOf(false) }
+                        val cursorMod = if (callbacks.onCursorMove != null) {
+                            Modifier.pointerInput(Unit) {
+                                val stepThresholdPx = 25.dp.toPx()
+                                val activationThresholdPx = 60.dp.toPx()
+                                awaitEachGesture {
+                                    suppressCursorMove.value = false
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    var isCursorGesture = false
+                                    var lastSteps = 0
+                                    var activationAnchorX = down.position.x
 
-                else -> {
-                    val currentOnCursorMove = rememberUpdatedState(callbacks.onCursorMove)
-                    val suppressCursorMove = remember { mutableStateOf(false) }
-                    val cursorMod = if (callbacks.onCursorMove != null) {
-                        Modifier.pointerInput(Unit) {
-                            val stepThresholdPx = 25.dp.toPx()
-                            val activationThresholdPx = 60.dp.toPx()
-                            awaitEachGesture {
-                                suppressCursorMove.value = false
-                                val down = awaitFirstDown(requireUnconsumed = false)
-                                var isCursorGesture = false
-                                var lastSteps = 0
-                                var activationAnchorX = down.position.x
+                                    do {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                        val dx = change.position.x - down.position.x
+                                        val dy = change.position.y - down.position.y
 
-                                do {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                    val dx = change.position.x - down.position.x
-                                    val dy = change.position.y - down.position.y
-
-                                    if (!change.pressed) {
-                                        if (isCursorGesture) {
-                                            event.changes.forEach { it.consume() }
+                                        if (!change.pressed) {
+                                            if (isCursorGesture) {
+                                                event.changes.forEach { it.consume() }
+                                            }
+                                            break
                                         }
-                                        break
-                                    }
-                                    if (suppressCursorMove.value) break
-                                    if (abs(dx) > abs(dy) * 4f) {
+                                        if (suppressCursorMove.value) break
+                                        if (abs(dx) > abs(dy) * 4f) {
 
-                                        if (!isCursorGesture && abs(dx) > activationThresholdPx) {
-                                            isCursorGesture = true
-                                            activationAnchorX = change.position.x
-                                        }
+                                            if (!isCursorGesture && abs(dx) > activationThresholdPx) {
+                                                isCursorGesture = true
+                                                activationAnchorX = change.position.x
+                                            }
 
-                                        if (isCursorGesture) {
-                                            event.changes.forEach { it.consume() }
-                                            val dxFromAnchor = change.position.x - activationAnchorX
-                                            val steps = (dxFromAnchor / stepThresholdPx).toInt()
-                                            if (steps != lastSteps) {
-                                                val delta = steps - lastSteps
-                                                currentOnCursorMove.value?.invoke(delta)
-                                                lastSteps = steps
+                                            if (isCursorGesture) {
+                                                event.changes.forEach { it.consume() }
+                                                val dxFromAnchor = change.position.x - activationAnchorX
+                                                val steps = (dxFromAnchor / stepThresholdPx).toInt()
+                                                if (steps != lastSteps) {
+                                                    val delta = steps - lastSteps
+                                                    currentOnCursorMove.value?.invoke(delta)
+                                                    lastSteps = steps
+                                                }
                                             }
                                         }
+                                    } while (true)
+                                }
+                            }
+                        } else {
+                            Modifier
+                        }
+
+                        val context = LocalContext.current
+
+                        var modeChangeTarget: KeyboardLayoutAction by remember {
+                            mutableStateOf(
+                                if (SettingsPreferences.getModeChangeTargetIsNumber(context))
+                                    KeyboardLayoutAction.SwitchToNumber
+                                else
+                                    KeyboardLayoutAction.SwitchToCommonSymbol
+                            )
+                        }
+
+                        val fullScreenOnKeyPress: (String) -> Unit = { key ->
+                            when (key) {
+                                "shift" -> viewModel.toggleShift()
+                                "shift_single" -> viewModel.singleTapShift()
+                                "shift_caps" -> viewModel.doubleTapShift()
+                                "mode_change" -> {
+                                    viewModel.setKeyboardState(keyboardState.transition(
+                                        modeChangeTarget, state.isAsciiMode
+                                    ))
+                                    callbacks.onKeyPress("clear_composition", false)
+                                }
+                                "mode_change_symbol" -> viewModel.showOverlay(OverlayRoute.Symbol)
+                                "mode_change_t9" -> {
+                                    modeChangeTarget = KeyboardLayoutAction.SwitchToNumber
+                                    SettingsPreferences.setModeChangeTargetIsNumber(context, true)
+                                    viewModel.setKeyboardState(keyboardState.transition(
+                                        KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
+                                    ))
+                                }
+                                "mode_change_t26" -> {
+                                    modeChangeTarget = KeyboardLayoutAction.SwitchToCommonSymbol
+                                    SettingsPreferences.setModeChangeTargetIsNumber(context, false)
+                                    viewModel.setKeyboardState(keyboardState.transition(
+                                        KeyboardLayoutAction.SwitchToCommonSymbol, state.isAsciiMode
+                                    ))
+                                }
+                                "emoji" -> viewModel.showOverlay(OverlayRoute.Emoji)
+                                else -> {
+                                    callbacks.onKeyPress(key, isShifted)
+                                    viewModel.onCharacterTyped()
+                                }
+                            }
+                        }
+                        val numberOnKeyPress: (String) -> Unit = { key ->
+                            when (key) {
+                                "abc" -> {
+                                    val saved = savedNumberAsciiMode
+                                    savedNumberAsciiMode = null
+                                    if (saved != null && saved != state.isAsciiMode) {
+                                        callbacks.onKeyPress("ime_switch", false)
                                     }
-                                } while (true)
-                            }
-                        }
-                    } else {
-                        Modifier
-                    }
-
-                    val context = LocalContext.current
-
-                    var modeChangeTarget: KeyboardLayoutAction by remember {
-                        mutableStateOf(
-                            if (SettingsPreferences.getModeChangeTargetIsNumber(context))
-                                KeyboardLayoutAction.SwitchToNumber
-                            else
-                                KeyboardLayoutAction.SwitchToCommonSymbol
-                        )
-                    }
-
-                    val fullScreenOnKeyPress: (String) -> Unit = { key ->
-                        when (key) {
-                            "shift" -> viewModel.toggleShift()
-                            "shift_single" -> viewModel.singleTapShift()
-                            "shift_caps" -> viewModel.doubleTapShift()
-                            "mode_change" -> {
-                                viewModel.setKeyboardState(keyboardState.transition(
-                                    modeChangeTarget, state.isAsciiMode
-                                ))
-                                callbacks.onKeyPress("clear_composition", false)
-                            }
-                            "mode_change_symbol" -> viewModel.setRoute(KeyboardRoute.Symbol)
-                            "mode_change_t9" -> {
-                                modeChangeTarget = KeyboardLayoutAction.SwitchToNumber
-                                SettingsPreferences.setModeChangeTargetIsNumber(context, true)
-                                viewModel.setKeyboardState(keyboardState.transition(
-                                    KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
-                                ))
-                            }
-                            "mode_change_t26" -> {
-                                modeChangeTarget = KeyboardLayoutAction.SwitchToCommonSymbol
-                                SettingsPreferences.setModeChangeTargetIsNumber(context, false)
-                                viewModel.setKeyboardState(keyboardState.transition(
-                                    KeyboardLayoutAction.SwitchToCommonSymbol, state.isAsciiMode
-                                ))
-                            }
-                            "emoji" -> viewModel.setRoute(KeyboardRoute.Emoji)
-                            else -> {
-                                callbacks.onKeyPress(key, isShifted)
-                                viewModel.onCharacterTyped()
-                            }
-                        }
-                    }
-                    val numberOnKeyPress: (String) -> Unit = { key ->
-                        when (key) {
-                            "abc" -> {
-                                val saved = savedNumberAsciiMode
-                                savedNumberAsciiMode = null
-                                if (saved != null && saved != state.isAsciiMode) {
-                                    callbacks.onKeyPress("ime_switch", false)
+                                    viewModel.setKeyboardState(
+                                        initialKeyboardLayoutState(saved ?: state.isAsciiMode, state.currentSchemaId)
+                                    )
                                 }
-                                viewModel.setKeyboardState(
-                                    initialKeyboardLayoutState(saved ?: state.isAsciiMode, state.currentSchemaId)
+                                "symbol" -> {
+                                    val saved = savedNumberAsciiMode
+                                    savedNumberAsciiMode = null
+                                    if (saved != null && saved != state.isAsciiMode) {
+                                        callbacks.onKeyPress("ime_switch", false)
+                                    }
+                                    viewModel.showOverlay(OverlayRoute.Symbol)
+                                }
+                                "emoji" -> {
+                                    val saved = savedNumberAsciiMode
+                                    savedNumberAsciiMode = null
+                                    if (saved != null && saved != state.isAsciiMode) {
+                                        callbacks.onKeyPress("ime_switch", false)
+                                    }
+                                    viewModel.showOverlay(OverlayRoute.Emoji)
+                                }
+                                else -> callbacks.onKeyPress(key, false)
+                            }
+                        }
+                        val symbolOnKeyPress: (String) -> Unit = { key ->
+                            when (key) {
+                                "abc" -> viewModel.setKeyboardState(
+                                    initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId)
                                 )
-                            }
-                            "symbol" -> {
-                                val saved = savedNumberAsciiMode
-                                savedNumberAsciiMode = null
-                                if (saved != null && saved != state.isAsciiMode) {
-                                    callbacks.onKeyPress("ime_switch", false)
+                                "?123" -> {
+                                    viewModel.setKeyboardState(keyboardState.transition(
+                                        KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
+                                    ))
+                                    callbacks.onKeyPress("clear_composition", false)
                                 }
-                                viewModel.setRoute(KeyboardRoute.Symbol)
+                                else -> callbacks.onKeyPress(key, false)
                             }
-                            "emoji" -> {
-                                val saved = savedNumberAsciiMode
-                                savedNumberAsciiMode = null
-                                if (saved != null && saved != state.isAsciiMode) {
-                                    callbacks.onKeyPress("ime_switch", false)
-                                }
-                                viewModel.setRoute(KeyboardRoute.Emoji)
-                            }
-                            else -> callbacks.onKeyPress(key, false)
                         }
-                    }
-                    val symbolOnKeyPress: (String) -> Unit = { key ->
-                        when (key) {
-                            "abc" -> viewModel.setKeyboardState(
-                                initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId)
-                            )
-                            "?123" -> {
-                                viewModel.setKeyboardState(keyboardState.transition(
+                        val commonSymbolOnKeyPress: (String) -> Unit = { key ->
+                            when (key) {
+                                "abc" -> viewModel.setKeyboardState(
+                                    initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId)
+                                )
+                                "number" -> viewModel.setKeyboardState(keyboardState.transition(
                                     KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
                                 ))
-                                callbacks.onKeyPress("clear_composition", false)
+                                "symbol" -> viewModel.showOverlay(OverlayRoute.Symbol)
+                                "emoji" -> viewModel.showOverlay(OverlayRoute.Emoji)
+                                else -> callbacks.onKeyPress(key, false)
                             }
-                            else -> callbacks.onKeyPress(key, false)
                         }
-                    }
-                    val commonSymbolOnKeyPress: (String) -> Unit = { key ->
-                        when (key) {
-                            "abc" -> viewModel.setKeyboardState(
-                                initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId)
+                        val strokeOnKeyPress: (String) -> Unit = { key ->
+                            when (key) {
+                                "abc" -> viewModel.setKeyboardState(keyboardState.transition(
+                                    KeyboardLayoutAction.SwitchToFull, state.isAsciiMode
+                                ))
+                                "number" -> viewModel.setKeyboardState(keyboardState.transition(
+                                    KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
+                                ))
+                                "symbol" -> viewModel.showOverlay(OverlayRoute.Symbol)
+                                "emoji" -> viewModel.showOverlay(OverlayRoute.Emoji)
+                                else -> callbacks.onKeyPress(key, false)
+                            }
+                        }
+                        val currentOnKeyPress = when (keyboardState) {
+                            is KeyboardLayoutState.Chinese,
+                            is KeyboardLayoutState.English -> fullScreenOnKeyPress
+                            is KeyboardLayoutState.Number -> numberOnKeyPress
+                            is KeyboardLayoutState.CommonSymbol -> commonSymbolOnKeyPress
+                            is KeyboardLayoutState.Stroke -> strokeOnKeyPress
+                            is KeyboardLayoutState.Symbol -> symbolOnKeyPress
+                        }
+                        CompositionLocalProvider(LocalSuppressCursorMove provides suppressCursorMove) {
+                            KeyboardLayoutScreen(
+                                keyboardState = keyboardState,
+                                uiState = state,
+                                viewModel = viewModel,
+                                callbacks = callbacks,
+                                onKeyPress = currentOnKeyPress,
+                                modifier = Modifier.weight(1f).then(cursorMod),
                             )
-                            "number" -> viewModel.setKeyboardState(keyboardState.transition(
-                                KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
-                            ))
-                            "symbol" -> viewModel.setRoute(KeyboardRoute.Symbol)
-                            "emoji" -> viewModel.setRoute(KeyboardRoute.Emoji)
-                            else -> callbacks.onKeyPress(key, false)
+                            if (state.keyboardBottomPaddingDp > 0) {
+                                Spacer(modifier = Modifier.height(state.keyboardBottomPaddingDp.dp))
+                            }
                         }
                     }
-                    val strokeOnKeyPress: (String) -> Unit = { key ->
-                        when (key) {
-                            "abc" -> viewModel.setKeyboardState(keyboardState.transition(
-                                KeyboardLayoutAction.SwitchToFull, state.isAsciiMode
-                            ))
-                            "number" -> viewModel.setKeyboardState(keyboardState.transition(
-                                KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
-                            ))
-                            "symbol" -> viewModel.setRoute(KeyboardRoute.Symbol)
-                            "emoji" -> viewModel.setRoute(KeyboardRoute.Emoji)
-                            else -> callbacks.onKeyPress(key, false)
-                        }
-                    }
-                    val currentOnKeyPress = when (keyboardState) {
-                        is KeyboardLayoutState.Chinese,
-                        is KeyboardLayoutState.English -> fullScreenOnKeyPress
-                        is KeyboardLayoutState.Number -> numberOnKeyPress
-                        is KeyboardLayoutState.CommonSymbol -> commonSymbolOnKeyPress
-                        is KeyboardLayoutState.Stroke -> strokeOnKeyPress
-                        is KeyboardLayoutState.Symbol -> symbolOnKeyPress
-                    }
-                    CompositionLocalProvider(LocalSuppressCursorMove provides suppressCursorMove) {
-                        KeyboardLayoutScreen(
-                            keyboardState = keyboardState,
-                            uiState = state,
-                            viewModel = viewModel,
-                            callbacks = callbacks,
-                            onKeyPress = currentOnKeyPress,
-                            modifier = Modifier.weight(1f).then(cursorMod),
+
+                    MainType.HANDWRITING -> {
+                        HandwritingKeyboardLayout(
+                            onKeyPress = { key ->
+                                when (key) {
+                                    "delete" -> callbacks.onKeyPress("delete", false)
+                                    "symbol" -> viewModel.showOverlay(OverlayRoute.Symbol)
+                                    "number" -> viewModel.enterPanel(PanelType.NUMBER)
+                                    "ime_switch" -> {
+                                        viewModel.switchMain(MainType.FULL)
+                                        viewModel.setKeyboardState(KeyboardLayoutState.English)
+                                        callbacks.onKeyPress("ime_switch", false)
+                                    }
+                                    "space" -> callbacks.onKeyPress("space", false)
+                                    "enter" -> callbacks.onKeyPress("enter", false)
+                                    else -> callbacks.onCommitText?.invoke(key)
+                                }
+                            },
+                            keyBackgroundColor = keyBgColor,
+                            keyTextColor = keyTextColor,
+                            specialKeyBackgroundColor = specialKeyBgColor,
+                            modifier = Modifier.weight(1f),
                         )
                         if (state.keyboardBottomPaddingDp > 0) {
                             Spacer(modifier = Modifier.height(state.keyboardBottomPaddingDp.dp))
                         }
                     }
+
+                    MainType.STROKE -> {
+                        // Stroke is handled via keyboardState within FULL for now
+                    }
+
+                    MainType.VOICE -> {
+                        VoiceKeyboardLayout(
+                            keyBackgroundColor = keyBgColor,
+                            keyTextColor = keyTextColor,
+                            specialKeyBackgroundColor = specialKeyBgColor,
+                            keyboardBackgroundColor = keyboardBgColor,
+                            modifier = Modifier.weight(1f),
+                            isDarkTheme = state.isDarkTheme,
+                            themeId = state.themeId,
+                            bottomActive = state.voiceBottomActive,
+                            leftActive = state.voiceLeftActive,
+                            rightActive = state.voiceRightActive,
+                            pluginName = state.voicePluginName,
+                            recognitionState = state.voiceRecognitionState,
+                            recognizedText = state.voiceRecognizedText,
+                            amplitude = state.voiceAmplitude
+                        )
+                    }
+                }
+            }
+
+            val isPanelKeyboard = page is KeyboardPage.Panel
+            if (isPanelKeyboard) {
+                val panelType = (page as KeyboardPage.Panel).type
+                when (panelType) {
+                    PanelType.NUMBER -> NumberKeyboardLayout(
+                        onKeyPress = { key ->
+                            when (key) {
+                                "abc" -> viewModel.exitPanel()
+                                "symbol" -> {
+                                    val saved = savedNumberAsciiMode
+                                    savedNumberAsciiMode = null
+                                    if (saved != null && saved != state.isAsciiMode) {
+                                        callbacks.onKeyPress("ime_switch", false)
+                                    }
+                                    viewModel.showOverlay(OverlayRoute.Symbol)
+                                }
+                                "emoji" -> {
+                                    val saved = savedNumberAsciiMode
+                                    savedNumberAsciiMode = null
+                                    if (saved != null && saved != state.isAsciiMode) {
+                                        callbacks.onKeyPress("ime_switch", false)
+                                    }
+                                    viewModel.showOverlay(OverlayRoute.Emoji)
+                                }
+                                else -> callbacks.onKeyPress(key, false)
+                            }
+                        },
+                        keyBackgroundColor = keyBgColor,
+                        keyTextColor = keyTextColor,
+                        specialKeyBackgroundColor = specialKeyBgColor,
+                        keyboardBackgroundColor = keyboardBgColor,
+                        shadowEnabled = kbShadow.enabled,
+                        shadowElevation = kbShadow.elevation.dp,
+                        shadowShapeRadius = kbShadow.shapeRadius.dp,
+                        onKeyPressDown = callbacks.onKeyPressDown,
+                        isFloatingMode = state.isFloatingMode,
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    )
+
+                    PanelType.COMMON_SYMBOL -> CommonSymbolKeyboardLayout(
+                        onKeyPress = { key ->
+                            when (key) {
+                                "abc" -> viewModel.exitPanel()
+                                "number" -> viewModel.enterPanel(PanelType.NUMBER)
+                                "symbol" -> viewModel.showOverlay(OverlayRoute.Symbol)
+                                "emoji" -> viewModel.showOverlay(OverlayRoute.Emoji)
+                                else -> callbacks.onKeyPress(key, false)
+                            }
+                        },
+                        isAsciiMode = state.isAsciiMode,
+                        keyBackgroundColor = keyBgColor,
+                        keyTextColor = keyTextColor,
+                        specialKeyBackgroundColor = specialKeyBgColor,
+                        keyboardBackgroundColor = keyboardBgColor,
+                        shadowEnabled = kbShadow.enabled,
+                        shadowElevation = kbShadow.elevation.dp,
+                        shadowShapeRadius = kbShadow.shapeRadius.dp,
+                        onKeyPressDown = callbacks.onKeyPressDown,
+                        isFloatingMode = state.isFloatingMode,
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    )
+
                 }
             }
 
@@ -438,7 +543,7 @@ fun KeyboardView(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = state.deploymentMessage.ifEmpty { "正在初始化..." },
+                        text = state.deploymentMessage.ifEmpty { "正在初始�?.." },
                         color = keyTextColor,
                         style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
                     )
@@ -452,7 +557,7 @@ fun KeyboardView(
                         )
                     } else {
                         Text(
-                            text = "请稍候",
+                            text = "???",
                             color = keyTextColor.copy(alpha = 0.7f),
                             style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
                         )
@@ -461,7 +566,7 @@ fun KeyboardView(
             }
         }
 
-        if (currentRoute !is KeyboardRoute.Keyboard && currentRoute !is KeyboardRoute.Voice) {
+        if (page is KeyboardPage.Overlay) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -471,137 +576,139 @@ fun KeyboardView(
                     indication = null
                 ) { }
             ) {
-            when (currentRoute) {
-                is KeyboardRoute.Menu -> MenuBar(
-                    state = MenuBarState(
-                        isVisible = true,
+            when (val p = page) {
+                is KeyboardPage.Overlay -> when (p.route) {
+                    is OverlayRoute.Menu -> MenuBar(
+                        state = MenuBarState(
+                            isVisible = true,
+                            isDarkTheme = state.isDarkTheme,
+                            darkMode = state.darkMode,
+                            backgroundColor = keyboardBgColor,
+                            isFloatingMode = state.isFloatingMode,
+                        ),
+                        callbacks = MenuBarCallbacks(
+                            onDismiss = { viewModel.closeOverlay() },
+                            onClipboard = { viewModel.showOverlay(OverlayRoute.Clipboard(0)); callbacks.onClipboard?.invoke() },
+                            onQuickSend = { viewModel.showOverlay(OverlayRoute.Clipboard(1)); callbacks.onQuickSend?.invoke() },
+                            onKeyboardResize = { callbacks.onKeyboardResize?.invoke(); viewModel.closeOverlay() },
+                            onEmoji = { viewModel.showOverlay(OverlayRoute.Emoji) },
+                            onReloadConfig = { callbacks.onReloadConfig?.invoke(); viewModel.closeOverlay() },
+                            onSettings = { callbacks.onSettings?.invoke(); viewModel.closeOverlay() },
+                            onSchemaList = { viewModel.pushOverlay(OverlayRoute.SchemaList) },
+                            onToggleDarkMode = { callbacks.onToggleDarkMode?.invoke() },
+                            onToolbarCustomize = { viewModel.showOverlay(OverlayRoute.ToolbarCustomize) },
+                            onFloatingModeToggle = { callbacks.onFloatingModeChange?.invoke(!state.isFloatingMode); viewModel.closeOverlay() },
+                        ),
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    )
+                    is OverlayRoute.SchemaList -> SchemaListView(
+                        schemas = state.schemas,
+                        currentSchemaId = state.currentSchemaId,
                         isDarkTheme = state.isDarkTheme,
-                        darkMode = state.darkMode,
                         backgroundColor = keyboardBgColor,
-                        isFloatingMode = state.isFloatingMode,
-                    ),
-                    callbacks = MenuBarCallbacks(
-                        onDismiss = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                        onClipboard = { viewModel.setRoute(KeyboardRoute.Clipboard(0)); callbacks.onClipboard?.invoke() },
-                        onQuickSend = { viewModel.setRoute(KeyboardRoute.Clipboard(1)); callbacks.onQuickSend?.invoke() },
-                        onKeyboardResize = { callbacks.onKeyboardResize?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
-                        onEmoji = { viewModel.setRoute(KeyboardRoute.Emoji) },
-                        onReloadConfig = { callbacks.onReloadConfig?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
-                        onSettings = { callbacks.onSettings?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
-                        onSchemaList = { viewModel.setRoute(KeyboardRoute.SchemaList) },
-                        onToggleDarkMode = { callbacks.onToggleDarkMode?.invoke() },
-                        onToolbarCustomize = { viewModel.setRoute(KeyboardRoute.ToolbarCustomize) },
-                        onFloatingModeToggle = { callbacks.onFloatingModeChange?.invoke(!state.isFloatingMode); viewModel.setRoute(KeyboardRoute.Keyboard) },
-                    ),
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                )
-                is KeyboardRoute.Clipboard -> ClipboardView(
-                    clipboardItems = state.clipboardItems,
-                    quickSendItems = state.quickSendItems,
-                    selectedTab = clipboardTab,
-                    isDarkTheme = state.isDarkTheme,
-                    backgroundColor = keyboardBgColor,
-                    viewModel = viewModel,
-                    onSelectItem = { text ->
-                        callbacks.onClipboardSelect?.invoke(text)
-                        viewModel.setRoute(KeyboardRoute.Keyboard)
-                    },
-                    onSplitWords = { text, _ -> viewModel.setRoute(KeyboardRoute.SplitWords(text)) },
-                    onBack = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                    onClipboardTabChange = { viewModel.setRoute(KeyboardRoute.Clipboard(it)) },
-                    bottomPaddingDp = state.keyboardBottomPaddingDp,
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                )
-                is KeyboardRoute.SchemaList -> SchemaListView(
-                    schemas = state.schemas,
-                    currentSchemaId = state.currentSchemaId,
-                    isDarkTheme = state.isDarkTheme,
-                    backgroundColor = keyboardBgColor,
-                    accentColor = accentColor,
-                    onSelectSchema = { schemaId ->
-                        callbacks.onSwitchSchema?.invoke(schemaId)
-                        viewModel.setRoute(KeyboardRoute.Keyboard)
-                    },
-                    onBack = { viewModel.setRoute(KeyboardRoute.Menu) },
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                )
-                is KeyboardRoute.ToolbarCustomize -> ToolbarCustomizeView(
-                    toolbarButtons = state.toolbarButtons,
-                    keyTextColor = keyTextColor,
-                    backgroundColor = keyboardBgColor,
-                    accentColor = accentColor,
-                    onUpdateToolbarButtons = callbacks.onUpdateToolbarButtons,
-                    onDismiss = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                    bottomPaddingDp = state.keyboardBottomPaddingDp,
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                )
-                is KeyboardRoute.CandidatePage -> CandidatePage(
-                    state = CandidatePageState(
-                        candidates = state.candidates.toList(),
-                        candidateComments = state.candidateComments.toList(),
-                        associationCandidates = state.associationCandidates.toList(),
-                        backgroundColor = candidateBarBg,
-                        textColor = candidateTextColor,
-                        hasNextPage = state.hasNextPage,
-                        hasPrevPage = state.hasPrevPage,
+                        accentColor = accentColor,
+                        onSelectSchema = { schemaId ->
+                            callbacks.onSwitchSchema?.invoke(schemaId)
+                            viewModel.closeOverlay()
+                        },
+                        onBack = { viewModel.popOverlay() },
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    )
+                    is OverlayRoute.Clipboard -> ClipboardView(
+                        clipboardItems = state.clipboardItems,
+                        quickSendItems = state.quickSendItems,
+                        selectedTab = p.route.tab,
+                        isDarkTheme = state.isDarkTheme,
+                        backgroundColor = keyboardBgColor,
+                        viewModel = viewModel,
+                        onSelectItem = { text ->
+                            callbacks.onClipboardSelect?.invoke(text)
+                            viewModel.closeOverlay()
+                        },
+                        onSplitWords = { text, _ -> viewModel.pushOverlay(OverlayRoute.SplitWords(text)) },
+                        onBack = { viewModel.closeOverlay() },
+                        onClipboardTabChange = { viewModel.pushOverlay(OverlayRoute.Clipboard(it)) },
                         bottomPaddingDp = state.keyboardBottomPaddingDp,
-                    ),
-                    callbacks = CandidatePageCallbacks(
-                        onCandidateSelect = { index ->
-                            callbacks.onCandidateSelect(index)
-                            viewModel.setRoute(KeyboardRoute.Keyboard)
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    )
+                    is OverlayRoute.ToolbarCustomize -> ToolbarCustomizeView(
+                        toolbarButtons = state.toolbarButtons,
+                        keyTextColor = keyTextColor,
+                        backgroundColor = keyboardBgColor,
+                        accentColor = accentColor,
+                        onUpdateToolbarButtons = callbacks.onUpdateToolbarButtons,
+                        onDismiss = { viewModel.closeOverlay() },
+                        bottomPaddingDp = state.keyboardBottomPaddingDp,
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    )
+                    is OverlayRoute.Emoji -> EmojiKeyboardLayout(
+                        onEmojiSelect = { emoji ->
+                            if (emoji == "delete") {
+                                callbacks.onKeyPress("delete", false)
+                            } else {
+                                callbacks.onCommitText?.invoke(emoji)
+                            }
                         },
-                        onAssociationSelect = { index ->
-                            callbacks.onAssociationSelect?.invoke(index)
-                            viewModel.setRoute(KeyboardRoute.Keyboard)
+                        onImageEmojiSelect = callbacks.onCommitImage,
+                        onBack = { viewModel.closeOverlay() },
+                        backgroundColor = candidateBarBg,
+                        textColor = keyTextColor,
+                        accentColor = accentColor,
+                        bottomPaddingDp = state.keyboardBottomPaddingDp,
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    )
+                    is OverlayRoute.Symbol -> SymbolKeyboardLayout(
+                        onSelect = { symbol ->
+                            if (symbol == "delete") {
+                                callbacks.onKeyPress("delete", false)
+                            } else {
+                                callbacks.onCommitText?.invoke(symbol)
+                            }
                         },
-                        onPageDown = callbacks.onPageDown,
-                        onPageUp = callbacks.onPageUp,
-                        onBack = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                    ),
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                )
-                is KeyboardRoute.SplitWords -> SplitWordsView(
-                    text = (currentRoute as KeyboardRoute.SplitWords).text,
-                    backgroundColor = keyboardBgColor,
-                    viewModel = viewModel,
-                    onBack = { viewModel.setRoute(KeyboardRoute.Clipboard(clipboardTab)) },
-                    onNavigateToQuickSend = { viewModel.setRoute(KeyboardRoute.Clipboard(1)) },
-                    onSelectChar = { char -> callbacks.onCommitText?.invoke(char) },
-                    onDeleteText = { count -> callbacks.onDeleteText?.invoke(count) },
-                    bottomPaddingDp = state.keyboardBottomPaddingDp,
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                )
-                is KeyboardRoute.Symbol -> SymbolKeyboardLayout(
-                    onSelect = { symbol ->
-                        if (symbol == "delete") {
-                            callbacks.onKeyPress("delete", false)
-                        } else {
-                            callbacks.onCommitText?.invoke(symbol)
-                        }
-                    },
-                    onBack = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                    backgroundColor = candidateBarBg,
-                    textColor = keyTextColor,
-                    accentColor = accentColor,
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                )
-                is KeyboardRoute.Emoji -> EmojiKeyboardLayout(
-                    onEmojiSelect = { emoji ->
-                        if (emoji == "delete") {
-                            callbacks.onKeyPress("delete", false)
-                        } else {
-                            callbacks.onCommitText?.invoke(emoji)
-                        }
-                    },
-                    onImageEmojiSelect = callbacks.onCommitImage,
-                    onBack = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                    backgroundColor = candidateBarBg,
-                    textColor = keyTextColor,
-                    accentColor = accentColor,
-                    bottomPaddingDp = state.keyboardBottomPaddingDp,
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                )
+                        onBack = { viewModel.closeOverlay() },
+                        backgroundColor = candidateBarBg,
+                        textColor = keyTextColor,
+                        accentColor = accentColor,
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    )
+                    is OverlayRoute.CandidatePage -> CandidatePage(
+                        state = CandidatePageState(
+                            candidates = state.candidates.toList(),
+                            candidateComments = state.candidateComments.toList(),
+                            associationCandidates = state.associationCandidates.toList(),
+                            backgroundColor = candidateBarBg,
+                            textColor = candidateTextColor,
+                            hasNextPage = state.hasNextPage,
+                            hasPrevPage = state.hasPrevPage,
+                            bottomPaddingDp = state.keyboardBottomPaddingDp,
+                        ),
+                        callbacks = CandidatePageCallbacks(
+                            onCandidateSelect = { index ->
+                                callbacks.onCandidateSelect(index)
+                                viewModel.closeOverlay()
+                            },
+                            onAssociationSelect = { index ->
+                                callbacks.onAssociationSelect?.invoke(index)
+                                viewModel.closeOverlay()
+                            },
+                            onPageDown = callbacks.onPageDown,
+                            onPageUp = callbacks.onPageUp,
+                            onBack = { viewModel.closeOverlay() },
+                        ),
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    )
+                    is OverlayRoute.SplitWords -> SplitWordsView(
+                        text = p.route.text,
+                        backgroundColor = keyboardBgColor,
+                        viewModel = viewModel,
+                        onBack = { viewModel.popOverlay() },
+                        onNavigateToQuickSend = { viewModel.pushOverlay(OverlayRoute.Clipboard(1)) },
+                        onSelectChar = { char -> callbacks.onCommitText?.invoke(char) },
+                        onDeleteText = { count -> callbacks.onDeleteText?.invoke(count) },
+                        bottomPaddingDp = state.keyboardBottomPaddingDp,
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                    )
+                }
                 else -> {}
             }
         }

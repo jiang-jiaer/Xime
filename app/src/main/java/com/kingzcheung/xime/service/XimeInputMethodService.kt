@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -69,7 +70,6 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.kingzcheung.xime.MainActivity
 import com.kingzcheung.xime.association.AssociationManager
-import com.kingzcheung.xime.keyboard.KeyboardRoute
 import com.kingzcheung.xime.ui.keyboard.KeyboardCallbacks
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
 import com.kingzcheung.xime.viewmodel.KeyboardViewModel
@@ -89,6 +89,7 @@ import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.XimeTheme
 import com.kingzcheung.xime.util.FileLogger
 import com.kingzcheung.xime.keyboard.ActionExecutor
+import com.kingzcheung.xime.keyboard.HANDWRITING_SCHEMA_ID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -112,6 +113,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         private const val DARK_MODE_DARK = 1
         private const val DARK_MODE_SYSTEM = 2
         private const val HARDWARE_CANDIDATE_BAR_HEIGHT = 72
+
     }
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -165,6 +167,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private var lastClearedText: String = ""
     private var isChineseMode = true
     private var currentEffectiveKeyboardHeight: Int = 0
+    private var previousSchemaId: String = ""
     
     private val calculatorEngine = com.kingzcheung.xime.calculator.CalculatorEngine()
 
@@ -206,7 +209,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 voiceAmplitude = 0f
             )
             isTrackingVoiceButtons = false
-            keyboardViewModel.setRoute(KeyboardRoute.Keyboard)
+            keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.FULL)
         }
     )
     
@@ -611,7 +614,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     voiceButtonState = VoiceButtonState(),
                     voiceRecognizedText = ""
                 )
-                keyboardViewModel.setRoute(KeyboardRoute.Keyboard)
+                keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.FULL)
                 isTrackingVoiceButtons = false
             }
         )
@@ -622,6 +625,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             setContent {
                 val cand = candidateState.value
                 val state = uiState.value
+                val page by keyboardViewModel.page.collectAsState(com.kingzcheung.xime.keyboard.KeyboardPage.Main(com.kingzcheung.xime.keyboard.MainType.FULL))
+                val isHandwritingMode = (page as? com.kingzcheung.xime.keyboard.KeyboardPage.Main)?.type == com.kingzcheung.xime.keyboard.MainType.HANDWRITING
                 val isDarkTheme = isDarkTheme()
                 val screenHeightDp = resources.configuration.screenHeightDp
                 val windowVisibleHeightDp = screenHeightDp - tryGetStatusBarHeightDp()
@@ -632,6 +637,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 val displayHeight = orientationHeight.coerceAtMost((screenHeightDp * 8) / 10)
                 val keyboardHeight = if (state.showKeyboardResize) {
                     if (isLandscape) (screenHeightDp * 7) / 10 else displayHeight.coerceAtLeast(screenHeightDp / 2)
+                } else if (isHandwritingMode) {
+                    screenHeightDp / 2
                 } else {
                     displayHeight
                 }
@@ -748,6 +755,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 inputSessionId = state.inputSessionId,
                                 isShowingRecentClipboard = cand.isShowingRecentClipboard,
                                 isFloatingMode = state.isFloatingMode,
+                                isHandwritingMode = isHandwritingMode,
                                 floatingOffsetX = state.floatingOffsetX,
                                 floatingOffsetY = state.floatingOffsetY,
                                 floatingMinOffsetY = actualNavBarDp,
@@ -846,7 +854,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                             voiceRecognizedText = ""
                                         )
                                         if (enabled) {
-                                            keyboardViewModel.setRoute(KeyboardRoute.Voice)
+                                            keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.VOICE)
                                             feedbackManager.performVibration()
                                             isTrackingVoiceButtons = true
                                             keyboardContainer.enableVoiceButtonTracking()
@@ -854,7 +862,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                             voiceRecognitionHandler.startRecognition()
                                             Log.d("VoiceButtons", "Speech recognition starting...")
                                         } else {
-                                            keyboardViewModel.setRoute(KeyboardRoute.Keyboard)
+            keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.FULL)
                                             isTrackingVoiceButtons = false
                                         }
                                     },
@@ -1121,6 +1129,21 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             
             val actualSchema: String
             when {
+                savedSchema == HANDWRITING_SCHEMA_ID -> {
+                    val restoreSchema = if (previousSchemaId.isNotEmpty() && previousSchemaId in availableSchemas) {
+                        previousSchemaId
+                    } else if (availableSchemas.isNotEmpty()) {
+                        availableSchemas.first()
+                    } else {
+                        "pinyin_simp"
+                    }
+                    Log.d(TAG, "onStartInput: saved=$savedSchema is handwriting, restoring to '$restoreSchema'")
+                    applyPageSizeSetting(restoreSchema)
+                    rimeEngine.switchSchema(restoreSchema)
+                    SettingsPreferences.setCurrentSchema(this, restoreSchema)
+                    previousSchemaId = ""
+                    actualSchema = restoreSchema
+                }
                 savedSchema in availableSchemas -> {
                     if (savedSchema != currentSchema) {
                         Log.d(TAG, "onStartInput: Switching to saved schema: $savedSchema")
@@ -1154,9 +1177,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         }
 
         // 每次打开键盘时刷新 STT 等偏好设置
+        val currentPage = keyboardViewModel.page.value
+        if (currentPage is com.kingzcheung.xime.keyboard.KeyboardPage.Main &&
+            currentPage.type == com.kingzcheung.xime.keyboard.MainType.HANDWRITING) {
+            keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.FULL)
+        }
         uiState.value = uiState.value.copy(
             inputSessionId = System.nanoTime(),
-            isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService)
+            isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
         )
 
         // 重置键盘布局到初始状态，避免切换应用后仍残留之前的布局（如英文、数字、符号）
@@ -1473,7 +1501,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private fun updateSchemaName() {
         val context = this@XimeInputMethodService
         serviceScope.launch(Dispatchers.IO) {
-            val currentSchemaId = rimeEngine.getCurrentSchema()
+            val page = keyboardViewModel.page.value
+            val isHandwritingMode = (page as? com.kingzcheung.xime.keyboard.KeyboardPage.Main)?.type == com.kingzcheung.xime.keyboard.MainType.HANDWRITING
+            val currentSchemaId = if (isHandwritingMode) {
+                HANDWRITING_SCHEMA_ID
+            } else {
+                rimeEngine.getCurrentSchema()
+            }
             val name = SchemaManager.getSchemaDisplayName(context, currentSchemaId)
 
             val enabledIds = SchemaManager.getEnabledSchemas(context)
@@ -1489,7 +1523,15 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         description = meta.description,
                         isDownloaded = true
                     )
-                }
+                } + listOf(
+                    com.kingzcheung.xime.settings.SchemaInfo(
+                        schemaId = HANDWRITING_SCHEMA_ID,
+                        name = "手写输入",
+                        version = "",
+                        author = "Xime",
+                        description = "手写汉字识别输入"
+                    )
+                )
 
             withContext(Dispatchers.Main) {
                 uiState.value = uiState.value.copy(
@@ -2195,6 +2237,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
     private fun switchSchema(schemaId: String) {
         Log.d(TAG, "Switching schema to: $schemaId")
+        if (schemaId == HANDWRITING_SCHEMA_ID) {
+            previousSchemaId = rimeEngine.getCurrentSchema()
+            Log.d(TAG, "Entering handwriting mode, previous schema: $previousSchemaId")
+            SettingsPreferences.setCurrentSchema(this, schemaId)
+            keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.HANDWRITING)
+            updateSchemaName()
+            return
+        }
         try {
             SettingsPreferences.setCurrentSchema(this, schemaId)
             // 用户自定义候选词数：先写 custom.yaml 再切方案，Rime 会自动加载

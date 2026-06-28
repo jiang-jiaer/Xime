@@ -5,7 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.kingzcheung.xime.keyboard.GestureAction
-import com.kingzcheung.xime.keyboard.KeyboardRoute
+import com.kingzcheung.xime.keyboard.OverlayRoute
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
@@ -33,12 +33,12 @@ fun KeyboardLayoutScreen(
     val onGestureAction: (GestureAction, String) -> Unit = { action, value ->
         when (action) {
             GestureAction.SWITCH_ROUTE -> {
-                val route = when (value) {
-                    "emoji" -> KeyboardRoute.Emoji
-                    "symbol" -> KeyboardRoute.Symbol
+                val overlayRoute = when (value) {
+                    "emoji" -> OverlayRoute.Emoji
+                    "symbol" -> OverlayRoute.Symbol
                     else -> null
                 }
-                if (route != null) viewModel.setRoute(route)
+                overlayRoute?.let { viewModel.showOverlay(it) }
             }
             GestureAction.TOGGLE_ASCII -> {
                 viewModel.resetShift()

@@ -78,7 +78,7 @@ import com.kingzcheung.xime.util.SubcharHelper
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
 import com.kingzcheung.xime.viewmodel.KeyboardViewModel
 import com.kingzcheung.xime.viewmodel.ShiftMode
-import com.kingzcheung.xime.keyboard.KeyboardRoute
+import com.kingzcheung.xime.keyboard.OverlayRoute
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
@@ -140,12 +140,12 @@ fun KeyboardLayout(
     val onGestureAction: (GestureAction, String) -> Unit = { action, value ->
         when (action) {
             GestureAction.SWITCH_ROUTE -> {
-                val route = when (value) {
-                    "emoji" -> KeyboardRoute.Emoji
-                    "symbol" -> KeyboardRoute.Symbol
+                val overlayRoute = when (value) {
+                    "emoji" -> OverlayRoute.Emoji
+                    "symbol" -> OverlayRoute.Symbol
                     else -> null
                 }
-                if (route != null) viewModel.setRoute(route)
+                overlayRoute?.let { viewModel.showOverlay(it) }
             }
             GestureAction.TOGGLE_ASCII -> {
                 viewModel.resetShift()
@@ -1210,12 +1210,12 @@ private fun LandscapeKeyboardContent(
     val onGestureAction: (GestureAction, String) -> Unit = { action, value ->
         when (action) {
             GestureAction.SWITCH_ROUTE -> {
-                val route = when (value) {
-                    "emoji" -> KeyboardRoute.Emoji
-                    "symbol" -> KeyboardRoute.Symbol
+                val overlayRoute = when (value) {
+                    "emoji" -> OverlayRoute.Emoji
+                    "symbol" -> OverlayRoute.Symbol
                     else -> null
                 }
-                if (route != null) viewModel.setRoute(route)
+                overlayRoute?.let { viewModel.showOverlay(it) }
             }
             GestureAction.TOGGLE_ASCII -> {
                 viewModel.resetShift()

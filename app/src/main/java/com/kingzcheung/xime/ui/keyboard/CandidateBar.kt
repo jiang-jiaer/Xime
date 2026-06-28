@@ -50,7 +50,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.R
-import com.kingzcheung.xime.keyboard.KeyboardRoute
+import com.kingzcheung.xime.keyboard.KeyboardPage
+import com.kingzcheung.xime.keyboard.OverlayRoute
+import com.kingzcheung.xime.keyboard.PanelType
 import com.kingzcheung.xime.keyboard.ToolbarAction
 import com.kingzcheung.xime.settings.SettingsPreferences
 
@@ -77,7 +79,7 @@ data class CandidateBarCallbacks(
 @Composable
 fun CandidateBar(
     state: CandidateBarState,
-    currentRoute: KeyboardRoute = KeyboardRoute.Keyboard,
+    page: KeyboardPage = KeyboardPage.Main(com.kingzcheung.xime.keyboard.MainType.FULL),
     toolbarActions: List<ToolbarAction> = emptyList(),
     visuals: CandidateBarVisuals,
     callbacks: CandidateBarCallbacks,
@@ -179,7 +181,10 @@ fun CandidateBar(
             showLeftIcon = false
         }
     }
-    showInputTextRow = currentRoute !is KeyboardRoute.Clipboard
+    showInputTextRow = when (page) {
+        is KeyboardPage.Overlay -> page.route !is OverlayRoute.Clipboard
+        else -> true
+    }
 
     val candidateListState = rememberLazyListState()
     LaunchedEffect(displayCandidates) {
@@ -240,7 +245,7 @@ fun CandidateBar(
             if (showLeftIcon) {
                 when (state) {
                     is CandidateBarState.Idle -> {
-                        if (currentRoute is KeyboardRoute.SchemaList && callbacks.onBack != null) {
+                        if (page is KeyboardPage.Overlay && page.route is OverlayRoute.SchemaList && callbacks.onBack != null) {
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
@@ -408,7 +413,7 @@ fun CandidateBar(
                         }
                     }
                 }
-                currentRoute is KeyboardRoute.CandidatePage -> {
+                page is KeyboardPage.Overlay && page.route is OverlayRoute.CandidatePage -> {
                     if (callbacks.onBack != null) {
                         Box(
                             modifier = Modifier
