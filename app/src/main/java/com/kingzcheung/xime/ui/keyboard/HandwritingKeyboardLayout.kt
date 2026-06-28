@@ -31,10 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.handwriting.HandwritingCandidate
 import com.kingzcheung.xime.handwriting.HandwritingEngine
-import kotlinx.coroutines.CoroutineScope
+import com.kingzcheung.xime.handwriting.StrokePoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -61,8 +58,8 @@ fun HandwritingKeyboardLayout(
     modifier: Modifier = Modifier,
     clearSignal: Int = 0,
 ) {
-    val strokes = remember { mutableStateListOf<List<Pair<Float, Float>>>() }
-    var currentStrokePoints by remember { mutableStateOf<List<Pair<Float, Float>>>(emptyList()) }
+    val strokes = remember { mutableStateListOf<List<StrokePoint>>() }
+    var currentStrokePoints by remember { mutableStateOf<List<StrokePoint>>(emptyList()) }
     var dragVersion by remember { mutableIntStateOf(0) }
     var lastStrokeEndMs by remember { mutableLongStateOf(0L) }
     var pressedButton by remember { mutableIntStateOf(-1) }
@@ -90,8 +87,9 @@ fun HandwritingKeyboardLayout(
         if (!HandwritingEngine.isInitialized()) return
         val snapshot = strokes.toList()
         if (snapshot.isEmpty()) return
+        val pairs = snapshot.map { stroke -> stroke.map { Pair(it.x, it.y) } }
         val result = withContext(Dispatchers.Default) {
-            HandwritingEngine.predict(snapshot, 20)
+            HandwritingEngine.predict(pairs, 20)
         }
         onCandidates?.invoke(result)
     }
@@ -158,38 +156,59 @@ fun HandwritingKeyboardLayout(
         key(dragVersion) {
             Canvas(Modifier.fillMaxSize()) {
                 val c = Color(0xFF333333)
-                fun segWidth(p0: Pair<Float, Float>, p1: Pair<Float, Float>): Float {
-                    val dx = p1.first - p0.first
-                    val dy = p1.second - p0.second
-                    val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-                    return when {
-                        dist < 4f -> 28f
-                        dist < 10f -> 22f
-                        dist < 20f -> 15f
-                        dist < 40f -> 10f
-                        else -> 7f
+                val minWidth = 12f
+                val maxWidth = 36f
+                val minSpeed = 0.3f
+                val maxSpeed = 3.0f
+
+                fun computeWidth(speed: Float, lastWidth: Float): Float {
+                    val raw = when {
+                        speed >= maxSpeed -> minWidth
+                        speed <= minSpeed -> maxWidth
+                        else -> maxWidth - (speed / maxSpeed) * maxWidth
                     }
+                    return raw * 0.35f + lastWidth * 0.65f
                 }
+
                 for (stroke in strokes) {
                     if (stroke.size == 1) {
-                        drawCircle(c, radius = 14f, center = androidx.compose.ui.geometry.Offset(stroke[0].first, stroke[0].second))
-                    }
-                    for (j in 1 until stroke.size) {
-                        drawLine(c,
-                            start = androidx.compose.ui.geometry.Offset(stroke[j - 1].first, stroke[j - 1].second),
-                            end = androidx.compose.ui.geometry.Offset(stroke[j].first, stroke[j].second),
-                            strokeWidth = segWidth(stroke[j - 1], stroke[j]),
-                            cap = StrokeCap.Round
-                        )
+                        drawCircle(c, radius = maxWidth / 2, center = androidx.compose.ui.geometry.Offset(stroke[0].x, stroke[0].y))
+                    } else {
+                        var lastWidth = maxWidth
+                        for (j in 1 until stroke.size) {
+                            val p0 = stroke[j - 1]
+                            val p1 = stroke[j]
+                            val dx = p1.x - p0.x
+                            val dy = p1.y - p0.y
+                            val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                            val dt = (p1.timeMs - p0.timeMs).coerceAtLeast(1L).toFloat() / 1000f
+                            val speed = dist / dt / 100f
+                            val w = computeWidth(speed, lastWidth)
+                            lastWidth = w
+                            drawLine(c,
+                                start = androidx.compose.ui.geometry.Offset(p0.x, p0.y),
+                                end = androidx.compose.ui.geometry.Offset(p1.x, p1.y),
+                                strokeWidth = w, cap = StrokeCap.Round
+                            )
+                        }
                     }
                 }
                 if (currentStrokePoints.size >= 2) {
+                    var lastWidth = maxWidth
                     for (j in 1 until currentStrokePoints.size) {
+                        val p0 = currentStrokePoints[j - 1]
+                        val p1 = currentStrokePoints[j]
+                        val dx = p1.x - p0.x
+                        val dy = p1.y - p0.y
+                        val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                        val dt = (p1.timeMs - p0.timeMs).coerceAtLeast(1L).toFloat() / 1000f
+                        val speed = dist / dt / 100f
+                        val w = computeWidth(speed, lastWidth)
+                        lastWidth = w
                         drawLine(c,
-                            start = androidx.compose.ui.geometry.Offset(currentStrokePoints[j - 1].first, currentStrokePoints[j - 1].second),
-                            end = androidx.compose.ui.geometry.Offset(currentStrokePoints[j].first, currentStrokePoints[j].second),
-                            strokeWidth = segWidth(currentStrokePoints[j - 1], currentStrokePoints[j]),
-                            cap = StrokeCap.Round
+                            start = androidx.compose.ui.geometry.Offset(p0.x, p0.y),
+                            end = androidx.compose.ui.geometry.Offset(p1.x, p1.y),
+                            strokeWidth = w, cap = StrokeCap.Round
                         )
                     }
                 }
@@ -245,11 +264,11 @@ fun HandwritingKeyboardLayout(
                                         lastStrokeEndMs = 0L
                                         dragged = true
                                         pressedButton = -1
-                                        currentStrokePoints = listOf(Pair(sx, sy))
+                                        currentStrokePoints = listOf(StrokePoint(sx, sy))
                                         dragVersion++
                                     }
                                 } else {
-                                    currentStrokePoints = currentStrokePoints + Pair(ch.position.x, ch.position.y)
+                                    currentStrokePoints = currentStrokePoints + StrokePoint(ch.position.x, ch.position.y)
                                     dragVersion++
                                 }
                             } else {
