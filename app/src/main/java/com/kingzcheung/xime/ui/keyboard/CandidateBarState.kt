@@ -17,6 +17,7 @@ sealed interface CandidateBarState {
         val candidates: List<String> = emptyList(),
         val comments: List<String> = emptyList(),
         val hasMore: Boolean = false,
+        val highlightIndex: Int = -1,
     ) : CandidateBarState
 
     data class EnglishCandidates(

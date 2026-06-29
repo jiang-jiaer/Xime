@@ -339,13 +339,14 @@ fun CandidateBar(
                     }
 
                     itemsIndexed(displayAssociation, key = { index, _ -> "assoc-$index" }) { index, candidate ->
+                        val assocState = state as? CandidateBarState.AssociationOnly
                         CandidateItem(
                             text = candidate,
                             index = -1,
                             onClick = { callbacks.onAssociationSelect?.invoke(index) },
                             textColor = visuals.textColor,
                             comment = displayComments.getOrElse(index) { "" },
-                            isSelected = false,
+                            isSelected = assocState?.highlightIndex == index,
                             accentColor = visuals.accentColor
                         )
                     }

@@ -160,6 +160,7 @@ fun KeyboardView(
                     CandidateBarState.AssociationOnly(
                         candidates = handwritingCandidates,
                         comments = handwritingComments,
+                        highlightIndex = 0,
                     )
                 } else {
                     CandidateBarState.from(
