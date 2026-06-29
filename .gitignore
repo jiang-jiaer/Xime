@@ -41,9 +41,6 @@ build/sherpa-onnx-*.tar.gz
 # Association model weights (large files, manually placed)
 app/src/main/assets/association_model
 
-# Pinyin bigram LM (binary, ~1.5MB) - 已 tracked，注释保留提醒
-# app/src/main/assets/pinyin_lm.bin
-
 /.kilo
 /.kotlin
 
@@ -57,4 +54,3 @@ plugins/kaomoji/build
 app/src/main/assets/plugins/*.apk
 
 /.skills
-app/src/main/jni/sherpa-onnx-src/

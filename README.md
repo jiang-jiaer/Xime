@@ -106,19 +106,6 @@ git submodule update --init --recursive
 ./gradlew assembleRelease
 ```
 
-### 拼音语言模型构建
-
-九宫格拼音解码依赖拼音二元语言模型 `app/src/main/assets/pinyin_lm.bin`，该文件不会提交到仓库，需手动生成：
-
-```bash
-# 克隆 RIME-LMDG 词典
-git clone https://github.com/amzxyz/RIME-LMDG-wanxiang.git
-
-# 构建语言模型
-python3 scripts/build_pinyin_lm.py \
-  --rime-lmdg-dir /path/to/RIME-LMDG-wanxiang/dicts
-```
-
 ### 本地语音识别构建
 
 项目支持本地离线语音识别（基于 sherpa-onnx）。首次构建时会自动下载并编译 JNI 库。
@@ -179,7 +166,6 @@ python3 scripts/build_pinyin_lm.py \
 
 - [Rime](https://rime.im/) - 中州韵输入法引擎
 - [Trime](https://github.com/osfans/trime) - 同文输入法，部分实现参考
-- [RIME-LMDG](https://github.com/amzxyz/RIME-LMDG) - 大规模语料词典，用于构建拼音二元语言模型
 - [Linux Do](https://linux.do) - 中文开发社区
 
 ## Star History
