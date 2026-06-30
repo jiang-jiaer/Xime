@@ -40,6 +40,7 @@ import com.kingzcheung.xime.keyboard.OverlayRoute
 import com.kingzcheung.xime.keyboard.PanelType
 import com.kingzcheung.xime.keyboard.ToolbarAction
 import com.kingzcheung.xime.keyboard.ToolbarButton
+import com.kingzcheung.xime.rime.T9InputController
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.ui.settings.SchemaListView
@@ -66,7 +67,7 @@ fun KeyboardView(
         else LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     SideEffect {
-        val active = (keyboardState is KeyboardLayoutState.Chinese || keyboardState is KeyboardLayoutState.Stroke)
+        val active = (keyboardState is KeyboardLayoutState.Chinese || keyboardState is KeyboardLayoutState.Stroke || keyboardState is KeyboardLayoutState.T9Pinyin)
             && page is KeyboardPage.Main && (page as KeyboardPage.Main).type == MainType.FULL
         callbacks.onKeyboardModeChange?.invoke(active)
     }
@@ -74,7 +75,11 @@ fun KeyboardView(
     LaunchedEffect(state.inputSessionId) {
         when {
             page !is KeyboardPage.Main -> viewModel.switchMain(MainType.FULL)
-            (page as KeyboardPage.Main).type == MainType.FULL -> viewModel.setKeyboardState(KeyboardLayoutState.Chinese)
+            (page as KeyboardPage.Main).type == MainType.FULL -> {
+                if (keyboardState !is KeyboardLayoutState.Number) {
+                    viewModel.setKeyboardState(initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId))
+                }
+            }
         }
     }
 
@@ -85,6 +90,29 @@ fun KeyboardView(
     }
 
     var savedNumberAsciiMode by remember { mutableStateOf<Boolean?>(null) }
+
+    val t9Controller = remember {
+        T9InputController(
+            onReplaceFullPinyin = { pinyin ->
+                callbacks.onT9ReplaceFullPinyin?.invoke(pinyin)
+            },
+            onQueryRimeComposition = null,
+            onRightCommitUndone = { count ->
+                callbacks.onT9RightCommitUndone?.invoke(count)
+            }
+        )
+    }
+
+    SideEffect {
+        callbacks.onT9RightCandidateWillBeSelected = { pinyin ->
+            t9Controller.onRightCandidateSelected(pinyin)
+            t9Controller.inputBuffer.isEmpty()
+        }
+    }
+
+    LaunchedEffect(state.t9ResetSignal) {
+        t9Controller.reset()
+    }
 
     LaunchedEffect(keyboardState) {
         if (keyboardState is KeyboardLayoutState.Number) {
@@ -356,9 +384,7 @@ fun KeyboardView(
                                 "mode_change_t9" -> {
                                     modeChangeTarget = KeyboardLayoutAction.SwitchToNumber
                                     SettingsPreferences.setModeChangeTargetIsNumber(context, true)
-                                    viewModel.setKeyboardState(keyboardState.transition(
-                                        KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
-                                    ))
+                                    viewModel.setKeyboardState(KeyboardLayoutState.T9Pinyin)
                                 }
                                 "mode_change_t26" -> {
                                     modeChangeTarget = KeyboardLayoutAction.SwitchToCommonSymbol
@@ -445,12 +471,33 @@ fun KeyboardView(
                                 else -> callbacks.onKeyPress(key, false)
                             }
                         }
+                        val t9OnKeyPress: (String) -> Unit = { key ->
+                            when (key) {
+                                "abc" -> viewModel.setKeyboardState(
+                                    initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId)
+                                )
+                                "number" -> {
+                                    callbacks.onT9SwitchAway?.invoke()
+                                    viewModel.setKeyboardState(keyboardState.transition(
+                                        KeyboardLayoutAction.SwitchToNumber, state.isAsciiMode
+                                    ))
+                                }
+                                "symbol" -> viewModel.showOverlay(OverlayRoute.Symbol)
+                                "emoji" -> viewModel.showOverlay(OverlayRoute.Emoji)
+                                "ime_switch" -> {
+                                    callbacks.onT9SwitchAway?.invoke()
+                                    callbacks.onKeyPress(key, false)
+                                }
+                                else -> callbacks.onKeyPress(key, false)
+                            }
+                        }
                         val currentOnKeyPress = when (keyboardState) {
                             is KeyboardLayoutState.Chinese,
                             is KeyboardLayoutState.English -> fullScreenOnKeyPress
                             is KeyboardLayoutState.Number -> numberOnKeyPress
                             is KeyboardLayoutState.CommonSymbol -> commonSymbolOnKeyPress
                             is KeyboardLayoutState.Stroke -> strokeOnKeyPress
+                            is KeyboardLayoutState.T9Pinyin -> t9OnKeyPress
                             is KeyboardLayoutState.Symbol -> symbolOnKeyPress
                         }
                         CompositionLocalProvider(LocalSuppressCursorMove provides suppressCursorMove) {
@@ -470,6 +517,7 @@ fun KeyboardView(
                                 onHandwritingButtonFeedback = { key -> callbacks.onKeyPressDown?.invoke(key) },
                                 handwritingClearSignal = handwritingClearSignal,
                                 onHandwritingLookupExit = { isHandwritingLookup = false },
+                                t9Controller = t9Controller,
                             )
                             if (state.keyboardBottomPaddingDp > 0) {
                                 Spacer(modifier = Modifier.height(state.keyboardBottomPaddingDp.dp))
@@ -640,7 +688,7 @@ fun KeyboardView(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = state.deploymentMessage.ifEmpty { "正在初始�?.." },
+                        text = state.deploymentMessage.ifEmpty { "正在初始�?.." },
                         color = keyTextColor,
                         style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
                     )

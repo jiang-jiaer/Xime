@@ -71,6 +71,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.kingzcheung.xime.MainActivity
 import com.kingzcheung.xime.association.AssociationManager
 import com.kingzcheung.xime.ui.keyboard.KeyboardCallbacks
+import com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
 import com.kingzcheung.xime.viewmodel.KeyboardViewModel
 import com.kingzcheung.xime.association.AssociationService
@@ -79,15 +80,18 @@ import com.kingzcheung.xime.plugin.ExtensionManager
 import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
+import com.kingzcheung.xime.rime.T9InputController
 import com.kingzcheung.xime.settings.SchemaConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.ui.keyboard.KeyboardView
+import com.kingzcheung.xime.ui.keyboard.isT9Schema
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import kotlin.math.roundToInt
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.XimeTheme
 import com.kingzcheung.xime.util.FileLogger
+import com.kingzcheung.xime.util.PreeditMergeHelper
 import com.kingzcheung.xime.keyboard.ActionExecutor
 import com.kingzcheung.xime.keyboard.HANDWRITING_SCHEMA_ID
 import kotlinx.coroutines.CoroutineScope
@@ -165,6 +169,10 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private var voiceRecordingStarted = false
     private var pendingVoiceAction: (() -> Unit)? = null
     private var lastClearedText: String = ""
+    /** 累积的 partial commit 文本列表（多段选词场景下逐段追加） */
+    private val t9PartialCommitTexts = mutableListOf<String>()
+    /** 键盘回调引用，用于在 RIME selectCandidate 前同步通知 T9 控制器 */
+    private var keyboardCallbacks: KeyboardCallbacks? = null
     private var isChineseMode = true
     private var currentEffectiveKeyboardHeight: Int = 0
     private var previousSchemaId: String = ""
@@ -764,6 +772,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 floatingOffsetX = state.floatingOffsetX,
                                 floatingOffsetY = state.floatingOffsetY,
                                 floatingMinOffsetY = actualNavBarDp,
+                                t9ResetSignal = state.t9ResetSignal,
+                                t9RightCandidateSelectedCount = state.t9RightCandidateSelectedCount,
+                                t9SelectedCandidatePinyin = state.t9SelectedCandidatePinyin,
                             )
                             val callbacks = remember(actualNavBarDp) {
                                 KeyboardCallbacks(
@@ -921,8 +932,42 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                         SettingsPreferences.setFloatingOffsetX(this@XimeInputMethodService, s.floatingOffsetX, isLandscape)
                                         SettingsPreferences.setFloatingOffsetY(this@XimeInputMethodService, s.floatingOffsetY, isLandscape)
                                     },
+                                    onT9ReplaceFullPinyin = { pinyin ->
+                                        when {
+                                            pinyin == T9InputController.CLEAR_COMPOSITION_ONLY -> {
+                                                // 仅清除 RIME composition，保留 partial commit 累积文本
+                                                // 场景：删除数字后 buffer 为空，但仍有 RightCommit 未撤销
+                                                rimeEngine.clearComposition()
+                                            }
+                                            pinyin == T9InputController.CLEAR_ALL -> {
+                                                // 彻底清除：清空 partial commit 累积文本、重置 RIME input buffer 并清除 composition
+                                                t9PartialCommitTexts.clear()
+                                                rimeEngine.setInput("")
+                                                rimeEngine.clearComposition()
+                                            }
+                                            pinyin.isEmpty() -> {
+                                                // 仅清除 RIME composition，保留 partial commit 累积文本
+                                                //（例如 UNDO_COMMIT 后重发剩余数字序列）
+                                                rimeEngine.clearComposition()
+                                            }
+                                            else -> {
+                                                rimeEngine.setInput(pinyin)
+                                            }
+                                        }
+                                        updateUI()
+                                    },
+                                    onT9RightCommitUndone = { count ->
+                                        currentInputConnection?.deleteSurroundingText(count, 0)
+                                        t9PartialCommitTexts.removeLastOrNull()
+                                    },
+                                    onT9SwitchAway = {
+                                        postRimeJob {
+                                            commitFirstCandidateAndClearT9()
+                                        }
+                                    },
                                 )
                             }
+                            keyboardCallbacks = callbacks
                             if (state.isFloatingMode && uiState.value.floatingOffsetY < floatingMinY) {
                                 uiState.value = uiState.value.copy(floatingOffsetY = floatingMinY)
                             }
@@ -1192,9 +1237,10 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
         )
 
-        // 重置键盘布局到初始状态，避免切换应用后仍残留之前的布局（如英文、数字、符号）
+        // 重置键盘布局到初始状态，避免切换应用后仍残留之前的布局（如英文、数字、符号）。
+        // 必须携带当前 schemaId，否则 T9/笔画等专用布局会被错误重置为默认全键盘。
         if (RimeEngine.isInitialized()) {
-            keyboardViewModel.resetKeyboard(rimeEngine.isAsciiMode())
+            keyboardViewModel.resetKeyboard(rimeEngine.isAsciiMode(), uiState.value.currentSchemaId)
         }
 
         // 先重置候选状态到初始值，避免前一 session 的残留状态影响新输入
@@ -1418,15 +1464,18 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
     
     private fun updateUI() {
-        highlightIndex.intValue = 0
-        val inputText = rimeEngine.getInput()
-        val candidatesWithComments = rimeEngine.getCandidatesWithComments()
-        val isAsciiMode = rimeEngine.isAsciiMode()
-        val hasNextPage = rimeEngine.hasNextPage()
-        val hasPrevPage = rimeEngine.hasPrevPage()
-        
+        // 一次性查询 RIME composition 全部状态，替代 getInput + getPreedit +
+        // getCandidatesWithComments + isAsciiMode + hasNextPage + hasPrevPage 的多次 JNI 调用。
+        val composition = rimeEngine.getComposition()
+        val inputText = composition.input
+        val preeditText = composition.preedit
+        val candidatesWithComments = composition.candidates.toList()
+        val isAsciiMode = composition.isAsciiMode
+        val hasNextPage = composition.hasNextPage
+        val hasPrevPage = composition.hasPrevPage
+
         val pendingEnglish = candidateState.value.pendingEnglishText
-        
+
         val (filteredTexts, filteredComments) = if (isAsciiMode) {
             val filtered = candidatesWithComments.filterNot { candidate ->
                 candidate.text.any { it.code in 0x4E00..0x9FFF }
@@ -1435,12 +1484,28 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         } else {
             candidatesWithComments.map { it.text } to candidatesWithComments.map { it.comment }
         }
-        
+
+        // 使用 preedit 文本（经过 preedit_format 和 lua_filter 处理）作为显示文本
+        // 对于 T9 九键方案，t9_preedit.lua 会将数字序列转为拼音
+        // 对于非 T9 方案，preedit 和 input 通常相同
+        val displayText = if (preeditText.isNotEmpty()) preeditText else inputText
+        // T9 模式：通过最长后缀重叠检测，将 partial commit 累积文本与 RIME pre-edit 智能拼接
+        val isT9Schema = isT9Schema(uiState.value.currentSchemaId)
+        val t9DisplayText = if (isT9Schema) {
+            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, displayText)
+        } else {
+            displayText
+        }
+        // T9 模式下，只要还有 partial commit 未最终上屏，就应保持 composing 状态，
+        // 以便预编辑区域继续显示已提交的候选文本（如场景 6 BS5 的"策"）
+        val isComposing = inputText.isNotEmpty() || (isT9Schema && t9PartialCommitTexts.isNotEmpty())
+
         candidateState.value = candidateState.value.copy(
-            inputText = inputText,
+            inputText = t9DisplayText,
+            preeditText = if (isT9Schema) t9DisplayText else preeditText,
             candidates = filteredTexts,
             candidateComments = filteredComments,
-            isComposing = inputText.isNotEmpty(),
+            isComposing = isComposing,
             associationCandidates = if ((isAsciiMode || !isChineseMode) && pendingEnglish.isEmpty()) emptyList() else candidateState.value.associationCandidates,
             isShowingRecentClipboard = false,
             hasNextPage = hasNextPage,
@@ -1465,9 +1530,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         val t0 = System.nanoTime()
         val isAsciiMode = result.isAsciiMode
         val candidatesWithComments = result.candidates
-        
+
         val pendingEnglish = candidateState.value.pendingEnglishText
-        
+
         val tFilter = System.nanoTime()
         val (filteredTexts, filteredComments) = if (isAsciiMode) {
             val filtered = candidatesWithComments.filterNot { candidate ->
@@ -1477,13 +1542,24 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         } else {
             candidatesWithComments.map { it.text } to candidatesWithComments.map { it.comment }
         }
-        
+
+        // 使用 preedit 文本（经过 preedit_format 和 lua_filter 处理）作为显示文本
+        // 对于 T9 九键方案，t9_preedit.lua 会将数字序列转为拼音
+        val displayText = if (result.preeditText.isNotEmpty()) result.preeditText else result.inputText
+        val isT9Schema = isT9Schema(uiState.value.currentSchemaId)
+        val t9DisplayText = if (isT9Schema) {
+            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, displayText)
+        } else {
+            displayText
+        }
+        val isComposing = result.inputText.isNotEmpty() || (isT9Schema && t9PartialCommitTexts.isNotEmpty())
+
         candidateState.value = candidateState.value.copy(
-            inputText = result.inputText,
-            preeditText = result.preeditText,
+            inputText = t9DisplayText,
+            preeditText = if (isT9Schema) t9DisplayText else result.preeditText,
             candidates = filteredTexts,
             candidateComments = filteredComments,
-            isComposing = result.inputText.isNotEmpty(),
+            isComposing = isComposing,
             associationCandidates = if ((isAsciiMode || !isChineseMode) && pendingEnglish.isEmpty()) emptyList() else candidateState.value.associationCandidates,
             isShowingRecentClipboard = false,
             hasNextPage = result.hasNextPage,
@@ -1540,6 +1616,51 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         }
     }
 
+    /**
+     * T9 键盘切换离开时：提交右侧候选词列表首位候选词并清理 T9 和 Rime 状态。
+     * 运行在 keyProcessingDispatcher 线程。
+     */
+    private suspend fun commitFirstCandidateAndClearT9() {
+        val isT9 = isT9Schema(uiState.value.currentSchemaId)
+        if (!isT9) return
+
+        val candState = candidateState.value
+        val candidates = candState.candidates
+
+        if (candidates.isNotEmpty()) {
+            if (rimeEngine.selectCandidate(0)) {
+                val committedText = rimeEngine.commit()
+                if (committedText.isNotEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        commitText(committedText)
+                    }
+                }
+            }
+        }
+
+        rimeEngine.clearComposition()
+
+        withContext(Dispatchers.Main) {
+            keyboardCallbacks?.onT9ReplaceFullPinyin?.invoke(T9InputController.CLEAR_ALL)
+            uiState.value = uiState.value.copy(
+                t9ResetSignal = uiState.value.t9ResetSignal + 1,
+                t9RightCandidateSelectedCount = 0,
+                t9SelectedCandidatePinyin = ""
+            )
+            t9PartialCommitTexts.clear()
+            candidateState.value = candidateState.value.copy(
+                inputText = "",
+                preeditText = "",
+                candidates = emptyList(),
+                candidateComments = emptyList(),
+                isComposing = false,
+                associationCandidates = emptyList(),
+                hasNextPage = false,
+                hasPrevPage = false
+            )
+        }
+    }
+
     private fun handleKeyPress(key: String, isShifted: Boolean) {
         val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY) {
             val state = uiState.value
@@ -1554,7 +1675,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     calculatorEngine.handleDelete()
                     updateCalculatorCandidates()
                     
-                    when {
+                    // 数字/符号键盘：直接发送系统退格，不经过 Rime
+                    // 防止 T9 残留状态被 Rime 退格修改导致 UI 不一致
+                    val layoutState = keyboardViewModel.keyboardState.value
+                    if (layoutState is KeyboardLayoutState.Number || layoutState is KeyboardLayoutState.Symbol) {
+                        withContext(Dispatchers.Main) {
+                            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+                        }
+                    } else when {
                         // 1. 英文待处理文本：逐个删除字符，重新加载联想
                         candState.pendingEnglishText.isNotEmpty() -> {
                             val pendingLen = candState.pendingEnglishText.length
@@ -1741,11 +1869,21 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             associationCandidates = emptyList(),
                             isComposing = false
                         )
+                        // T9 模式：同步重置 T9 控制器状态并清空 partial commit 累积文本，
+                        // 否则左侧候选区残留、下一轮输入会拼接旧 partial commit。
+                        if (isT9Schema(state.currentSchemaId)) {
+                            keyboardCallbacks?.onT9ReplaceFullPinyin?.invoke(T9InputController.CLEAR_ALL)
+                            uiState.value = uiState.value.copy(
+                                t9ResetSignal = uiState.value.t9ResetSignal + 1,
+                                t9RightCandidateSelectedCount = 0,
+                                t9SelectedCandidatePinyin = ""
+                            )
+                        }
                     }
                 }
                 "space" -> {
                     val pendingEnglish = candState.pendingEnglishText
-                    
+
                     if (pendingEnglish.isNotEmpty()) {
                         withContext(Dispatchers.Main) {
                             commitText(" ")
@@ -1755,26 +1893,19 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             )
                         }
                         Log.d(TAG, "Space: added space after pending English '$pendingEnglish'")
-                    } else if (rimeEngine.getInput().isNotEmpty()) {
-                        val candidates = rimeEngine.getCandidates()
-                        val textToCommit = if (candidates.isNotEmpty()) {
-                            candidates[0]
+                    } else if (candState.isComposing) {
+                        if (candState.candidates.isNotEmpty()) {
+                            selectCandidateAsync(0)
                         } else {
-                            rimeEngine.getInput()
+                            val input = candState.inputText
+                            if (input.isNotEmpty()) {
+                                withContext(Dispatchers.Main) {
+                                    commitText(input)
+                                }
+                                rimeEngine.clearComposition()
+                                needsUIUpdate = true
+                            }
                         }
-                        withContext(Dispatchers.Main) {
-                            commitText(textToCommit)
-                            candidateState.value = candidateState.value.copy(
-                                inputText = "",
-                                candidates = emptyList(),
-                                candidateComments = emptyList(),
-                                isComposing = false,
-                                hasNextPage = false,
-                                hasPrevPage = false,
-                                isShowingRecentClipboard = false
-                            )
-                        }
-                        rimeEngine.clearComposition()
                     } else {
                         withContext(Dispatchers.Main) {
                             commitText(" ")
@@ -1978,10 +2109,23 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         val selectedCandidate = if (index < candidateState.value.candidates.size) {
             candidateState.value.candidates[index]
         } else null
-        
+
+        val isT9 = isT9Schema(uiState.value.currentSchemaId)
+        val candidatePinyin = if (isT9 && index < candidateState.value.candidateComments.size) {
+            candidateState.value.candidateComments[index]
+        } else null
+
+        // 在 RIME 真正 select/commit 之前，先同步通知 T9 控制器消费数字。
+        // 控制器返回 true 表示输入序列已被该候选词完整消费，服务层应视为 full commit。
+        val fullyConsumed = if (isT9) {
+            keyboardCallbacks?.onT9RightCandidateWillBeSelected?.invoke(candidatePinyin) ?: false
+        } else {
+            false
+        }
+
         if (rimeEngine.selectCandidate(index)) {
             val committedText = rimeEngine.commit()
-            if (committedText.isNotEmpty()) {
+            if (committedText.isNotEmpty() || (isT9 && fullyConsumed && selectedCandidate != null)) {
                 if (SettingsPreferences.isSmartPredictionEnabled(this) && selectedCandidate != null && AssociationManager.isInitialized()) {
                     if (predictionManager.lastCommittedText.isNotEmpty()) {
                         val lastChar = predictionManager.lastCommittedText.last().toString()
@@ -1989,8 +2133,17 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         Log.d(TAG, "Learned: '$lastChar' + '$selectedCandidate'")
                     }
                 }
+                // T9 模式：将 partial commit 累积文本与 RIME committedText 合并后上屏，
+                // 避免之前 partial commit 的文本丢失
+                val textToMerge = if (committedText.isNotEmpty()) committedText else selectedCandidate!!
+                val fullCommitText = if (isT9) {
+                    PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, textToMerge)
+                } else {
+                    textToMerge
+                }
                 withContext(Dispatchers.Main) {
-                    commitText(committedText)
+                    commitText(fullCommitText)
+                    t9PartialCommitTexts.clear()
                     candidateState.value = candidateState.value.copy(
                         inputText = "",
                         candidates = emptyList(),
@@ -2000,9 +2153,25 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         hasPrevPage = false,
                         isShowingRecentClipboard = false
                     )
+                    uiState.value = uiState.value.copy(
+                        t9ResetSignal = uiState.value.t9ResetSignal + 1,
+                        t9RightCandidateSelectedCount = 0,
+                        t9SelectedCandidatePinyin = ""
+                    )
                 }
             } else {
                 withContext(Dispatchers.Main) {
+                    if (isT9) {
+                        // partial commit：把本次选中的候选文本追加到累积列表，供后续合并显示
+                        if (selectedCandidate != null) {
+                            t9PartialCommitTexts.add(selectedCandidate)
+                        }
+                        // 保留状态字段，供 UI 层感知右侧选词事件
+                        uiState.value = uiState.value.copy(
+                            t9RightCandidateSelectedCount = uiState.value.t9RightCandidateSelectedCount + 1,
+                            t9SelectedCandidatePinyin = candidatePinyin ?: ""
+                        )
+                    }
                     updateUI()
                 }
             }

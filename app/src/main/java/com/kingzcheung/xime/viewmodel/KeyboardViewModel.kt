@@ -62,6 +62,9 @@ data class KeyboardUiState(
     val floatingOffsetX: Int = 0,
     val floatingOffsetY: Int = 0,
     val floatingMinOffsetY: Int = 0,
+    val t9ResetSignal: Long = 0L,
+    val t9RightCandidateSelectedCount: Long = 0L,
+    val t9SelectedCandidatePinyin: String = "",
 )
 
 class KeyboardViewModel(application: Application) : AndroidViewModel(application) {

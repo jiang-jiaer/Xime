@@ -40,6 +40,16 @@ struct ProcessResult {
     bool hasPrevPage;
 };
 
+struct CompositionResult {
+    std::string input;
+    std::string preedit;
+    std::string committedText;
+    std::vector<std::pair<std::string, std::string>> candidates;
+    bool isAsciiMode;
+    bool hasNextPage;
+    bool hasPrevPage;
+};
+
 // Rime 单例类
 class Rime {
 public:
@@ -213,6 +223,67 @@ public:
             result.isAsciiMode = status.is_ascii_mode;
             rime->free_status(&status);
         }
+    }
+
+    bool setInput(const char* input) {
+        if (!rime || !session_id_) {
+            LOGE("setInput: rime or session not available");
+            return false;
+        }
+        if (!input || strlen(input) == 0) {
+            LOGD("setInput: empty input, clearing composition");
+            rime->clear_composition(session_id_);
+            return true;
+        }
+        LOGD("setInput: '%s'", input);
+        return rime->set_input(session_id_, input);
+    }
+
+    CompositionResult getComposition() {
+        CompositionResult result;
+        if (!rime || !session_id_) {
+            LOGE("getComposition: rime or session not available");
+            return result;
+        }
+
+        // 1. raw input
+        const char* input = rime->get_input(session_id_);
+        result.input = input ? input : "";
+
+        // 2. context: preedit + candidates + pagination
+        RIME_STRUCT(RimeContext, context);
+        if (rime->get_context(session_id_, &context)) {
+            if (context.composition.preedit) {
+                result.preedit = context.composition.preedit;
+            }
+            for (int i = 0; i < context.menu.num_candidates; ++i) {
+                const char* text = context.menu.candidates[i].text;
+                const char* comment = context.menu.candidates[i].comment;
+                result.candidates.push_back(std::make_pair(
+                    text ? text : "",
+                    comment ? comment : ""
+                ));
+            }
+            result.hasNextPage = !context.menu.is_last_page;
+            result.hasPrevPage = context.menu.page_no > 0;
+            rime->free_context(&context);
+        }
+
+        // 3. commit text（统一返回，避免调用方额外查询）
+        RIME_STRUCT(RimeCommit, commit);
+        if (rime->get_commit(session_id_, &commit)) {
+            result.committedText = commit.text ? commit.text : "";
+            rime->free_commit(&commit);
+        }
+
+        // 4. status: ascii mode
+        RIME_STRUCT(RimeStatus, status);
+        if (rime->get_status(session_id_, &status)) {
+            result.isAsciiMode = status.is_ascii_mode;
+            rime->free_status(&status);
+        }
+
+        return result;
     }
 
     const char* getInput() {
@@ -631,6 +702,8 @@ extern "C" {
 
 static jclass gRimeProcessResultClass = nullptr;
 static jmethodID gRimeProcessResultCtor = nullptr;
+static jclass gRimeCompositionClass = nullptr;
+static jmethodID gRimeCompositionCtor = nullptr;
 static jclass gRimeCandidateClass = nullptr;
 static jmethodID gRimeCandidateCtor = nullptr;
 
@@ -647,6 +720,13 @@ static void ensureJniCache(JNIEnv* env) {
         gRimeProcessResultClass = (jclass)env->NewGlobalRef(cls);
         gRimeProcessResultCtor = env->GetMethodID(gRimeProcessResultClass, "<init>",
             "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;[Lcom/kingzcheung/xime/rime/RimeCandidate;ZZZ)V");
+        env->DeleteLocalRef(cls);
+    }
+    if (!gRimeCompositionClass) {
+        jclass cls = env->FindClass("com/kingzcheung/xime/rime/RimeComposition");
+        gRimeCompositionClass = (jclass)env->NewGlobalRef(cls);
+        gRimeCompositionCtor = env->GetMethodID(gRimeCompositionClass, "<init>",
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;[Lcom/kingzcheung/xime/rime/RimeCandidate;ZZZ)V");
         env->DeleteLocalRef(cls);
     }
 }
@@ -806,6 +886,68 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeGetProcessResult(
     env->DeleteLocalRef(candidateArray);
 
     return jResult;
+}
+
+// 设置输入字符串（替代逐字符 processKey，减少 JNI 调用次数）
+JNIEXPORT jboolean JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativeSetInput(
+    JNIEnv* env,
+    jobject thiz,
+    jstring input
+) {
+    const char* input_str = env->GetStringUTFChars(input, nullptr);
+    if (!input_str) {
+        LOGE("nativeSetInput: null input");
+        return JNI_FALSE;
+    }
+    bool result = Rime::Instance().setInput(input_str);
+    env->ReleaseStringUTFChars(input, input_str);
+    return result ? JNI_TRUE : JNI_FALSE;
+}
+
+// 一次性获取当前 composition 全部信息：input/preedit/commit/candidates/paging/ascii_mode
+// 将 updateUI 所需的多次 JNI 查询合并为一次，减少 JNI 往返开销。
+JNIEXPORT jobject JNICALL
+Java_com_kingzcheung_xime_rime_RimeEngine_nativeGetComposition(
+    JNIEnv* env,
+    jobject thiz
+) {
+    ensureJniCache(env);
+
+    CompositionResult result = Rime::Instance().getComposition();
+
+    jobjectArray candidateArray = env->NewObjectArray(
+        result.candidates.size(), gRimeCandidateClass, nullptr);
+
+    for (size_t i = 0; i < result.candidates.size(); ++i) {
+        jstring text = env->NewStringUTF(result.candidates[i].first.c_str());
+        jstring comment = env->NewStringUTF(result.candidates[i].second.c_str());
+        jobject candidate = env->NewObject(gRimeCandidateClass, gRimeCandidateCtor, text, comment);
+        env->SetObjectArrayElement(candidateArray, i, candidate);
+        env->DeleteLocalRef(text);
+        env->DeleteLocalRef(comment);
+        env->DeleteLocalRef(candidate);
+    }
+
+    jstring jInput = env->NewStringUTF(result.input.c_str());
+    jstring jPreedit = env->NewStringUTF(result.preedit.c_str());
+    jstring jCommitted = env->NewStringUTF(result.committedText.c_str());
+
+    jobject jComposition = env->NewObject(gRimeCompositionClass, gRimeCompositionCtor,
+        jInput,
+        jPreedit,
+        jCommitted,
+        candidateArray,
+        result.hasNextPage ? JNI_TRUE : JNI_FALSE,
+        result.hasPrevPage ? JNI_TRUE : JNI_FALSE,
+        result.isAsciiMode ? JNI_TRUE : JNI_FALSE);
+
+    env->DeleteLocalRef(jInput);
+    env->DeleteLocalRef(jPreedit);
+    env->DeleteLocalRef(jCommitted);
+    env->DeleteLocalRef(candidateArray);
+
+    return jComposition;
 }
 
 // 获取候选词列表
