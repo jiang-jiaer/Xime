@@ -938,6 +938,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                         floatingCardBounds[1] = top
                                         floatingCardBounds[2] = right
                                         floatingCardBounds[3] = bottom
+                                    },
                                     onT9ReplaceFullPinyin = { pinyin ->
                                         when {
                                             pinyin == T9InputController.CLEAR_COMPOSITION_ONLY -> {
