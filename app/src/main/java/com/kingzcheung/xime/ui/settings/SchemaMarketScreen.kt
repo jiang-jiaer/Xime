@@ -368,32 +368,29 @@ private fun SchemeCard(
                 }
             }
             Spacer(Modifier.height(10.dp))
+            val versionForSize = scheme.versions.firstOrNull { it.version == selectedVersion }
+            val sizeLabel = versionForSize?.size?.ifBlank {
+                versionForSize.downloadUrls.firstOrNull { it.size.isNotBlank() }?.size
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (sizeLabel != null) {
+                    Text(
+                        "大小: $sizeLabel",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+                Spacer(Modifier.weight(1f))
                 when {
                     downloading -> {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.End,
-                        ) {
-                            if (downloadProgress > 0f) {
-                                LinearProgressIndicator(
-                                    progress = { downloadProgress },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 6.dp)
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp)),
-                                )
-                            }
+                        OutlinedButton(onClick = onDownload, enabled = false) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    "下载中 ${(downloadProgress * 100).toInt()}%",
-                                    style = MaterialTheme.typography.labelMedium,
-                                )
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(6.dp))
+                                Text("下载中 ${(downloadProgress * 100).toInt()}%")
                             }
                         }
                     }
@@ -410,7 +407,7 @@ private fun SchemeCard(
                         Text("需 App ≥ ${item.minAppVersion}")
                     }
 
-                    downloaded && !installed -> Button(onClick = onInstall) {
+                    downloaded && !installed -> OutlinedButton(onClick = onInstall) {
                         Text("安装")
                     }
 
@@ -440,11 +437,11 @@ private fun SchemeCard(
                             Spacer(Modifier.width(8.dp))
                             Text("部署中…", style = MaterialTheme.typography.labelMedium)
                         } else {
-                            Button(onClick = onDeploy) { Text("部署") }
+                            OutlinedButton(onClick = onDeploy) { Text("部署") }
                         }
                     }
 
-                    else -> Button(onClick = onDownload) {
+                    else -> OutlinedButton(onClick = onDownload) {
                         Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("下载")
