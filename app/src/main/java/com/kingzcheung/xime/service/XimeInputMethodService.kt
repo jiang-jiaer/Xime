@@ -1996,7 +1996,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     // 字母键不进入此分支（即使 pendingEnglish 非空），需要继续积累编码
                     if (pendingEnglish.isNotEmpty() && !key.matches(Regex("[a-zA-Z]"))) {
                         withContext(Dispatchers.Main) {
-                            commitText(key)
+                            commitText(if (isShifted) (shiftedSymbol(key, !state.isAsciiMode) ?: key) else key)
                             candidateState.value = candidateState.value.copy(
                                 pendingEnglishText = "",
                                 associationCandidates = emptyList()
@@ -2005,55 +2005,82 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         Log.d(TAG, "Symbol: added '$key' after pending English '$pendingEnglish'")
                         needsUIUpdate = true
                     } else {
-                        val char = if (isShifted) key.uppercase() else key
+                        val isChinese = !state.isAsciiMode
+                        val char = if (isShifted) (shiftedSymbol(key, isChinese) ?: key.uppercase()) else key
                         val keyCode = key.lowercase()[0].code
                         val mask = if (isShifted) KeyEvent.META_SHIFT_ON else 0
                         val isLetter = key.matches(Regex("[a-zA-Z]"))
-                        val isShiftedChinese = isShifted && !state.isAsciiMode && isLetter
+                        val isShiftedChinese = isShifted && isChinese && isLetter
 
-                        val processed = rimeEngine.processKey(keyCode, mask)
-                        if (processed) {
-                            val result = rimeEngine.getProcessResult(processed)
-                            if (isShiftedChinese && result.committedText != char) {
-                                rimeEngine.clearComposition()
-                                committedText = char
-                                needsUIUpdate = true
-                                Log.d(TAG, "Shift+letter in Chinese mode: Rime consumed key but didn't produce uppercase, committing '$char' directly")
-                            } else {
-                                uiEventChannel.trySend {
-                                    if (result.committedText.isNotEmpty()) commitText(result.committedText)
-                                    updateUIWithResult(result)
-                                    if (calculatorEngine.isActive()) updateCalculatorCandidates()
-                                }
-                            }
-                        } else {
-                            val isAscii = state.isAsciiMode
-                            if (!candState.isComposing || isShiftedChinese) {
-                                if (isAscii) {
-                                    val charToCommit = if (isShifted) char.uppercase() else char.lowercase()
-                                    val currentPending = candState.pendingEnglishText
-                                    val newPending = currentPending + charToCommit
+                        // Shifted non-letter keys: send character code to Rime (like soft keyboard does),
+                        // avoiding Rime misinterpreting physical keycodes as internal actions.
+                        if (isShifted && !isLetter) {
+                            if (char.length == 1) {
+                                val charCode = char[0].code
+                                val processed = rimeEngine.processKey(charCode, 0)
+                                if (processed) {
+                                    val result = rimeEngine.getProcessResult(processed)
                                     uiEventChannel.trySend {
-                                        commitText(charToCommit)
-                                        candidateState.value = candidateState.value.copy(
-                                            pendingEnglishText = newPending,
-                                            associationCandidates = emptyList()
-                                        )
+                                        if (result.committedText.isNotEmpty()) commitText(result.committedText)
+                                        updateUIWithResult(result)
+                                        if (calculatorEngine.isActive()) updateCalculatorCandidates()
                                     }
-                                    needsUIUpdate = true
-                                    Log.d(TAG, "English mode: committed '$charToCommit', pending text '$newPending'")
+                                    Log.d(TAG, "Shift+symbol: Rime processed charCode=$charCode, result='${result.committedText}'")
                                 } else {
                                     committedText = char
                                     needsUIUpdate = true
+                                    Log.d(TAG, "Shift+symbol: Rime unprocessed, committing '$char' directly")
                                 }
                             } else {
-                                val candidateText = if (rimeEngine.selectCandidate(0)) {
-                                    rimeEngine.commit()
-                                } else {
-                                    ""
-                                }
-                                committedText = candidateText + char
+                                committedText = char
                                 needsUIUpdate = true
+                                Log.d(TAG, "Shift+symbol: multi-char '$char' committed directly")
+                            }
+                        } else {
+                            val processed = rimeEngine.processKey(keyCode, mask)
+                            if (processed) {
+                                val result = rimeEngine.getProcessResult(processed)
+                                if (isShiftedChinese && result.committedText != char) {
+                                    rimeEngine.clearComposition()
+                                    committedText = char
+                                    needsUIUpdate = true
+                                    Log.d(TAG, "Shift+letter in Chinese mode: Rime consumed key but didn't produce uppercase, committing '$char' directly")
+                                } else {
+                                    uiEventChannel.trySend {
+                                        if (result.committedText.isNotEmpty()) commitText(result.committedText)
+                                        updateUIWithResult(result)
+                                        if (calculatorEngine.isActive()) updateCalculatorCandidates()
+                                    }
+                                }
+                            } else {
+                                val isAscii = state.isAsciiMode
+                                if (!candState.isComposing || isShiftedChinese) {
+                                    if (isAscii) {
+                                        val charToCommit = if (isShifted) char.uppercase() else char.lowercase()
+                                        val currentPending = candState.pendingEnglishText
+                                        val newPending = currentPending + charToCommit
+                                        uiEventChannel.trySend {
+                                            commitText(charToCommit)
+                                            candidateState.value = candidateState.value.copy(
+                                                pendingEnglishText = newPending,
+                                                associationCandidates = emptyList()
+                                            )
+                                        }
+                                        needsUIUpdate = true
+                                        Log.d(TAG, "English mode: committed '$charToCommit', pending text '$newPending'")
+                                    } else {
+                                        committedText = char
+                                        needsUIUpdate = true
+                                    }
+                                } else {
+                                    val candidateText = if (rimeEngine.selectCandidate(0)) {
+                                        rimeEngine.commit()
+                                    } else {
+                                        ""
+                                    }
+                                    committedText = candidateText + char
+                                    needsUIUpdate = true
+                                }
                             }
                         }
                     }
@@ -2679,6 +2706,59 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         }
     }
     
+    private fun shiftedSymbol(key: String, chineseMode: Boolean = false): String? {
+        if (chineseMode) {
+            return when (key) {
+                "1" -> "！"
+                "2" -> "@"
+                "3" -> "#"
+                "4" -> "$"
+                "5" -> "%"
+                "6" -> "^"
+                "7" -> "&"
+                "8" -> "*"
+                "9" -> "（"
+                "0" -> "）"
+                "-" -> "——"
+                "=" -> "+"
+                "[" -> "「"
+                "]" -> "」"
+                "\\" -> "、"
+                ";" -> "："
+                "'" -> "\""
+                "," -> "《"
+                "." -> "》"
+                "/" -> "？"
+                "`" -> "～"
+                else -> null
+            }
+        }
+        return when (key) {
+            "`" -> "~"
+            "1" -> "!"
+            "2" -> "@"
+            "3" -> "#"
+            "4" -> "$"
+            "5" -> "%"
+            "6" -> "^"
+            "7" -> "&"
+            "8" -> "*"
+            "9" -> "("
+            "0" -> ")"
+            "-" -> "_"
+            "=" -> "+"
+            "[" -> "{"
+            "]" -> "}"
+            "\\" -> "|"
+            ";" -> ":"
+            "'" -> "\""
+            "," -> "<"
+            "." -> ">"
+            "/" -> "?"
+            else -> null
+        }
+    }
+
     private fun keyCodeToKey(keyCode: Int, isShifted: Boolean): String? {
         return when (keyCode) {
             KeyEvent.KEYCODE_A -> if (isShifted) "A" else "a"
