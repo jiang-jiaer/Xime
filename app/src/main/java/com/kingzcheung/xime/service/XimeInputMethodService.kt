@@ -814,6 +814,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                     onKeyPressDown = { key ->
                                         feedbackManager.performKeyPressDownEffect(key, view)
                                     },
+                                    onKeyRelease = { key ->
+                                        feedbackManager.hapticFeedback(view, keyUp = true)
+                                    },
                                     onCandidateSelect = { index ->
                                         selectCandidate(index)
                                     },

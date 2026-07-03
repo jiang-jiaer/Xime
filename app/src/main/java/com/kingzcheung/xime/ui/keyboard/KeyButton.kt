@@ -79,6 +79,7 @@ fun KeyButton(
     onSwipeStateChange: ((SwipeState) -> Unit)? = null,
     fontSize: androidx.compose.ui.unit.TextUnit? = null,
     onPress: (() -> Unit)? = null,
+    onRelease: (() -> Unit)? = null,
     /** 长按回调（含震动反馈），点按仍走 [onClick] */
     onLongClick: (() -> Unit)? = null,
     /** 右上角角标文字（如 T9 数字键的数字浮标） */
@@ -101,6 +102,7 @@ fun KeyButton(
     val view = LocalView.current
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnLongClick by rememberUpdatedState(onLongClick)
+    val currentOnRelease by rememberUpdatedState(onRelease)
     val swipeUpThreshold = with(density) { (-50).dp.toPx() }
     val swipeDownThreshold = with(density) { 50.dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold
@@ -142,6 +144,7 @@ fun KeyButton(
                             currentOnClick()
                         }
                         isPressed = false
+                        currentOnRelease?.invoke()
                         dragOffsetX = 0f
                         dragOffsetY = 0f
                         hasTriggeredSwipeUp = false
@@ -157,6 +160,7 @@ fun KeyButton(
                             currentOnClick()
                         }
                         isPressed = false
+                        currentOnRelease?.invoke()
                         dragOffsetX = 0f
                         dragOffsetY = 0f
                         hasTriggeredSwipeUp = false
@@ -210,6 +214,7 @@ fun KeyButton(
                             onPress?.invoke()
                             tryAwaitRelease()
                             isPressed = false
+                            currentOnRelease?.invoke()
                         },
                         onTap = {
                             if (!dragActivated && !hasTriggeredSwipeUp && !hasTriggeredSwipeDown) onClick()
@@ -223,6 +228,7 @@ fun KeyButton(
                             onPress?.invoke()
                             tryAwaitRelease()
                             isPressed = false
+                            currentOnRelease?.invoke()
                         },
                         onTap = {
                             if (!dragActivated && !hasTriggeredSwipeUp && !hasTriggeredSwipeDown && !longPressActivated) {
@@ -752,6 +758,7 @@ fun SwipeableIconKeyButton(
     onSwipe: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     onPress: (() -> Unit)? = null,
+    onRelease: (() -> Unit)? = null,
     // 上滑/下滑/左滑增强
     swipeUpLabel: String? = null,
     swipeDownLabel: String? = null,
@@ -780,6 +787,7 @@ fun SwipeableIconKeyButton(
     var buttonBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
     var dragActivated by remember { mutableStateOf(false) }
     val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnRelease by rememberUpdatedState(onRelease)
     
     val density = LocalDensity.current
     val swipeUpThreshold = with(density) { (-50).dp.toPx() }
@@ -827,6 +835,7 @@ fun SwipeableIconKeyButton(
                         onPress?.invoke()
                         tryAwaitRelease()
                         isPressed = false
+                        currentOnRelease?.invoke()
                         isLongPress = false
                     },
                     onTap = {
@@ -876,6 +885,7 @@ fun SwipeableIconKeyButton(
                         }
                         dragActivated = false
                         isPressed = false
+                        currentOnRelease?.invoke()
                         dragOffsetY = 0f
                         dragOffsetX = 0f
                         hasTriggeredSwipe = false
@@ -894,6 +904,7 @@ fun SwipeableIconKeyButton(
                         currentOnClick()
                         dragActivated = false
                         isPressed = false
+                        currentOnRelease?.invoke()
                         dragOffsetY = 0f
                         dragOffsetX = 0f
                         hasTriggeredSwipe = false
