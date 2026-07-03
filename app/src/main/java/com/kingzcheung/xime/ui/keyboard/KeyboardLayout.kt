@@ -135,6 +135,7 @@ fun KeyboardLayout(
     val isSttEnabled = uiState.isSttEnabled
     val isVoiceMode = uiState.isVoiceMode
     val onKeyPressDown = callbacks.onKeyPressDown
+    val onKeyRelease = callbacks.onKeyRelease
     val onVoiceModeChange = callbacks.onVoiceModeChange
     val onCommitText = callbacks.onCommitText
     val onGestureAction: (GestureAction, String) -> Unit = { action, value ->
@@ -297,6 +298,7 @@ fun KeyboardLayout(
                                     )
                                 },
                                 onKeyPressDown = onKeyPressDown,
+                                onKeyRelease = onKeyRelease,
                                 swipeDownHintsEnabled = effectiveSwipeDownHintsEnabled,
                                 swipeUpHintsEnabled = swipeUpHintsEnabled,
                                 onCommitText = onCommitText,
@@ -342,6 +344,7 @@ fun KeyboardLayout(
                                     )
                                 },
                                 onKeyPressDown = onKeyPressDown,
+                                onKeyRelease = onKeyRelease,
                                 swipeDownHintsEnabled = effectiveSwipeDownHintsEnabled,
                                 swipeUpHintsEnabled = swipeUpHintsEnabled,
                                 onCommitText = onCommitText,
@@ -429,6 +432,7 @@ fun KeyboardLayout(
 
                                     val onClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
                                     val onPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
+                                    val onRelease: (() -> Unit)? = remember(key, onKeyRelease) { { onKeyRelease?.invoke(key); Unit } }
                                     val onSwipeDown = if (!isAsciiMode && swipeDownAction != null && swipeDownLabel != null) {
                                         remember(key, onKeyPress, onGestureAction, onCommitText, swipeDownAction, swipeDownValue, swipeDownLabel) {
                                             val label = swipeDownLabel
@@ -471,6 +475,7 @@ fun KeyboardLayout(
                                         onSwipeDown = onSwipeDown,
                                         onSwipeStateChange = onSwipeStateChange,
                                         onPress = onPress,
+                                        onRelease = onRelease,
                                         onLongPressSelect = onLongPressSelect,
                                         longPressItems = longPressLabels,
                                         shadowEnabled = shadowEnabled,
@@ -493,6 +498,7 @@ fun KeyboardLayout(
                                 onSwipe = { onKeyPress("clear_composition") },
                                 onLongClick = { onKeyPress("delete") },
                                 onPress = { onKeyPressDown?.invoke("delete") },
+                                onRelease = { onKeyRelease?.invoke("delete") },
                                 swipeUpLabel = "上滑清空",
                                 swipeDownLabel = "下滑撤回",
                                 onSwipeUp = { onKeyPress("clear_all") },
@@ -537,6 +543,7 @@ fun KeyboardLayout(
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(1.2f),
                                 onPress = { onKeyPressDown?.invoke("mode_change") },
+                                onRelease = { onKeyRelease?.invoke("mode_change") },
                                 onLongPressSelect = { label -> onKeyPress(if (label == "number") "mode_change_number" else "mode_change_common_symbol") },
                                 longPressItems = listOf("number", "common_symbol"),
                                 longPressDrawableIds = listOf(
@@ -620,6 +627,7 @@ fun KeyboardLayout(
                                     iconColor = keyTextColor,
                                     modifier = Modifier.weight(0.8f),
                                     onPress = { onKeyPressDown?.invoke(k2TapValue) },
+                                    onRelease = { onKeyRelease?.invoke(k2TapValue) },
                                     shadowEnabled = shadowEnabled,
                                     shadowElevation = shadowElevation,
                                     shadowShapeRadius = shadowShapeRadius,
@@ -640,6 +648,7 @@ fun KeyboardLayout(
                                         processSwipeState(state, bounds)
                                     },
                                     onPress = { onKeyPressDown?.invoke(k2TapValue) },
+                                    onRelease = { onKeyRelease?.invoke(k2TapValue) },
                                     onLongPressSelect = k2OnLongPressSelect,
                                     longPressItems = k2LongPressLabels,
                                     shadowEnabled = shadowEnabled,
@@ -652,6 +661,7 @@ fun KeyboardLayout(
                         // 空格键 - 支持长按语音（硬编码）
                         val currentOnKeyPress by rememberUpdatedState(onKeyPress)
                         val currentOnKeyPressDown by rememberUpdatedState(onKeyPressDown)
+                        val currentOnKeyRelease by rememberUpdatedState(onKeyRelease)
                         val currentOnVoiceModeChange by rememberUpdatedState(onVoiceModeChange)
                         val scope = rememberCoroutineScope()
                         val spaceShadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
@@ -689,6 +699,7 @@ fun KeyboardLayout(
 
                                         waitForUpOrCancellation()
                                         longPressJob.cancel()
+                                        currentOnKeyRelease?.invoke("space")
 
                                         if (!longPressTriggered) {
                                             currentOnKeyPress("space")
@@ -826,6 +837,7 @@ fun KeyboardLayout(
                                     iconColor = keyTextColor,
                                     modifier = Modifier.weight(0.8f),
                                     onPress = { onKeyPressDown?.invoke(k4TapValue) },
+                                    onRelease = { onKeyRelease?.invoke(k4TapValue) },
                                     shadowEnabled = shadowEnabled,
                                     shadowElevation = shadowElevation,
                                     shadowShapeRadius = shadowShapeRadius,
@@ -846,6 +858,7 @@ fun KeyboardLayout(
                                         processSwipeState(state, bounds)
                                     },
                                     onPress = { onKeyPressDown?.invoke(k4TapValue) },
+                                    onRelease = { onKeyRelease?.invoke(k4TapValue) },
                                     onLongPressSelect = k4OnLongPressSelect,
                                     longPressItems = k4LongPressLabels,
                                     shadowEnabled = shadowEnabled,
@@ -862,6 +875,7 @@ fun KeyboardLayout(
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(1.2f),
                                 onPress = { onKeyPressDown?.invoke("enter") },
+                                onRelease = { onKeyRelease?.invoke("enter") },
                                 shadowEnabled = shadowEnabled,
                                 shadowElevation = shadowElevation,
                                 shadowShapeRadius = shadowShapeRadius,
@@ -969,6 +983,7 @@ fun KeyboardRowWithConfig(
     modifier: Modifier = Modifier,
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
     onKeyPressDown: ((String) -> Unit)? = null,
+    onKeyRelease: ((String) -> Unit)? = null,
     swipeDownHintsEnabled: Boolean = true,
     swipeUpHintsEnabled: Boolean = true,
     onCommitText: ((String) -> Unit)? = null,
@@ -1019,6 +1034,7 @@ fun KeyboardRowWithConfig(
 
             val onClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
             val onPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
+            val onRelease: (() -> Unit)? = remember(key, onKeyRelease) { { onKeyRelease?.invoke(key); Unit } }
             val onSwipeDown: ((String) -> Unit)? = if (swipeDownAction != null && swipeDownHintsEnabled && swipeDownLabel != null) {
                 remember(key, onKeyPress, onGestureAction, onCommitText, swipeDownAction, swipeDownValue, swipeDownLabel) {
                     val label = swipeDownLabel
@@ -1060,6 +1076,7 @@ fun KeyboardRowWithConfig(
                 onSwipeDown = onSwipeDown,
                 onSwipeStateChange = onSwipeStateChange,
                 onPress = onPress,
+                onRelease = onRelease,
                 onLongPressSelect = onLongPressSelect,
                 longPressItems = longPressLabels,
                 fontSize = config.fontSize,
@@ -1216,6 +1233,7 @@ private fun LandscapeKeyboardContent(
     val schemaName = uiState.schemaName
     val enterKeyText = uiState.enterKeyText
     val onKeyPressDown = callbacks.onKeyPressDown
+    val onKeyRelease = callbacks.onKeyRelease
     val onCommitText = callbacks.onCommitText
     val onGestureAction: (GestureAction, String) -> Unit = { action, value ->
         when (action) {
@@ -1269,6 +1287,7 @@ private fun LandscapeKeyboardContent(
                     ),
                     isShifted = visualIsShifted,
                     onKeyPressDown = onKeyPressDown,
+                    onKeyRelease = onKeyRelease,
                     swipeDownHintsEnabled = swipeDownHintsEnabled,
                     swipeUpHintsEnabled = swipeUpHintsEnabled,
                     onCommitText = onCommitText,
@@ -1296,6 +1315,7 @@ private fun LandscapeKeyboardContent(
                     ),
                     isShifted = visualIsShifted,
                     onKeyPressDown = onKeyPressDown,
+                    onKeyRelease = onKeyRelease,
                     swipeDownHintsEnabled = swipeDownHintsEnabled,
                     swipeUpHintsEnabled = swipeUpHintsEnabled,
                     onCommitText = onCommitText,
@@ -1323,6 +1343,7 @@ private fun LandscapeKeyboardContent(
                     ),
                     isShifted = visualIsShifted,
                     onKeyPressDown = onKeyPressDown,
+                    onKeyRelease = onKeyRelease,
                     swipeDownHintsEnabled = swipeDownHintsEnabled,
                     swipeUpHintsEnabled = swipeUpHintsEnabled,
                     onCommitText = onCommitText,
@@ -1436,6 +1457,7 @@ private fun LandscapeKeyboardContent(
                     ),
                     isShifted = visualIsShifted,
                     onKeyPressDown = onKeyPressDown,
+                    onKeyRelease = onKeyRelease,
                     swipeDownHintsEnabled = swipeDownHintsEnabled,
                     swipeUpHintsEnabled = swipeUpHintsEnabled,
                     onCommitText = onCommitText,
@@ -1460,6 +1482,7 @@ private fun LandscapeKeyboardContent(
                     ),
                     isShifted = visualIsShifted,
                     onKeyPressDown = onKeyPressDown,
+                    onKeyRelease = onKeyRelease,
                     swipeDownHintsEnabled = swipeDownHintsEnabled,
                     swipeUpHintsEnabled = swipeUpHintsEnabled,
                     onCommitText = onCommitText,
@@ -1486,6 +1509,7 @@ private fun LandscapeKeyboardContent(
                         ),
                         isShifted = visualIsShifted,
                         onKeyPressDown = onKeyPressDown,
+                        onKeyRelease = onKeyRelease,
                         swipeDownHintsEnabled = swipeDownHintsEnabled,
                         swipeUpHintsEnabled = swipeUpHintsEnabled,
                         onCommitText = onCommitText,
@@ -1506,6 +1530,7 @@ private fun LandscapeKeyboardContent(
                     onSwipe = { onKeyPress("clear_composition") },
                     onLongClick = { onKeyPress("delete") },
                     onPress = { onKeyPressDown?.invoke("delete") },
+                    onRelease = { onKeyRelease?.invoke("delete") },
                     swipeUpLabel = "上滑清空",
                     swipeDownLabel = "下滑撤回",
                     onSwipeUp = { onKeyPress("clear_all") },
@@ -1541,6 +1566,7 @@ private fun LandscapeKeyboardContent(
                     textColor = keyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("mode_change") },
+                    onRelease = { onKeyRelease?.invoke("mode_change") },
                     onLongPressSelect = { label -> onKeyPress(if (label == "number") "mode_change_number" else "mode_change_common_symbol") },
                     longPressItems = listOf("number", "common_symbol"),
                     longPressDrawableIds = listOf(
@@ -1570,6 +1596,7 @@ private fun LandscapeKeyboardContent(
                         iconColor = keyTextColor,
                         modifier = Modifier.weight(0.8f),
                         onPress = { onKeyPressDown?.invoke(k4Value) },
+                        onRelease = { onKeyRelease?.invoke(k4Value) },
                         shadowEnabled = shadowEnabled,
                         shadowElevation = shadowElevation,
                         shadowShapeRadius = shadowShapeRadius,
@@ -1593,6 +1620,7 @@ private fun LandscapeKeyboardContent(
                         swipeText = k4SwipeLabel,
                         onSwipe = if (k4SwipeValue != null) { { onKeyPress(k4SwipeValue) } } else null,
                         onPress = { onKeyPressDown?.invoke(k4Value) },
+                        onRelease = { onKeyRelease?.invoke(k4Value) },
                         shadowEnabled = shadowEnabled,
                         shadowElevation = shadowElevation,
                         shadowShapeRadius = shadowShapeRadius,
@@ -1605,6 +1633,7 @@ private fun LandscapeKeyboardContent(
                     textColor = keyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("enter") },
+                    onRelease = { onKeyRelease?.invoke("enter") },
                     shadowEnabled = shadowEnabled,
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
@@ -1631,6 +1660,7 @@ fun CompactSwipeableKeyButton(
     onSwipe: ((String) -> Unit)? = null,
     onSwipeDown: ((String) -> Unit)? = null,
     onPress: (() -> Unit)? = null,
+    onRelease: (() -> Unit)? = null,
     onLongPressSelect: ((String) -> Unit)? = null,
     longPressItems: List<String>? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
@@ -1656,6 +1686,7 @@ fun CompactSwipeableKeyButton(
     val currentOnSwipeDown by rememberUpdatedState(onSwipeDown)
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPress by rememberUpdatedState(onPress)
+    val currentOnRelease by rememberUpdatedState(onRelease)
     val currentOnLongPressSelect by rememberUpdatedState(onLongPressSelect)
     val currentLongPressItems by rememberUpdatedState(longPressItems)
     val currentOnSwipeStateChange by rememberUpdatedState(onSwipeStateChange)
@@ -1699,6 +1730,7 @@ fun CompactSwipeableKeyButton(
                             currentOnPress?.invoke()
                             tryAwaitRelease()
                             isPressed = false
+                            currentOnRelease?.invoke()
                             currentOnSwipeStateChange?.invoke(SwipeState(), buttonBounds)
                         },
                         onTap = {
@@ -1790,6 +1822,7 @@ fun CompactSwipeableKeyButton(
                         } finally {
                             longPressJob.cancel()
                             isPressed = false
+                            currentOnRelease?.invoke()
                             currentOnSwipeStateChange?.invoke(SwipeState(), buttonBounds)
                         }
                     }
@@ -1950,6 +1983,7 @@ fun CompactKeyboardRowWithConfig(
     isAsciiMode: Boolean = false,
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
+    onKeyRelease: ((String) -> Unit)? = null,
     swipeDownHintsEnabled: Boolean = true,
     swipeUpHintsEnabled: Boolean = true,
     onCommitText: ((String) -> Unit)? = null,
@@ -1993,6 +2027,7 @@ fun CompactKeyboardRowWithConfig(
             val compactDisplayText = if (isAsciiMode) commitValue else KeysConfigHelper.getKeyDisplayLabel(key, isAsciiMode)
             val compactOnClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
             val compactOnPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
+            val compactOnRelease: (() -> Unit)? = remember(key, onKeyRelease) { { onKeyRelease?.invoke(key); Unit } }
             val compactOnSwipeDown: ((String) -> Unit)? = if (swipeDownAction != null && swipeDownHintsEnabled && swipeDownLabel != null) {
                 remember(key, onKeyPress, onGestureAction, onCommitText, swipeDownAction, swipeDownValue, swipeDownLabel) {
                     val label = swipeDownLabel
@@ -2033,6 +2068,7 @@ fun CompactKeyboardRowWithConfig(
                 onSwipeDown = compactOnSwipeDown,
                 onSwipeStateChange = onSwipeStateChange,
                 onPress = compactOnPress,
+                onRelease = compactOnRelease,
                 onLongPressSelect = compactOnLongPressSelect,
                 longPressItems = longPressLabels,
                 fontSize = config.fontSize,
