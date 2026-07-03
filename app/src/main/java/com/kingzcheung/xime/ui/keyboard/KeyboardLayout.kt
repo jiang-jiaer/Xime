@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -82,8 +83,7 @@ import com.kingzcheung.xime.viewmodel.KeyboardViewModel
 import com.kingzcheung.xime.viewmodel.ShiftMode
 import com.kingzcheung.xime.keyboard.OverlayRoute
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
-import androidx.compose.ui.platform.LocalConfiguration
-import android.content.res.Configuration
+
 import androidx.compose.material.icons.twotone.KeyboardControlKey
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
@@ -115,8 +115,6 @@ fun KeyboardLayout(
     LaunchedEffect(shiftMode) {
         visualShiftMode = shiftMode
     }
-
-    val isLandscape = !uiState.isFloatingMode && LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val context = LocalContext.current
     val kbColors = KeysConfigHelper.getKeyboardColors()
@@ -232,6 +230,8 @@ fun KeyboardLayout(
         keyboardWidth = keyboardBounds.width
     )
 
+    val isLandscape = !uiState.isFloatingMode && LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
+
     Box(
         modifier = modifier
             .background(keyboardBackgroundColor)
@@ -241,9 +241,10 @@ fun KeyboardLayout(
             .drawWithContent {
                 drawContent()
                 bubbleData?.let { drawSwipeBubble(it) }
-            }            .padding(bottom = if (uiState.isFloatingMode || isLandscape) {0.dp} else {10.dp})
+            }
+            .padding(bottom = if (uiState.isFloatingMode || isLandscape) {0.dp} else {10.dp})
     ) {
-        if (isLandscape) {
+            if (isLandscape) {
             LandscapeKeyboardContent(
                 onKeyPress = onKeyPress,
                 viewModel = viewModel,
@@ -824,8 +825,8 @@ fun KeyboardLayout(
                 )
             }
         }
-
     }
+
 }
 
 @Composable
