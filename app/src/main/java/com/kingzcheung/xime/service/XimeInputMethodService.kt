@@ -1513,6 +1513,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         val inputText = composition.input
         val preeditText = composition.preedit
         val candidatesWithComments = composition.candidates.toList()
+        if (candidatesWithComments.isNotEmpty() || inputText.isNotEmpty()) {
+            Log.d(TAG, "updateUI: input='$inputText' preedit='$preeditText' candidates=${candidatesWithComments.joinToString { "'${it.text}'/${it.comment}'" }}")
+        }
         val isAsciiMode = composition.isAsciiMode
         val hasNextPage = composition.hasNextPage
         val hasPrevPage = composition.hasPrevPage
@@ -1571,6 +1574,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         val t0 = System.nanoTime()
         val isAsciiMode = result.isAsciiMode
         val candidatesWithComments = result.candidates
+        if (candidatesWithComments.isNotEmpty() || result.inputText.isNotEmpty()) {
+            Log.d(TAG, "updateUIWithResult: input='${result.inputText}' preedit='${result.preeditText}' candidates=${candidatesWithComments.joinToString { "'${it.text}'/${it.comment}'" }}")
+        }
 
         val pendingEnglish = candidateState.value.pendingEnglishText
 

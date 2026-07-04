@@ -2,6 +2,7 @@ package com.kingzcheung.xime.rime
 
 import android.content.Context
 import android.util.Log
+import com.kingzcheung.xime.settings.PersonalDictManager
 import com.kingzcheung.xime.settings.SchemaConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
@@ -28,7 +29,11 @@ object RimeConfigHelper {
         copyAssetsToRimeDir(context, rimeDir)
         // F1: assets 会用内置 default.yaml 覆盖，这里把启用方案重新写回 schema_list
         SchemaManager.applyEnabledSchemasToDefaultYaml(context)
-        
+        // 确保个人词库和自定义短语文件存在，并为所有方案打补丁
+        PersonalDictManager.ensureAllPackFilesExist(context)
+        PersonalDictManager.ensureCustomPhraseFileExists(context)
+        PersonalDictManager.ensureSchemaPacks(context)
+
         Log.d(TAG, "Checking for missing schema files...")
         try {
             withTimeout(60_000L) {
@@ -59,6 +64,9 @@ object RimeConfigHelper {
         copyAssetsToRimeDir(context, rimeDir)
         // F1: 同步初始化路径也写回 default.yaml 的 schema_list
         SchemaManager.applyEnabledSchemasToDefaultYaml(context)
+        PersonalDictManager.ensureAllPackFilesExist(context)
+        PersonalDictManager.ensureCustomPhraseFileExists(context)
+        PersonalDictManager.ensureSchemaPacks(context)
         checkAndCleanBuildDir(rimeDir)
         listFilesRecursively(rimeDir, TAG)
         
@@ -115,6 +123,10 @@ object RimeConfigHelper {
             if (schemaFile.exists()) {
                 digest.update(schemaId.toByteArray())
                 digest.update(schemaFile.readBytes())
+            }
+            val customFile = File(rimeDir, "$schemaId.custom.yaml")
+            if (customFile.exists()) {
+                digest.update(customFile.readBytes())
             }
         }
 

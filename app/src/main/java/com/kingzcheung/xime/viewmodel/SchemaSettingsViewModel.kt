@@ -8,6 +8,7 @@ import android.util.Log
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.settings.KeysConfigHelper
+import com.kingzcheung.xime.settings.PersonalDictManager
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.settings.SchemaMeta
@@ -146,6 +147,7 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             _uiState.update { it.copy(isDeploying = true) }
             val success = withContext(Dispatchers.IO) {
+                PersonalDictManager.ensureSchemaPacks(context)
                 KeysConfigHelper.loadConfig(context)
                 KeyboardThemes.reload(context)
                 val engine = RimeEngine.getInstance()

@@ -129,6 +129,11 @@ fun SettingsScreen(
                 onBack = { navController.popBackStack() }
             )
         }
+        composable(SettingsRoutes.SchemaDictBrowser) {
+            SchemaDictBrowserContent(
+                onBack = { navController.popBackStack() }
+            )
+        }
         composable(SettingsRoutes.WebDav) {
             WebDavSyncContent(
                 onBack = { navController.popBackStack() }
