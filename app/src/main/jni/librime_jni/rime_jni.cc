@@ -199,10 +199,12 @@ public:
         result.inputText = input ? input : "";
         result.preeditText = context.composition.preedit ?
             context.composition.preedit : "";
+        LOGI("readCurrentState: input='%s' num_candidates=%d", result.inputText.c_str(), context.menu.num_candidates);
         if (context.menu.num_candidates > 0) {
             for (int i = 0; i < context.menu.num_candidates; ++i) {
                 const char* text = context.menu.candidates[i].text;
                 const char* comment = context.menu.candidates[i].comment;
+                LOGI("Candidate[%d]: text='%s' comment='%s'", i, text ? text : "", comment ? comment : "");
                 result.candidates.push_back(std::make_pair(
                     text ? text : "",
                     comment ? comment : ""
@@ -256,9 +258,11 @@ public:
             if (context.composition.preedit) {
                 result.preedit = context.composition.preedit;
             }
+            LOGI("getComposition: input='%s' num_candidates=%d", result.input.c_str(), context.menu.num_candidates);
             for (int i = 0; i < context.menu.num_candidates; ++i) {
                 const char* text = context.menu.candidates[i].text;
                 const char* comment = context.menu.candidates[i].comment;
+                LOGI("Candidate[%d]: text='%s' comment='%s'", i, text ? text : "", comment ? comment : "");
                 result.candidates.push_back(std::make_pair(
                     text ? text : "",
                     comment ? comment : ""

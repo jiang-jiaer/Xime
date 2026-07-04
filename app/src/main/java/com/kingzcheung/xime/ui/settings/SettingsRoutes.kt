@@ -20,4 +20,6 @@ object SettingsRoutes {
     const val ModelManagement = "model_management"
     const val LogViewer = "log_viewer"
     const val WebDav = "webdav"
+    const val SchemaDictBrowser = "schema_dict_browser"
+    const val CustomPhrase = "custom_phrase"
 }
