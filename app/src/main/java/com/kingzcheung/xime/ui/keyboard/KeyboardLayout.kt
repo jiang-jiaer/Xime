@@ -46,6 +46,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.settings.DisplayMode
+import com.kingzcheung.xime.settings.ButtonLayout
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.keyboard.GestureAction
 
@@ -463,27 +464,51 @@ fun KeyboardLayout(
                                         Unit
                                     } }
 
-                                    SwipeableKeyButton(
-                                        text = displayText,
-                                        onClick = onClick,
-                                        backgroundColor = keyBackgroundColor,
-                                        textColor = keyTextColor,
-                                        modifier = Modifier.weight(1f),
-                                        swipeText = swipeUpText,
-                                        swipeDownText = swipeDownBubbleText,
-                                        swipeUpKeyLabel = swipeUpKeyLabel,
-                                        swipeDownKeyLabel = if (!isAsciiMode && (swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH)) swipeDownLabel else null,
-                                        onSwipe = if (swipeUpCommitValue != null && swipeUpAction != GestureAction.NONE) { { onKeyPress(swipeUpCommitValue) } } else null,
-                                        onSwipeDown = onSwipeDown,
-                                        onSwipeStateChange = onSwipeStateChange,
-                                        onPress = onPress,
-                                        onRelease = onRelease,
-                                        onLongPressSelect = onLongPressSelect,
-                                        longPressItems = longPressLabels,
-                                        shadowEnabled = shadowEnabled,
-                                        shadowElevation = shadowElevation,
-                                        shadowShapeRadius = shadowShapeRadius,
-                                    )
+                                    if (KeysConfigHelper.getButtonLayout(isAsciiMode) == ButtonLayout.COMPACT) {
+                                        SwipeableKeyButtonTopLayout(
+                                            text = displayText,
+                                            onClick = onClick,
+                                            backgroundColor = keyBackgroundColor,
+                                            textColor = keyTextColor,
+                                            modifier = Modifier.weight(1f),
+                                            swipeText = swipeUpText,
+                                            swipeDownText = swipeDownBubbleText,
+                                            swipeUpKeyLabel = swipeUpKeyLabel,
+                                            swipeDownKeyLabel = if (!isAsciiMode && (swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH)) swipeDownLabel else null,
+                                            onSwipe = if (swipeUpCommitValue != null && swipeUpAction != GestureAction.NONE) { { onKeyPress(swipeUpCommitValue) } } else null,
+                                            onSwipeDown = onSwipeDown,
+                                            onSwipeStateChange = onSwipeStateChange,
+                                            onPress = onPress,
+                                            onRelease = onRelease,
+                                            onLongPressSelect = onLongPressSelect,
+                                            longPressItems = longPressLabels,
+                                            shadowEnabled = shadowEnabled,
+                                            shadowElevation = shadowElevation,
+                                            shadowShapeRadius = shadowShapeRadius,
+                                        )
+                                    } else {
+                                        SwipeableKeyButton(
+                                            text = displayText,
+                                            onClick = onClick,
+                                            backgroundColor = keyBackgroundColor,
+                                            textColor = keyTextColor,
+                                            modifier = Modifier.weight(1f),
+                                            swipeText = swipeUpText,
+                                            swipeDownText = swipeDownBubbleText,
+                                            swipeUpKeyLabel = swipeUpKeyLabel,
+                                            swipeDownKeyLabel = if (!isAsciiMode && (swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH)) swipeDownLabel else null,
+                                            onSwipe = if (swipeUpCommitValue != null && swipeUpAction != GestureAction.NONE) { { onKeyPress(swipeUpCommitValue) } } else null,
+                                            onSwipeDown = onSwipeDown,
+                                            onSwipeStateChange = onSwipeStateChange,
+                                            onPress = onPress,
+                                            onRelease = onRelease,
+                                            onLongPressSelect = onLongPressSelect,
+                                            longPressItems = longPressLabels,
+                                            shadowEnabled = shadowEnabled,
+                                            shadowElevation = shadowElevation,
+                                            shadowShapeRadius = shadowShapeRadius,
+                                        )
+                                    }
                                 }
                             }
 
@@ -634,28 +659,53 @@ fun KeyboardLayout(
                                     shadowShapeRadius = shadowShapeRadius,
                                 )
                             } else {
-                                SwipeableKeyButton(
-                                    text = k2TapLabel,
-                                    onClick = k2OnClick,
-                                    backgroundColor = keyBackgroundColor,
-                                    textColor = keyTextColor,
-                                    modifier = Modifier.weight(0.8f),
-                                    swipeText = k2SwipeUpLabel,
-                                    swipeDownText = k2SwipeDownBubbleText,
-                                    swipeDownKeyLabel = if (!isAsciiMode && (k2SwipeDownDisplay == DisplayMode.KEY || k2SwipeDownDisplay == DisplayMode.BOTH)) k2SwipeDownLabel else null,
-                                    onSwipe = if (k2SwipeUpCommitValue != null) { { onKeyPress(k2SwipeUpCommitValue) } } else null,
-                                    onSwipeDown = k2OnSwipeDown,
-                                    onSwipeStateChange = { state, bounds ->
-                                        processSwipeState(state, bounds)
-                                    },
-                                    onPress = { onKeyPressDown?.invoke(k2TapValue) },
-                                    onRelease = { onKeyRelease?.invoke(k2TapValue) },
-                                    onLongPressSelect = k2OnLongPressSelect,
-                                    longPressItems = k2LongPressLabels,
-                                    shadowEnabled = shadowEnabled,
-                                    shadowElevation = shadowElevation,
-                                    shadowShapeRadius = shadowShapeRadius,
-                                )
+                                if (KeysConfigHelper.getButtonLayout(isAsciiMode) == ButtonLayout.COMPACT) {
+                                    SwipeableKeyButtonTopLayout(
+                                        text = k2TapLabel,
+                                        onClick = k2OnClick,
+                                        backgroundColor = keyBackgroundColor,
+                                        textColor = keyTextColor,
+                                        modifier = Modifier.weight(0.8f),
+                                        swipeText = k2SwipeUpLabel,
+                                        swipeDownText = k2SwipeDownBubbleText,
+                                        swipeDownKeyLabel = if (!isAsciiMode && (k2SwipeDownDisplay == DisplayMode.KEY || k2SwipeDownDisplay == DisplayMode.BOTH)) k2SwipeDownLabel else null,
+                                        onSwipe = if (k2SwipeUpCommitValue != null) { { onKeyPress(k2SwipeUpCommitValue) } } else null,
+                                        onSwipeDown = k2OnSwipeDown,
+                                        onSwipeStateChange = { state, bounds ->
+                                            processSwipeState(state, bounds)
+                                        },
+                                        onPress = { onKeyPressDown?.invoke(k2TapValue) },
+                                        onRelease = { onKeyRelease?.invoke(k2TapValue) },
+                                        onLongPressSelect = k2OnLongPressSelect,
+                                        longPressItems = k2LongPressLabels,
+                                        shadowEnabled = shadowEnabled,
+                                        shadowElevation = shadowElevation,
+                                        shadowShapeRadius = shadowShapeRadius,
+                                    )
+                                } else {
+                                    SwipeableKeyButton(
+                                        text = k2TapLabel,
+                                        onClick = k2OnClick,
+                                        backgroundColor = keyBackgroundColor,
+                                        textColor = keyTextColor,
+                                        modifier = Modifier.weight(0.8f),
+                                        swipeText = k2SwipeUpLabel,
+                                        swipeDownText = k2SwipeDownBubbleText,
+                                        swipeDownKeyLabel = if (!isAsciiMode && (k2SwipeDownDisplay == DisplayMode.KEY || k2SwipeDownDisplay == DisplayMode.BOTH)) k2SwipeDownLabel else null,
+                                        onSwipe = if (k2SwipeUpCommitValue != null) { { onKeyPress(k2SwipeUpCommitValue) } } else null,
+                                        onSwipeDown = k2OnSwipeDown,
+                                        onSwipeStateChange = { state, bounds ->
+                                            processSwipeState(state, bounds)
+                                        },
+                                        onPress = { onKeyPressDown?.invoke(k2TapValue) },
+                                        onRelease = { onKeyRelease?.invoke(k2TapValue) },
+                                        onLongPressSelect = k2OnLongPressSelect,
+                                        longPressItems = k2LongPressLabels,
+                                        shadowEnabled = shadowEnabled,
+                                        shadowElevation = shadowElevation,
+                                        shadowShapeRadius = shadowShapeRadius,
+                                    )
+                                }
                             }
                         }
 
@@ -767,28 +817,53 @@ fun KeyboardLayout(
                                     shadowShapeRadius = shadowShapeRadius,
                                 )
                             } else {
-                                SwipeableKeyButton(
-                                    text = k4TapLabel,
-                                    onClick = k4OnClick,
-                                    backgroundColor = keyBackgroundColor,
-                                    textColor = keyTextColor,
-                                    modifier = Modifier.weight(0.8f),
-                                    swipeText = k4SwipeUpLabel,
-                                    swipeDownText = k4SwipeDownBubbleText,
-                                    swipeDownKeyLabel = if (!isAsciiMode && (k4SwipeDownDisplay == DisplayMode.KEY || k4SwipeDownDisplay == DisplayMode.BOTH)) k4SwipeDownLabel else null,
-                                    onSwipe = k4OnSwipe,
-                                    onSwipeDown = k4OnSwipeDown,
-                                    onSwipeStateChange = { state, bounds ->
-                                        processSwipeState(state, bounds)
-                                    },
-                                    onPress = { onKeyPressDown?.invoke(k4TapValue) },
-                                    onRelease = { onKeyRelease?.invoke(k4TapValue) },
-                                    onLongPressSelect = k4OnLongPressSelect,
-                                    longPressItems = k4LongPressLabels,
-                                    shadowEnabled = shadowEnabled,
-                                    shadowElevation = shadowElevation,
-                                    shadowShapeRadius = shadowShapeRadius,
-                                )
+                                if (KeysConfigHelper.getButtonLayout(isAsciiMode) == ButtonLayout.COMPACT) {
+                                    SwipeableKeyButtonTopLayout(
+                                        text = k4TapLabel,
+                                        onClick = k4OnClick,
+                                        backgroundColor = keyBackgroundColor,
+                                        textColor = keyTextColor,
+                                        modifier = Modifier.weight(0.8f),
+                                        swipeText = k4SwipeUpLabel,
+                                        swipeDownText = k4SwipeDownBubbleText,
+                                        swipeDownKeyLabel = if (!isAsciiMode && (k4SwipeDownDisplay == DisplayMode.KEY || k4SwipeDownDisplay == DisplayMode.BOTH)) k4SwipeDownLabel else null,
+                                        onSwipe = k4OnSwipe,
+                                        onSwipeDown = k4OnSwipeDown,
+                                        onSwipeStateChange = { state, bounds ->
+                                            processSwipeState(state, bounds)
+                                        },
+                                        onPress = { onKeyPressDown?.invoke(k4TapValue) },
+                                        onRelease = { onKeyRelease?.invoke(k4TapValue) },
+                                        onLongPressSelect = k4OnLongPressSelect,
+                                        longPressItems = k4LongPressLabels,
+                                        shadowEnabled = shadowEnabled,
+                                        shadowElevation = shadowElevation,
+                                        shadowShapeRadius = shadowShapeRadius,
+                                    )
+                                } else {
+                                    SwipeableKeyButton(
+                                        text = k4TapLabel,
+                                        onClick = k4OnClick,
+                                        backgroundColor = keyBackgroundColor,
+                                        textColor = keyTextColor,
+                                        modifier = Modifier.weight(0.8f),
+                                        swipeText = k4SwipeUpLabel,
+                                        swipeDownText = k4SwipeDownBubbleText,
+                                        swipeDownKeyLabel = if (!isAsciiMode && (k4SwipeDownDisplay == DisplayMode.KEY || k4SwipeDownDisplay == DisplayMode.BOTH)) k4SwipeDownLabel else null,
+                                        onSwipe = k4OnSwipe,
+                                        onSwipeDown = k4OnSwipeDown,
+                                        onSwipeStateChange = { state, bounds ->
+                                            processSwipeState(state, bounds)
+                                        },
+                                        onPress = { onKeyPressDown?.invoke(k4TapValue) },
+                                        onRelease = { onKeyRelease?.invoke(k4TapValue) },
+                                        onLongPressSelect = k4OnLongPressSelect,
+                                        longPressItems = k4LongPressLabels,
+                                        shadowEnabled = shadowEnabled,
+                                        shadowElevation = shadowElevation,
+                                        shadowShapeRadius = shadowShapeRadius,
+                                    )
+                                }
                             }
 
                             // 回车 — 硬编码
@@ -985,29 +1060,55 @@ fun KeyboardRowWithConfig(
                 Unit
             } }
 
-            SwipeableKeyButton(
-                text = displayText,
-                onClick = onClick,
-                backgroundColor = config.keyBackgroundColor,
-                textColor = config.keyTextColor,
-                modifier = Modifier.weight(1f),
-                swipeText = swipeUpText,
-                swipeDownText = swipeDownBubbleText,
-                swipeUpKeyLabel = swipeUpKeyLabel,
-                swipeDownKeyLabel = if ((swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH) && swipeDownHintsEnabled) swipeDownLabel else null,
-                onSwipe = if (swipeUpCommitValue != null && swipeUpAction != GestureAction.NONE) { { onKeyPress(swipeUpCommitValue) } } else null,
-                onSwipeDown = onSwipeDown,
-                onSwipeStateChange = onSwipeStateChange,
-                onPress = onPress,
-                onRelease = onRelease,
-                onLongPressSelect = onLongPressSelect,
-                longPressItems = longPressLabels,
-                fontSize = config.fontSize,
-                swipeFontSize = config.swipeFontSize,
-                shadowEnabled = config.shadowEnabled,
-                shadowElevation = config.shadowElevation,
-                shadowShapeRadius = config.shadowShapeRadius,
-            )
+            if (KeysConfigHelper.getButtonLayout(isAsciiMode) == ButtonLayout.COMPACT) {
+                SwipeableKeyButtonTopLayout(
+                    text = displayText,
+                    onClick = onClick,
+                    backgroundColor = config.keyBackgroundColor,
+                    textColor = config.keyTextColor,
+                    modifier = Modifier.weight(1f),
+                    swipeText = swipeUpText,
+                    swipeDownText = swipeDownBubbleText,
+                    swipeUpKeyLabel = swipeUpKeyLabel,
+                    swipeDownKeyLabel = if ((swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH) && swipeDownHintsEnabled) swipeDownLabel else null,
+                    onSwipe = if (swipeUpCommitValue != null && swipeUpAction != GestureAction.NONE) { { onKeyPress(swipeUpCommitValue) } } else null,
+                    onSwipeDown = onSwipeDown,
+                    onSwipeStateChange = onSwipeStateChange,
+                    onPress = onPress,
+                    onRelease = onRelease,
+                    onLongPressSelect = onLongPressSelect,
+                    longPressItems = longPressLabels,
+                    fontSize = config.fontSize,
+                    swipeFontSize = config.swipeFontSize,
+                    shadowEnabled = config.shadowEnabled,
+                    shadowElevation = config.shadowElevation,
+                    shadowShapeRadius = config.shadowShapeRadius,
+                )
+            } else {
+                SwipeableKeyButton(
+                    text = displayText,
+                    onClick = onClick,
+                    backgroundColor = config.keyBackgroundColor,
+                    textColor = config.keyTextColor,
+                    modifier = Modifier.weight(1f),
+                    swipeText = swipeUpText,
+                    swipeDownText = swipeDownBubbleText,
+                    swipeUpKeyLabel = swipeUpKeyLabel,
+                    swipeDownKeyLabel = if ((swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH) && swipeDownHintsEnabled) swipeDownLabel else null,
+                    onSwipe = if (swipeUpCommitValue != null && swipeUpAction != GestureAction.NONE) { { onKeyPress(swipeUpCommitValue) } } else null,
+                    onSwipeDown = onSwipeDown,
+                    onSwipeStateChange = onSwipeStateChange,
+                    onPress = onPress,
+                    onRelease = onRelease,
+                    onLongPressSelect = onLongPressSelect,
+                    longPressItems = longPressLabels,
+                    fontSize = config.fontSize,
+                    swipeFontSize = config.swipeFontSize,
+                    shadowEnabled = config.shadowEnabled,
+                    shadowElevation = config.shadowElevation,
+                    shadowShapeRadius = config.shadowShapeRadius,
+                )
+            }
         }
     }
 }
@@ -1318,7 +1419,7 @@ private fun LandscapeKeyboardContent(
                             shadowShapeRadius = shadowShapeRadius,
                         )
                     } else {
-                        CompactSwipeableKeyButton(
+                        SwipeableKeyButtonLandscape(
                             text = k2Tap,
                             onClick = {
                                 if (k2Action != null && k2Action != GestureAction.COMMIT) {
@@ -1525,7 +1626,7 @@ private fun LandscapeKeyboardContent(
                     val k4SwipeValue = k4Gesture?.swipeUp?.value?.takeIf { it.isNotEmpty() }
                     val k4SwipeLabel = if (isAsciiMode) (k4SwipeValue ?: "")
                         else (k4Gesture?.swipeUp?.label?.takeIf { it.isNotEmpty() } ?: k4SwipeValue ?: "")
-                    CompactSwipeableKeyButton(
+                    SwipeableKeyButtonLandscape(
                         text = k4Label,
                         onClick = {
                             if (k4Action != null && k4Action != GestureAction.COMMIT) {
@@ -1568,7 +1669,7 @@ private fun LandscapeKeyboardContent(
  * 横屏紧凑版按键 — 主字符和上滑字符垂直堆叠居中
  */
 @Composable
-fun CompactSwipeableKeyButton(
+fun SwipeableKeyButtonLandscape(
     text: String,
     onClick: () -> Unit,
     backgroundColor: Color,
@@ -1893,7 +1994,7 @@ fun CompactSwipeableKeyButton(
 }
 
 /**
- * 横屏紧凑版键盘行 — 使用 [CompactSwipeableKeyButton] 替代 [SwipeableKeyButton]
+ * 横屏紧凑版键盘行 — 使用 [SwipeableKeyButtonLandscape] 替代 [SwipeableKeyButton]
  */
 @Composable
 fun CompactKeyboardRowWithConfig(
@@ -1976,7 +2077,7 @@ fun CompactKeyboardRowWithConfig(
                 Unit
             } }
 
-            CompactSwipeableKeyButton(
+            SwipeableKeyButtonLandscape(
                 text = compactDisplayText,
                 onClick = compactOnClick,
                 backgroundColor = config.keyBackgroundColor,
