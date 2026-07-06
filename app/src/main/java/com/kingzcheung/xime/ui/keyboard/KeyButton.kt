@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -21,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.kingzcheung.xime.settings.ButtonLayout
 import com.kingzcheung.xime.util.CharInfo
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,8 +38,11 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -311,6 +313,7 @@ fun SwipeableKeyButton(
     textColor: Color,
     modifier: Modifier = Modifier,
     isHighlighted: Boolean = false,
+    layoutMode: ButtonLayout = ButtonLayout.STANDARD,
     swipeText: String? = null,
     swipeDownText: String? = null,
     /** 下滑文本显示在按键上（气泡为空，用于 display:key） */
@@ -368,7 +371,9 @@ fun SwipeableKeyButton(
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
         if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
     }
-    
+    val context = LocalContext.current
+    val chaiPuaFontFamily = remember { FontFamily(Font("ChaiPUA-0.2.7-snow.ttf", context.assets)) }
+
     Box(
         modifier = modifier
             .fillMaxHeight()
@@ -578,57 +583,120 @@ fun SwipeableKeyButton(
                 else if (isHighlighted) backgroundColor.copy(alpha = 0.8f)
                 else backgroundColor
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment = if (layoutMode == ButtonLayout.COMPACT) Alignment.TopStart else Alignment.Center
     ) {
-        Text(
-            text = text,
-            color = textColor,
-            fontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) fontSize else if (text.length > 2) 14.sp else 18.sp,
-            fontWeight = if (text.length > 2) FontWeight.Medium else FontWeight.Normal,
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
-        
-        if (!(swipeUpKeyLabel ?: swipeText).isNullOrEmpty()) {
-            val keyLabel = (swipeUpKeyLabel ?: swipeText)!!
-            val displayText = if (keyLabel.length <= 4) keyLabel else keyLabel.take(4)
+        if (layoutMode == ButtonLayout.COMPACT) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Text(
+                    text = text,
+                    color = textColor,
+                    fontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) fontSize else if (text.length > 2) 13.sp else 16.sp,
+                    fontWeight = if (text.length > 2) FontWeight.Medium else FontWeight.Normal,
+                    textAlign = TextAlign.Start,
+                    maxLines = 1,
+                    lineHeight = 1.sp,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = 2.dp, start = 4.dp)
+                )
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .fillMaxHeight()
+                        .padding(top = 4.dp, end = 4.dp, bottom = 2.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    val swipeUpHint = swipeUpKeyLabel ?: swipeText
+                    if (!swipeUpHint.isNullOrEmpty()) {
+                        val displayText = if (swipeUpHint.length <= 2) swipeUpHint else swipeUpHint.take(2)
+                        Text(
+                            text = displayText,
+                            color = textColor.copy(alpha = 0.6f),
+                            fontSize = swipeFontSize,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.End,
+                            maxLines = 1,
+                            lineHeight = 1.sp
+                        )
+                    }
+
+                    val swipeDownHint = swipeDownKeyLabel
+                    if (!swipeDownHint.isNullOrEmpty()) {
+                        val hasChinese = swipeDownHint.any { it in '\u4e00'..'\u9fff' || it in '\u3400'..'\u4dbf' || it in '\uf900'..'\ufaff' }
+                        val adjustedFontSize = if (hasChinese && swipeFontSize > 6.sp) (swipeFontSize.value * 0.85f).sp else swipeFontSize
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.BottomEnd
+                        ) {
+                            val displayText = if (swipeDownHint.length <= 12) swipeDownHint else swipeDownHint.take(12)
+                            Text(
+                                text = displayText,
+                                color = textColor.copy(alpha = 0.5f),
+                                fontSize = adjustedFontSize,
+                                fontWeight = FontWeight.Normal,
+                                textAlign = TextAlign.Right,
+                                maxLines = 3,
+                                lineHeight = adjustedFontSize,
+                                fontFamily = chaiPuaFontFamily
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
             Text(
-                text = displayText,
-                color = textColor.copy(alpha = 0.6f),
-                fontSize = swipeFontSize,
-                fontWeight = FontWeight.Medium,
+                text = text,
+                color = textColor,
+                fontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) fontSize else if (text.length > 2) 14.sp else 18.sp,
+                fontWeight = if (text.length > 2) FontWeight.Medium else FontWeight.Normal,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
-                modifier = Modifier.offset(y = (-14).dp)
+                maxLines = 1
             )
-        }
-        
-        if (!swipeDownKeyLabel.isNullOrEmpty()) {
-            val displayText = if (swipeDownKeyLabel.length <= 4) swipeDownKeyLabel else swipeDownKeyLabel.take(4)
-            Text(
-                text = displayText,
-                color = textColor.copy(alpha = 0.5f),
-                fontSize = swipeFontSize,
-                fontWeight = FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                modifier = Modifier.offset(y = (14).dp)
-            )
-        }
-        
-        if (badgeText != null) {
-            Text(
-                text = badgeText,
-                color = textColor.copy(alpha = 0.5f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Normal,
-                textAlign = TextAlign.End,
-                maxLines = 1,
-                lineHeight = 1.sp,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 6.dp, end = 6.dp)
-            )
+
+            if (!(swipeUpKeyLabel ?: swipeText).isNullOrEmpty()) {
+                val keyLabel = (swipeUpKeyLabel ?: swipeText)!!
+                val displayText = if (keyLabel.length <= 4) keyLabel else keyLabel.take(4)
+                Text(
+                    text = displayText,
+                    color = textColor.copy(alpha = 0.6f),
+                    fontSize = swipeFontSize,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.offset(y = (-14).dp)
+                )
+            }
+
+            if (!swipeDownKeyLabel.isNullOrEmpty()) {
+                val displayText = if (swipeDownKeyLabel.length <= 4) swipeDownKeyLabel else swipeDownKeyLabel.take(4)
+                Text(
+                    text = displayText,
+                    color = textColor.copy(alpha = 0.5f),
+                    fontSize = swipeFontSize,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.offset(y = (14).dp)
+                )
+            }
+
+            if (badgeText != null) {
+                Text(
+                    text = badgeText,
+                    color = textColor.copy(alpha = 0.5f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    lineHeight = 1.sp,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 6.dp, end = 6.dp)
+                )
+            }
         }
     }
 }

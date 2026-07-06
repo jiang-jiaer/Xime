@@ -46,6 +46,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.settings.DisplayMode
+import com.kingzcheung.xime.settings.ButtonLayout
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.keyboard.GestureAction
 
@@ -464,6 +465,7 @@ fun KeyboardLayout(
                                     } }
 
                                     SwipeableKeyButton(
+                                        layoutMode = KeysConfigHelper.getButtonLayout(isAsciiMode),
                                         text = displayText,
                                         onClick = onClick,
                                         backgroundColor = keyBackgroundColor,
@@ -635,6 +637,7 @@ fun KeyboardLayout(
                                 )
                             } else {
                                 SwipeableKeyButton(
+                                    layoutMode = KeysConfigHelper.getButtonLayout(isAsciiMode),
                                     text = k2TapLabel,
                                     onClick = k2OnClick,
                                     backgroundColor = keyBackgroundColor,
@@ -768,6 +771,7 @@ fun KeyboardLayout(
                                 )
                             } else {
                                 SwipeableKeyButton(
+                                    layoutMode = KeysConfigHelper.getButtonLayout(isAsciiMode),
                                     text = k4TapLabel,
                                     onClick = k4OnClick,
                                     backgroundColor = keyBackgroundColor,
@@ -986,6 +990,7 @@ fun KeyboardRowWithConfig(
             } }
 
             SwipeableKeyButton(
+                layoutMode = KeysConfigHelper.getButtonLayout(isAsciiMode),
                 text = displayText,
                 onClick = onClick,
                 backgroundColor = config.keyBackgroundColor,
@@ -1318,7 +1323,7 @@ private fun LandscapeKeyboardContent(
                             shadowShapeRadius = shadowShapeRadius,
                         )
                     } else {
-                        CompactSwipeableKeyButton(
+                        SwipeableKeyButtonLandscape(
                             text = k2Tap,
                             onClick = {
                                 if (k2Action != null && k2Action != GestureAction.COMMIT) {
@@ -1525,7 +1530,7 @@ private fun LandscapeKeyboardContent(
                     val k4SwipeValue = k4Gesture?.swipeUp?.value?.takeIf { it.isNotEmpty() }
                     val k4SwipeLabel = if (isAsciiMode) (k4SwipeValue ?: "")
                         else (k4Gesture?.swipeUp?.label?.takeIf { it.isNotEmpty() } ?: k4SwipeValue ?: "")
-                    CompactSwipeableKeyButton(
+                    SwipeableKeyButtonLandscape(
                         text = k4Label,
                         onClick = {
                             if (k4Action != null && k4Action != GestureAction.COMMIT) {
@@ -1568,7 +1573,7 @@ private fun LandscapeKeyboardContent(
  * 横屏紧凑版按键 — 主字符和上滑字符垂直堆叠居中
  */
 @Composable
-fun CompactSwipeableKeyButton(
+fun SwipeableKeyButtonLandscape(
     text: String,
     onClick: () -> Unit,
     backgroundColor: Color,
@@ -1893,7 +1898,7 @@ fun CompactSwipeableKeyButton(
 }
 
 /**
- * 横屏紧凑版键盘行 — 使用 [CompactSwipeableKeyButton] 替代 [SwipeableKeyButton]
+ * 横屏紧凑版键盘行 — 使用 [SwipeableKeyButtonLandscape] 替代 [SwipeableKeyButton]
  */
 @Composable
 fun CompactKeyboardRowWithConfig(
@@ -1976,7 +1981,7 @@ fun CompactKeyboardRowWithConfig(
                 Unit
             } }
 
-            CompactSwipeableKeyButton(
+            SwipeableKeyButtonLandscape(
                 text = compactDisplayText,
                 onClick = compactOnClick,
                 backgroundColor = config.keyBackgroundColor,
