@@ -572,6 +572,244 @@ speller:
         assertEquals(1, text.split("wubi86_merged").size - 1)
     }
 
+    // ── insertUnderPatch 合入逻辑 ──
+
+    @Test
+    fun `insertUnderPatch creates patch when file missing`() {
+        val dir = createTempDir()
+        // applyPackConfig creates <schemaId>.custom.yaml
+        PersonalDictManager.applyPackConfig(dir, "pinyin_simp")
+        val file = File(dir, "pinyin_simp.custom.yaml")
+        assertTrue("file should exist", file.exists())
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue("should start with patch:", text.startsWith("patch:"))
+        assertTrue(text.contains("translator/packs"))
+    }
+
+    @Test
+    fun `insertUnderPatch merges into existing patch block`() {
+        val dir = createTempDir()
+        val file = File(dir, "pinyin_simp.custom.yaml")
+        file.writeText("""# comment
+patch:
+  engine/translators/+:
+    - lua_translator@my_script
+  menu/page_size: 6
+""", Charsets.UTF_8)
+        PersonalDictManager.applyPackConfig(dir, "pinyin_simp")
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue("existing lua translator preserved", text.contains("lua_translator@my_script"))
+        assertTrue("new pack config added", text.contains("translator/packs"))
+        assertTrue("existing menu/page_size preserved", text.contains("menu/page_size: 6"))
+        assertTrue("pack name present", text.contains("user_simp_pinyin"))
+    }
+
+    @Test
+    fun `insertUnderPatch creates patch when file has no patch section`() {
+        val dir = createTempDir()
+        // applyCustomPhraseTranslator creates <schemaId>.custom.yaml
+        val file = File(dir, "wubi86.custom.yaml")
+        file.writeText("# just a comment\n", Charsets.UTF_8)
+        PersonalDictManager.applyCustomPhraseTranslator(dir, "wubi86")
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue("patch: should be created", text.contains("patch:"))
+        assertTrue("content should be added under patch", text.contains("table_translator@custom_phrase"))
+    }
+
+    @Test
+    fun `insertUnderPatch handles document end marker`() {
+        val dir = createTempDir()
+        val file = File(dir, "pinyin_simp.custom.yaml")
+        file.writeText("""patch:
+  existing_key: value
+...
+""", Charsets.UTF_8)
+        PersonalDictManager.applyPackConfig(dir, "pinyin_simp")
+        val text = file.readText(Charsets.UTF_8)
+        assertFalse("doc end marker should be stripped", text.contains("..."))
+        assertTrue("existing key preserved", text.contains("existing_key: value"))
+        assertTrue("new entry added", text.contains("translator/packs"))
+    }
+
+    @Test
+    fun `insertUnderPatch preserves existing entries when merging`() {
+        val dir = createTempDir()
+        val file = File(dir, "pinyin_simp.custom.yaml")
+        file.writeText("""patch:
+  engine/filters/@before/0:
+    - lua_filter@custom_filter1
+    - lua_filter@custom_filter2
+  menu/page_size: 8
+""", Charsets.UTF_8)
+        PersonalDictManager.applyPackConfig(dir, "pinyin_simp")
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue(text.contains("engine/filters/@before/0:"))
+        assertTrue(text.contains("lua_filter@custom_filter1"))
+        assertTrue(text.contains("lua_filter@custom_filter2"))
+        assertTrue(text.contains("menu/page_size: 8"))
+        assertTrue(text.contains("translator/packs"))
+    }
+
+    @Test
+    fun `applyPackConfig preserves existing lua patches in custom yaml`() {
+        val dir = createTempDir()
+        val file = File(dir, "pinyin_simp.custom.yaml")
+        file.writeText("""patch:
+  engine/filters/@before/0:
+    - lua_filter@custom_filter
+  menu/page_size: 8
+""", Charsets.UTF_8)
+        PersonalDictManager.applyPackConfig(dir, "pinyin_simp")
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue("Lua filter preserved", text.contains("lua_filter@custom_filter"))
+        assertTrue("page_size preserved", text.contains("menu/page_size: 8"))
+        assertTrue("packs config merged", text.contains("translator/packs"))
+    }
+
+    @Test
+    fun `applyMergedDictConfig preserves existing content in custom yaml`() {
+        val dir = createTempDir()
+        val file = File(dir, "wubi86.custom.yaml")
+        file.writeText("""patch:
+  engine/filters/@before/0:
+    - lua_filter@my_filter
+""", Charsets.UTF_8)
+        PersonalDictManager.applyMergedDictConfig(dir, "wubi86")
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue("existing lua filter preserved", text.contains("lua_filter@my_filter"))
+        assertTrue("merged dict config added", text.contains("translator/dictionary"))
+        assertTrue("merged dict name present", text.contains("wubi86_merged"))
+    }
+
+    @Test
+    fun `applyCustomPhraseTranslator preserves existing patches`() {
+        val dir = createTempDir()
+        val file = File(dir, "pinyin_simp.custom.yaml")
+        file.writeText("""patch:
+  engine/filters/@before/0:
+    - lua_filter@custom_filter
+  menu/page_size: 8
+""", Charsets.UTF_8)
+        PersonalDictManager.applyCustomPhraseTranslator(dir, "pinyin_simp")
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue("Lua filter preserved", text.contains("lua_filter@custom_filter"))
+        assertTrue("page_size preserved", text.contains("menu/page_size: 8"))
+        assertTrue("custom_phrase added", text.contains("table_translator@custom_phrase"))
+        assertTrue("custom_phrase config complete", text.contains("db_class: stabledb"))
+    }
+
+    @Test
+    fun `ensureSchemaPack preserves existing custom yaml with lua patches`() {
+        val context = mockContext()
+        val rimeDir = java.io.File(context.filesDir, "rime")
+        rimeDir.mkdirs()
+        // 模拟第三方方案：有 schema.yaml + 预置 custom.yaml（含 Lua 翻译器）
+        java.io.File(rimeDir, "flypy.schema.yaml").writeText("""
+speller:
+  alphabet: abcdefghijklmnopqrstuvwxyz
+  algebra:
+    - erase/^xx$/
+""".trimIndent())
+        java.io.File(rimeDir, "flypy.custom.yaml").writeText("""patch:
+  engine/filters/@before/0:
+    - lua_filter@my_filter
+  menu/page_size: 8
+""", Charsets.UTF_8)
+        PersonalDictManager.ensureSchemaPack(context, "flypy")
+        val text = java.io.File(rimeDir, "flypy.custom.yaml").readText(Charsets.UTF_8)
+        // Lua 配置保留
+        assertTrue(text.contains("lua_filter@my_filter"))
+        assertTrue(text.contains("menu/page_size: 8"))
+        // Xime 配置合入
+        assertTrue(text.contains("translator/packs"))
+        assertTrue(text.contains("table_translator@custom_phrase"))
+        // 确保幂等
+        assertEquals("custom_phrase appears once", 1, text.split("table_translator@custom_phrase").size - 1)
+        assertEquals("packs appears once", 1, text.split("user_simp_pinyin").size - 1)
+    }
+
+    @Test
+    fun `multiple apply calls produce valid yaml with all entries once`() {
+        val dir = createTempDir()
+        val file = File(dir, "pinyin_simp.custom.yaml")
+        file.writeText("""patch:
+  existing_key: value
+""", Charsets.UTF_8)
+        PersonalDictManager.applyPackConfig(dir, "pinyin_simp")
+        PersonalDictManager.applyCustomPhraseTranslator(dir, "pinyin_simp")
+        PersonalDictManager.applyCustomPhraseTranslator(dir, "pinyin_simp")
+        PersonalDictManager.applyPackConfig(dir, "pinyin_simp")
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue("existing key preserved", text.contains("existing_key: value"))
+        assertTrue("packs added", text.contains("translator/packs"))
+        assertTrue("custom_phrase added", text.contains("table_translator@custom_phrase"))
+        assertTrue("existing appears once", text.indexOf("existing_key: value") == text.lastIndexOf("existing_key: value"))
+        assertTrue("packs appears once", text.indexOf("translator/packs") == text.lastIndexOf("translator/packs"))
+        assertTrue("custom_phrase appears once", text.indexOf("table_translator@custom_phrase") == text.lastIndexOf("table_translator@custom_phrase"))
+    }
+
+    @Test
+    fun `ensureSchemaPack merged dict path preserves existing content`() {
+        val context = mockContext()
+        val rimeDir = java.io.File(context.filesDir, "rime")
+        rimeDir.mkdirs()
+        // 模拟无 speller/algebra 的第三方方案（如五笔）的预置 custom.yaml
+        java.io.File(rimeDir, "wubi86.schema.yaml").writeText("""
+speller:
+  alphabet: abcdefghijklmnopqrstuvwxyz
+  max_code_length: 4
+""".trimIndent())
+        java.io.File(rimeDir, "wubi86.custom.yaml").writeText("""patch:
+  engine/filters/@before/0:
+    - lua_filter@custom_filter
+  menu/page_size: 8
+""", Charsets.UTF_8)
+        PersonalDictManager.ensureSchemaPack(context, "wubi86")
+        val text = java.io.File(rimeDir, "wubi86.custom.yaml").readText(Charsets.UTF_8)
+        assertTrue("Lua filter preserved", text.contains("lua_filter@custom_filter"))
+        assertTrue("page_size preserved", text.contains("menu/page_size: 8"))
+        assertTrue("merged dict config added", text.contains("translator/dictionary"))
+        assertTrue("custom_phrase added", text.contains("table_translator@custom_phrase"))
+        assertEquals("merged dict appears once", 1, text.split("wubi86_merged").size - 1)
+        assertEquals("custom_phrase appears once", 1, text.split("table_translator@custom_phrase").size - 1)
+    }
+
+    @Test
+    fun `ensureSchemaPack reverse lookup path preserves existing content`() {
+        val context = mockContext()
+        val rimeDir = java.io.File(context.filesDir, "rime")
+        rimeDir.mkdirs()
+        java.io.File(rimeDir, "wubi86_pinyin.schema.yaml").writeText("""
+translator:
+  dictionary: wubi86_pinyin
+  reverse_lookup_translator: true
+""".trimIndent())
+        java.io.File(rimeDir, "wubi86_pinyin.custom.yaml").writeText("""patch:
+  engine/filters/@before/0:
+    - lua_filter@custom_filter
+  menu/page_size: 8
+""", Charsets.UTF_8)
+        PersonalDictManager.ensureSchemaPack(context, "wubi86_pinyin")
+        val text = java.io.File(rimeDir, "wubi86_pinyin.custom.yaml").readText(Charsets.UTF_8)
+        assertTrue("Lua filter preserved", text.contains("lua_filter@custom_filter"))
+        assertTrue("page_size preserved", text.contains("menu/page_size: 8"))
+        assertTrue("custom_phrase added", text.contains("table_translator@custom_phrase"))
+        assertFalse("no packs for reverse_lookup", text.contains("translator/packs"))
+        assertFalse("no merged dict for reverse_lookup", text.contains("translator/dictionary"))
+    }
+
+    @Test
+    fun `applyPackConfig creates file when custom yaml is empty`() {
+        val dir = createTempDir()
+        val file = File(dir, "pinyin_simp.custom.yaml")
+        file.createNewFile()
+        file.writeText("")
+        PersonalDictManager.applyPackConfig(dir, "pinyin_simp")
+        val text = file.readText(Charsets.UTF_8)
+        assertTrue("patch created even for empty file", text.contains("patch:"))
+        assertTrue("packs added", text.contains("translator/packs"))
+    }
+
     private fun createTempFile(content: String): File {
         val file = File.createTempFile("personal_dict_test", ".tmp")
         file.writeText(content, Charsets.UTF_8)
