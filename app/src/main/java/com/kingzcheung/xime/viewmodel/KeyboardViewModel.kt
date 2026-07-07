@@ -196,7 +196,9 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
                 Triple(KeyboardViewState.Handwriting, KeyboardPage.Main(MainType.HANDWRITING), KeyboardLayoutState.Chinese)
             }
             is KeyboardDispatchAction.AsciiModeChanged -> {
-                if (current is KeyboardViewState.NumberPanel || current is KeyboardViewState.CommonSymbolPanel) {
+                if (current is KeyboardViewState.Overlay) {
+                    Triple(current, _page.value, _keyboardState.value)
+                } else if (current is KeyboardViewState.NumberPanel || current is KeyboardViewState.CommonSymbolPanel) {
                     Triple(current, _page.value, _keyboardState.value)
                 } else if (!action.isAsciiMode && action.schemaId == "handwriting") {
                     Triple(KeyboardViewState.Handwriting, KeyboardPage.Main(MainType.HANDWRITING), KeyboardLayoutState.Chinese)
