@@ -102,13 +102,7 @@ use_preset_vocabulary: false
             val text = customFile.readText(Charsets.UTF_8)
             if (text.contains("table_translator@custom_phrase")) return
         }
-        val existing = if (customFile.exists()) {
-            customFile.readText(Charsets.UTF_8).trimEnd('\n', '\r', ' ')
-        } else ""
-        // remove trailing "..." if exists from old patch
-        val base = existing.removeSuffix("...").trimEnd('\n', '\r', ' ')
-        val newContent = """$base
-  "engine/translators/+":
+        insertUnderPatch(customFile, """  "engine/translators/+":
     - table_translator@custom_phrase
   "custom_phrase":
     dictionary: ""
@@ -117,8 +111,7 @@ use_preset_vocabulary: false
     enable_completion: false
     enable_sentence: false
     initial_quality: 99
-"""
-        customFile.writeText(newContent, Charsets.UTF_8)
+""")
     }
 
     internal fun hasSpellerAlgebra(schemaFile: java.io.File): Boolean {
@@ -129,6 +122,23 @@ use_preset_vocabulary: false
         return section.contains("- ")
     }
 
+    /** 在 YAML 的 `patch:` 块下增量插入内容，不覆盖已有配置。 */
+    private fun insertUnderPatch(file: java.io.File, content: String) {
+        if (!file.exists()) {
+            file.writeText("patch:\n$content", Charsets.UTF_8)
+            return
+        }
+        val text = file.readText(Charsets.UTF_8)
+        val cleaned = text.trimEnd('\n', '\r', ' ').removeSuffix("...").trimEnd()
+        val patchLine = Regex("^patch:", RegexOption.MULTILINE).find(cleaned)
+        if (patchLine != null) {
+            val at = patchLine.range.last + 1
+            file.writeText(cleaned.substring(0, at) + "\n$content" + cleaned.substring(at) + "\n", Charsets.UTF_8)
+        } else {
+            file.writeText("$cleaned\n\npatch:\n$content", Charsets.UTF_8)
+        }
+    }
+
     // 方案有固定音节表：translator/packs via .custom.yaml
     internal fun applyPackConfig(rimeDir: java.io.File, schemaId: String) {
         val pkName = packName(schemaId)
@@ -137,10 +147,7 @@ use_preset_vocabulary: false
             val text = customFile.readText(Charsets.UTF_8)
             if (text.contains(pkName)) return
         }
-        customFile.writeText("""# Xime 词库管理补丁 - 自动生成
-patch:
-  "translator/packs": ["$pkName"]
-""", Charsets.UTF_8)
+        insertUnderPatch(customFile, "  \"translator/packs\": [\"$pkName\"]\n")
     }
 
     // 方案无固定音节表：import_tables 合并词典 + translator/dictionary via .custom.yaml
@@ -165,10 +172,7 @@ import_tables:
             val text = customFile.readText(Charsets.UTF_8)
             if (text.contains(mergedId)) return
         }
-        customFile.writeText("""# Xime 词库管理补丁 - 自动生成
-patch:
-  "translator/dictionary": $mergedId
-""", Charsets.UTF_8)
+        insertUnderPatch(customFile, "  \"translator/dictionary\": $mergedId\n")
     }
 
     // ── 个人词库 ──
