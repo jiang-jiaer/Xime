@@ -67,6 +67,7 @@ fun StrokeKeyboardLayout(
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
     isFloatingMode: Boolean = false,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape =
@@ -155,6 +156,7 @@ fun StrokeKeyboardLayout(
                         shadowElevation = shadowElevation,
                         shadowShapeRadius = shadowShapeRadius,
                         onKeyPressDown = onKeyPressDown,
+                        specialKeyTextColor = specialKeyTextColor,
                         onSwipeStateChange = { state, bounds ->
                             val newState = if (state.isSwipeDown && state.swipeText != null) {
                                 state.copy(charInfos = SubcharHelper.parseSwipeDownText(state.swipeText))
@@ -229,7 +231,8 @@ private fun StrokeRows(
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
     onKeyPressDown: ((String) -> Unit)? = null,
-    onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null
+    onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val suppressCursorMove = LocalSuppressCursorMove.current
     val symbols = listOf("。", "？", "！", "~")
@@ -298,7 +301,7 @@ private fun StrokeRows(
                             icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                             onClick = { onKeyPress("delete") },
                             backgroundColor = specialKeyBackgroundColor,
-                            iconColor = keyTextColor,
+                            iconColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                             swipeText = "清空",
                             onSwipe = { onKeyPress("clear_composition") },
@@ -356,7 +359,7 @@ private fun StrokeRows(
                             text = "换行",
                             onClick = { onKeyPress("enter") },
                             backgroundColor = specialKeyBackgroundColor,
-                            textColor = keyTextColor,
+                            textColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                             onPress = { onKeyPressDown?.invoke("enter") },
                             shadowEnabled = shadowEnabled,
@@ -415,7 +418,7 @@ private fun StrokeRows(
                             icon = rememberVectorPainter(Icons.Default.EmojiEmotions),
                             onClick = { onKeyPress("emoji") },
                             backgroundColor = specialKeyBackgroundColor,
-                            iconColor = keyTextColor,
+                            iconColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                             onPress = { onKeyPressDown?.invoke("emoji") },
                             shadowEnabled = shadowEnabled,
@@ -434,7 +437,7 @@ private fun StrokeRows(
                     text = "符号",
                     onClick = { onKeyPress("symbol") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1f),
                     onPress = { onKeyPressDown?.invoke("symbol") },
                     shadowEnabled = shadowEnabled,
@@ -480,7 +483,7 @@ private fun StrokeRows(
                     text = "确定",
                     onClick = { onKeyPress("enter") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("enter") },
                     shadowEnabled = shadowEnabled,
@@ -560,7 +563,7 @@ private fun StrokeKeyButton(
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }

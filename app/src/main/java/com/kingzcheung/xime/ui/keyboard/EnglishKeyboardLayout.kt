@@ -64,6 +64,7 @@ fun EnglishKeyboardLayout(
     shadowShapeRadius: Dp = 8.dp,
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val suppressCursorMove = LocalSuppressCursorMove.current
     val row1 = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
@@ -129,6 +130,7 @@ fun EnglishKeyboardLayout(
                 shadowElevation = shadowElevation,
                 shadowShapeRadius = shadowShapeRadius,
                 onKeyPressDown = onKeyPressDown,
+                specialKeyTextColor = specialKeyTextColor,
             )
         } else {
             Column(
@@ -212,7 +214,7 @@ fun EnglishKeyboardLayout(
                             icon = rememberVectorPainter(Icons.TwoTone.KeyboardCapslock),
                             onClick = { onKeyPress("shift") },
                             backgroundColor = specialKeyBackgroundColor,
-                            iconColor = keyTextColor,
+                            iconColor = specialKeyTextColor,
                             modifier = Modifier.weight(1.4f).fillMaxHeight(),
                             isHighlighted = isShifted,
                             onPress = { onKeyPressDown?.invoke("shift") },
@@ -249,7 +251,7 @@ fun EnglishKeyboardLayout(
                             icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                             onClick = { onKeyPress("delete") },
                             backgroundColor = specialKeyBackgroundColor,
-                            iconColor = keyTextColor,
+                            iconColor = specialKeyTextColor,
                             modifier = Modifier.weight(1.4f).fillMaxHeight(),
                             swipeText = "清空",
                             onSwipe = { onKeyPress("clear_composition") },
@@ -279,7 +281,7 @@ fun EnglishKeyboardLayout(
                             onClick = { onKeyPress("mode_change") },
                             onLongClick = { onKeyPress("mode_change_symbol") },
                             backgroundColor = specialKeyBackgroundColor,
-                            textColor = keyTextColor,
+                            textColor = specialKeyTextColor,
                             modifier = Modifier.weight(1.2f),
                             onPress = { onKeyPressDown?.invoke("mode_change") },
                             shadowEnabled = shadowEnabled,
@@ -321,7 +323,7 @@ fun EnglishKeyboardLayout(
                             text = "英",
                             onClick = { onKeyPress("ime_switch") },
                             backgroundColor = specialKeyBackgroundColor,
-                            textColor = keyTextColor,
+                            textColor = specialKeyTextColor,
                             modifier = Modifier.weight(0.8f),
                             onPress = { onKeyPressDown?.invoke("ime_switch") },
                             shadowEnabled = shadowEnabled,
@@ -334,7 +336,7 @@ fun EnglishKeyboardLayout(
                             text = enterKeyText,
                             onClick = { onKeyPress("enter") },
                             backgroundColor = specialKeyBackgroundColor,
-                            textColor = keyTextColor,
+                            textColor = specialKeyTextColor,
                             modifier = Modifier.weight(1.2f),
                             onPress = { onKeyPressDown?.invoke("enter") },
                             shadowEnabled = shadowEnabled,
@@ -365,6 +367,7 @@ private fun LandscapeEnglishKeyboardContent(
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
     onKeyPressDown: ((String) -> Unit)?,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val staggerStep = 10.dp
 
@@ -438,7 +441,7 @@ private fun LandscapeEnglishKeyboardContent(
                     icon = rememberVectorPainter(Icons.Default.EmojiEmotions),
                     onClick = { onKeyPress("emoji") },
                     backgroundColor = specialKeyBackgroundColor,
-                    iconColor = keyTextColor,
+                    iconColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("emoji") },
                     shadowEnabled = shadowEnabled,
@@ -540,7 +543,7 @@ private fun LandscapeEnglishKeyboardContent(
                     icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                     onClick = { onKeyPress("delete") },
                     backgroundColor = specialKeyBackgroundColor,
-                    iconColor = keyTextColor,
+                    iconColor = specialKeyTextColor,
                     modifier = Modifier.width(48.dp).fillMaxHeight(),
                     onPress = { onKeyPressDown?.invoke("delete") },
                     shadowEnabled = shadowEnabled,
@@ -567,7 +570,7 @@ private fun LandscapeEnglishKeyboardContent(
                     onClick = { onKeyPress("mode_change") },
                     onLongClick = { onKeyPress("mode_change_symbol") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("mode_change") },
                     shadowEnabled = shadowEnabled,
@@ -578,7 +581,7 @@ private fun LandscapeEnglishKeyboardContent(
                     text = "英",
                     onClick = { onKeyPress("ime_switch") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(0.8f),
                     onPress = { onKeyPressDown?.invoke("ime_switch") },
                     shadowEnabled = shadowEnabled,
@@ -589,7 +592,7 @@ private fun LandscapeEnglishKeyboardContent(
                     text = enterKeyText,
                     onClick = { onKeyPress("enter") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("enter") },
                     shadowEnabled = shadowEnabled,
@@ -618,7 +621,7 @@ private fun SplitSpaceKey(
 ) {
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
 
     Box(

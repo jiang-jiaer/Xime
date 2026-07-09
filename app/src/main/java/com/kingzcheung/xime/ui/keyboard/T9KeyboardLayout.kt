@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.R
 import com.kingzcheung.xime.rime.T9InputController
+import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.util.PermissionHelper
 import com.kingzcheung.xime.util.SubcharHelper
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
@@ -268,7 +269,7 @@ private fun T9LandscapeCandidatePanel(
             .fillMaxSize()
             .then(
                 if (shadowEnabled) {
-                    Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius))
+                    Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius), ambientColor = Color(0x40000000), spotColor = Color(0x40000000))
                 } else Modifier
             )
             .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
@@ -384,6 +385,8 @@ private fun T9KeyboardContent(
     val t9DigitFontSize = if (compactMode) 13.sp else 16.sp
     val ctrlFontSize = if (compactMode) 11.sp else androidx.compose.ui.unit.TextUnit.Unspecified
     val candidateFontSize = if (compactMode) 11.sp else 13.sp
+    val specialKeyTextColor = if (uiState.isDarkTheme) Color.White
+        else KeyboardThemes.getAccentColor(uiState.themeId, false)
 
     Row(
         modifier = Modifier
@@ -404,7 +407,7 @@ private fun T9KeyboardContent(
                     .weight(3f)
                     .then(
                         if (shadowEnabled) {
-                            Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius))
+                            Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius), ambientColor = Color(0x40000000), spotColor = Color(0x40000000))
                         } else Modifier
                     )
                     .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
@@ -477,7 +480,7 @@ private fun T9KeyboardContent(
                 text = "符号",
                 onClick = { onKeyPress("symbol") },
                 backgroundColor = specialKeyBackgroundColor,
-                textColor = keyTextColor,
+                textColor = specialKeyTextColor,
                 modifier = Modifier.weight(1f),
                 onPress = { onKeyPressDown?.invoke("symbol") },
                 shadowEnabled = shadowEnabled,
@@ -663,7 +666,7 @@ private fun T9KeyboardContent(
                 icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                 onClick = { onDelete() },
                 backgroundColor = specialKeyBackgroundColor,
-                iconColor = keyTextColor,
+                iconColor = specialKeyTextColor,
                 modifier = Modifier.weight(1f),
                 swipeText = if (compactMode) null else "清空",
                 onSwipe = { onKeyPress("clear_composition") },
@@ -687,7 +690,7 @@ private fun T9KeyboardContent(
                 onClick = { controller.clearAll() },
                 onPress = { onKeyPressDown?.invoke("clear") },
                 backgroundColor = specialKeyBackgroundColor,
-                textColor = keyTextColor,
+                textColor = specialKeyTextColor,
                 modifier = Modifier.weight(1f),
                 shadowEnabled = shadowEnabled,
                 shadowElevation = shadowElevation,
@@ -698,7 +701,7 @@ private fun T9KeyboardContent(
                 text = uiState.enterKeyText,
                 onClick = { onKeyPress("enter") },
                 backgroundColor = specialKeyBackgroundColor,
-                textColor = keyTextColor,
+                textColor = specialKeyTextColor,
                 modifier = Modifier.weight(2f),
                 onPress = { onKeyPressDown?.invoke("enter") },
                 shadowEnabled = shadowEnabled,
@@ -845,7 +848,7 @@ private fun ResetKey(
     val currentOnPress by rememberUpdatedState(onPress)
     val shape = RoundedCornerShape(shadowShapeRadius)
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
 
     Box(
@@ -907,7 +910,7 @@ private fun T9SpaceKey(
     val currentOnVoiceModeChange by rememberUpdatedState(onVoiceModeChange)
     val shape = RoundedCornerShape(shadowShapeRadius)
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
 
     Box(

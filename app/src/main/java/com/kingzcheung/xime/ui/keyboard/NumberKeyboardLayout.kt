@@ -63,6 +63,7 @@ fun NumberKeyboardLayout(
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
     isFloatingMode: Boolean = false,
+    specialKeyTextColor: Color = Color.White,
 ) {
 
     val configuration = LocalConfiguration.current
@@ -163,6 +164,7 @@ fun NumberKeyboardLayout(
                         shadowShapeRadius = shadowShapeRadius,
                         onKeyPressDown = onKeyPressDown,
                         compactMode = true,
+                        specialKeyTextColor = specialKeyTextColor,
                         onSwipeStateChange = { state, bounds ->
                             val newState = if (state.isSwipeDown && state.swipeText != null) {
                                 state.copy(charInfos = SubcharHelper.parseSwipeDownText(state.swipeText))
@@ -200,6 +202,7 @@ fun NumberKeyboardLayout(
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
                     onKeyPressDown = onKeyPressDown,
+                    specialKeyTextColor = specialKeyTextColor,
                     onSwipeStateChange = { state, bounds ->
                         val newState = if (state.isSwipeDown && state.swipeText != null) {
                             state.copy(charInfos = SubcharHelper.parseSwipeDownText(state.swipeText))
@@ -232,6 +235,7 @@ private fun NumberRows(
     onKeyPressDown: ((String) -> Unit)? = null,
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
     compactMode: Boolean = false,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val symFontSize = if (compactMode) 14.sp else 18.sp
     val keyFontSize = if (compactMode) 16.sp else androidx.compose.ui.unit.TextUnit.Unspecified
@@ -290,7 +294,7 @@ private fun NumberRows(
                             icon = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowBack),
                             onClick = { onKeyPress("abc") },
                             backgroundColor = specialKeyBackgroundColor,
-                            iconColor = keyTextColor,
+                            iconColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                             onPress = { onKeyPressDown?.invoke("abc") },
                             shadowEnabled = shadowEnabled,
@@ -386,7 +390,7 @@ private fun NumberRows(
                             text = "符号",
                             onClick = { onKeyPress("symbol") },
                             backgroundColor = specialKeyBackgroundColor,
-                            textColor = keyTextColor,
+                            textColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                             onPress = { onKeyPressDown?.invoke("symbol") },
                             shadowEnabled = shadowEnabled,
@@ -431,7 +435,7 @@ private fun NumberRows(
                         icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                         onClick = { onKeyPress("delete") },
                         backgroundColor = specialKeyBackgroundColor,
-                        iconColor = keyTextColor,
+                        iconColor = specialKeyTextColor,
                         modifier = Modifier.weight(1f),
                         swipeText = "清空",
                         onSwipe = { onKeyPress("clear_composition") },
@@ -455,7 +459,7 @@ private fun NumberRows(
                         text = "空格",
                         onClick = { onKeyPress("space") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1f),
                         onPress = { onKeyPressDown?.invoke("space") },
                         shadowEnabled = shadowEnabled,
@@ -467,7 +471,7 @@ private fun NumberRows(
                         icon = rememberVectorPainter(Icons.Default.EmojiEmotions),
                         onClick = { onKeyPress("emoji") },
                         backgroundColor = specialKeyBackgroundColor,
-                        iconColor = keyTextColor,
+                        iconColor = specialKeyTextColor,
                         modifier = Modifier.weight(1f),
                         onPress = { onKeyPressDown?.invoke("emoji") },
                         shadowEnabled = shadowEnabled,
@@ -478,7 +482,7 @@ private fun NumberRows(
                         text = "确定",
                         onClick = { onKeyPress("enter") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1f),
                         onPress = { onKeyPressDown?.invoke("enter") },
                         shadowEnabled = shadowEnabled,

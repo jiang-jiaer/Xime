@@ -127,7 +127,7 @@ fun KeyButton(
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
@@ -376,7 +376,7 @@ fun SwipeableKeyButton(
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
@@ -793,7 +793,7 @@ fun IconKeyButton(
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
@@ -924,7 +924,7 @@ fun SwipeableIconKeyButton(
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }

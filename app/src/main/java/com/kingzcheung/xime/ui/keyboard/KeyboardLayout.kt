@@ -127,6 +127,8 @@ fun KeyboardLayout(
     val keyTextColor = if (uiState.isDarkTheme) longToColor(kbColors.keyTextColorDark) else longToColor(kbColors.keyTextColor)
     val specialKeyBackgroundColor = if (uiState.isDarkTheme) kbColors.specialKeyBgColorDark?.let { longToColor(it) }
         ?: themeSpecialKeyColor else kbColors.specialKeyBgColor?.let { longToColor(it) } ?: themeSpecialKeyColor
+    val specialKeyTextColor = if (uiState.isDarkTheme) Color.White
+        else KeyboardThemes.getAccentColor(uiState.themeId, false)
     val kbShadow = KeysConfigHelper.getKeyboardShadow()
     val kbKey = KeysConfigHelper.getKeyboardKeyConfig()
     val shadowEnabled = kbShadow.enabled
@@ -383,7 +385,7 @@ fun KeyboardLayout(
                                 onKeyPress = onKeyPress,
                                 onKeyPressDown = onKeyPressDown,
                                 backgroundColor = specialKeyBackgroundColor,
-                                iconColor = keyTextColor,
+                                iconColor = specialKeyTextColor,
                                 modifier = Modifier
                                     .padding(2.dp,4.dp)
                                     .weight(1.4f)
@@ -496,7 +498,7 @@ fun KeyboardLayout(
                                 icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                                 onClick = { onKeyPress("delete") },
                                 backgroundColor = specialKeyBackgroundColor,
-                                iconColor = keyTextColor,
+                                iconColor = specialKeyTextColor,
                                 modifier = Modifier
                                     .padding(2.dp,0.dp)
                                     .weight(1.4f)
@@ -546,7 +548,7 @@ fun KeyboardLayout(
                                 text = "?123",
                                 onClick = { onKeyPress("mode_change") },
                                 backgroundColor = specialKeyBackgroundColor,
-                                textColor = keyTextColor,
+                                textColor = specialKeyTextColor,
                                 modifier = Modifier.weight(1.2f),
                                 onPress = { onKeyPressDown?.invoke("mode_change") },
                                 onRelease = { onKeyRelease?.invoke("mode_change") },
@@ -808,7 +810,7 @@ fun KeyboardLayout(
                                 text = enterKeyText,
                                 onClick = { onKeyPress("enter") },
                                 backgroundColor = specialKeyBackgroundColor,
-                                textColor = keyTextColor,
+                                textColor = specialKeyTextColor,
                                 modifier = Modifier.weight(1.2f),
                                 onPress = { onKeyPressDown?.invoke("enter") },
                                 onRelease = { onKeyRelease?.invoke("enter") },
@@ -1042,7 +1044,7 @@ private fun ShiftCapsKeyButton(
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
@@ -1164,6 +1166,8 @@ private fun LandscapeKeyboardContent(
     val keyTextColor = if (uiState.isDarkTheme) longToColor(kbColors.keyTextColorDark) else longToColor(kbColors.keyTextColor)
     val specialKeyBackgroundColor = if (uiState.isDarkTheme) kbColors.specialKeyBgColorDark?.let { longToColor(it) }
         ?: themeSpecialKeyColor else kbColors.specialKeyBgColor?.let { longToColor(it) } ?: themeSpecialKeyColor
+    val specialKeyTextColor = if (uiState.isDarkTheme) Color.White
+        else KeyboardThemes.getAccentColor(uiState.themeId, false)
     val kbShadow = KeysConfigHelper.getKeyboardShadow()
     val kbKey = KeysConfigHelper.getKeyboardKeyConfig()
     val shadowEnabled = kbShadow.enabled
@@ -1304,7 +1308,7 @@ private fun LandscapeKeyboardContent(
                     onKeyPress = onKeyPress,
                     onKeyPressDown = onKeyPressDown,
                     backgroundColor = specialKeyBackgroundColor,
-                    iconColor = keyTextColor,
+                    iconColor = specialKeyTextColor,
                     modifier = Modifier.padding(1.dp,2.dp).weight(1.2f),
                         shadowEnabled = shadowEnabled,
                         shadowElevation = shadowElevation,
@@ -1459,7 +1463,7 @@ private fun LandscapeKeyboardContent(
                     icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                     onClick = { onKeyPress("delete") },
                     backgroundColor = specialKeyBackgroundColor,
-                    iconColor = keyTextColor,
+                    iconColor = specialKeyTextColor,
                     modifier = Modifier
                         .padding(1.dp)
                         .width(48.dp)
@@ -1499,7 +1503,7 @@ private fun LandscapeKeyboardContent(
                     text = "?123",
                     onClick = { onKeyPress("mode_change") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("mode_change") },
                     onRelease = { onKeyRelease?.invoke("mode_change") },
@@ -1566,7 +1570,7 @@ private fun LandscapeKeyboardContent(
                     text = enterKeyText,
                     onClick = { onKeyPress("enter") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("enter") },
                     onRelease = { onKeyRelease?.invoke("enter") },
@@ -1642,7 +1646,7 @@ fun SwipeableKeyButtonLandscape(
 
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
@@ -2036,7 +2040,7 @@ private fun SplitSpaceKey(
 ) {
     val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
     }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
@@ -2104,7 +2108,7 @@ private fun SpaceKey(
     val context = LocalContext.current
 
     val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius), ambientColor = Color(0x80000000), spotColor = Color(0x80000000))
+        if (shadowEnabled) Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius), ambientColor = Color(0x40000000), spotColor = Color(0x40000000))
         else Modifier
     }
 
