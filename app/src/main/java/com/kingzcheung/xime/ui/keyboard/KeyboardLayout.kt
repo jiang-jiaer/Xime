@@ -692,14 +692,18 @@ fun KeyboardLayout(
                                 modifier = Modifier.weight(1.2f)
                             )
                         } else {
-                            // shift_l — 从配置读取
-                            val k4KeyGesture = KeysConfigHelper.getKeyGesture("shift_l", isAsciiMode)
+                            // earth — 从配置读取
+                            val k4KeyGesture = KeysConfigHelper.getKeyGesture("earth", isAsciiMode)
                             val k4TapAction = k4KeyGesture?.tap?.action
-                            val k4TapValue = k4KeyGesture?.tap?.value?.takeIf { it.isNotEmpty() }
-                                ?: k4KeyGesture?.tap?.label?.takeIf { it.isNotEmpty() }
-                                ?: "ime_switch"
-                            val k4TapLabel = k4KeyGesture?.tap?.label?.takeIf { it.isNotEmpty() }
-                                ?: if (isAsciiMode) "中" else "英"
+                            val k4TapValue = k4KeyGesture?.tap?.value?.takeIf { it.isNotEmpty() } ?: ""
+                            val k4TapLabel = k4KeyGesture?.tap?.label?.takeIf { it.isNotEmpty() } ?: ""
+                            val k4Icon: Painter? = k4KeyGesture?.tap?.icon?.takeIf { it.isNotEmpty() }?.let { iconName ->
+                                val iv = when (iconName) {
+                                    "language", "globe" -> Icons.Default.Language
+                                    else -> null
+                                }
+                                iv?.let { rememberVectorPainter(it) }
+                            }
                             val k4SwipeUpRaw = k4KeyGesture?.swipeUp
                             val k4SwipeUpLabel = if (isAsciiMode)
                                 (k4SwipeUpRaw?.value?.takeIf { it.isNotEmpty() } ?: "")
@@ -758,9 +762,9 @@ fun KeyboardLayout(
                                     Unit
                                 }
                             }
-                            if (k4TapAction == GestureAction.TOGGLE_ASCII) {
+                            if (k4TapAction == GestureAction.TOGGLE_ASCII && k4LongPressLabels == null && k4Icon != null) {
                                 IconKeyButton(
-                                    icon = rememberVectorPainter(Icons.Default.Language),
+                                    icon = k4Icon,
                                     onClick = k4OnClick,
                                     backgroundColor = keyBackgroundColor,
                                     iconColor = keyTextColor,
@@ -779,7 +783,8 @@ fun KeyboardLayout(
                                     backgroundColor = keyBackgroundColor,
                                     textColor = keyTextColor,
                                     modifier = Modifier.weight(0.8f),
-                                    swipeText = k4SwipeUpLabel,
+                                    icon = k4Icon,
+                                    swipeText = k4SwipeUpLabel.takeIf { it.isNotEmpty() },
                                     swipeDownText = k4SwipeDownBubbleText,
                                     swipeDownKeyLabel = if (!isAsciiMode && (k4SwipeDownDisplay == DisplayMode.KEY || k4SwipeDownDisplay == DisplayMode.BOTH)) k4SwipeDownLabel else null,
                                     onSwipe = k4OnSwipe,
@@ -1508,7 +1513,7 @@ private fun LandscapeKeyboardContent(
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
                 )
-                val k4Gesture = KeysConfigHelper.getKeyGesture("shift_l")
+                val k4Gesture = KeysConfigHelper.getKeyGesture("earth")
                 val k4Action = k4Gesture?.tap?.action
                 val k4Value = k4Gesture?.tap?.value?.takeIf { it.isNotEmpty() } ?: k4Gesture?.tap?.label?.takeIf { it.isNotEmpty() } ?: "ime_switch"
                 val k4Label = k4Gesture?.tap?.label?.takeIf { it.isNotEmpty() } ?: "中"

@@ -48,6 +48,7 @@ data class GestureDef(
     val labels: List<String> = emptyList(),
     val action: GestureAction? = GestureAction.COMMIT,
     val value: String = "",
+    val icon: String = "",
     val display: DisplayMode = DisplayMode.BOTH,
 )
 
@@ -169,7 +170,9 @@ private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
     // 字符串 → commit
     if (node is com.charleskorn.kaml.YamlScalar) {
         val text = node.content
-        return GestureDef(label = text, action = GestureAction.COMMIT, value = text)
+        val icon = if (text.startsWith("@")) text.removePrefix("@") else ""
+        val cleanLabel = if (icon.isNotEmpty()) "" else text
+        return GestureDef(label = cleanLabel, action = GestureAction.COMMIT, value = text, icon = icon)
     }
     // 映射 → 完整定义
     if (node is com.charleskorn.kaml.YamlMap) {
@@ -204,7 +207,9 @@ private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
                 }
             }
         }
-        return GestureDef(label = label, labels = labels, action = action, value = value, display = DisplayMode.fromValue(display))
+        val icon = if (label.startsWith("@")) label.removePrefix("@") else ""
+        val cleanLabel = if (icon.isNotEmpty()) "" else label
+        return GestureDef(label = cleanLabel, labels = labels, action = action, value = value, icon = icon, display = DisplayMode.fromValue(display))
     }
     return GestureDef()
 }
