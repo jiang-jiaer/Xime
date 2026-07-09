@@ -254,8 +254,6 @@ class T9InputController(
         if (input.isEmpty()) {
             if (lastRimeInput != null) {
                 lastRimeInput = null
-                // 当 buffer 为空但仍有 RightCommit 未撤销时，只清除 RIME composition
-                // 但不清空 partial commit 累积文本（预编辑区域仍需显示已提交的候选词）
                 val hasPendingRightCommit = snapshots.any { it.isRightCommit }
                 onReplaceFullPinyin(if (hasPendingRightCommit) CLEAR_COMPOSITION_ONLY else CLEAR_ALL)
             }
