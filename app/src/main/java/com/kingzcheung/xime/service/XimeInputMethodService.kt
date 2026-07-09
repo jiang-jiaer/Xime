@@ -11,6 +11,7 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.CursorAnchorInfo
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputContentInfo
 import android.widget.FrameLayout
@@ -1162,6 +1163,11 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         updateUI()
                     }
                 }
+            }
+            "show_ime_picker" -> {
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                @Suppress("DEPRECATION")
+                imm.showInputMethodPicker()
             }
             else -> Log.w(TAG, "Unknown command: $name")
         }

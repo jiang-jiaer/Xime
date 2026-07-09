@@ -76,7 +76,7 @@ fun rememberSwipeBubbleDrawData(
     val displayText = if (isLongPressMode) null
         else if (swipeState.isPressed) swipeState.pressedText
         else swipeState.swipeText
-    if (!isLongPressMode && displayText == null) return null
+    if (!isLongPressMode && displayText.isNullOrEmpty()) return null
 
     val density = LocalDensity.current
     val bodyHeightPx = with(density) { BubbleBodyHeight.toPx() }

@@ -319,6 +319,7 @@ fun SwipeableKeyButton(
     modifier: Modifier = Modifier,
     isHighlighted: Boolean = false,
     layoutMode: ButtonLayout = ButtonLayout.STANDARD,
+    icon: Painter? = null,
     swipeText: String? = null,
     swipeDownText: String? = null,
     /** 下滑文本显示在按键上（气泡为空，用于 display:key） */
@@ -593,18 +594,30 @@ fun SwipeableKeyButton(
     ) {
         if (layoutMode == ButtonLayout.COMPACT) {
             Box(modifier = Modifier.fillMaxSize()) {
-                Text(
-                    text = text,
-                    color = textColor,
-                    fontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) fontSize else if (text.length > 2) 13.sp else 16.sp,
-                    fontWeight = if (text.length > 2) FontWeight.Medium else FontWeight.Normal,
-                    textAlign = TextAlign.Start,
-                    maxLines = 1,
-                    lineHeight = 1.sp,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(top = 2.dp, start = 4.dp)
-                )
+                if (icon != null) {
+                    Icon(
+                        painter = icon,
+                        contentDescription = text,
+                        tint = textColor,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = 2.dp, start = 4.dp)
+                            .size(16.dp)
+                    )
+                } else {
+                    Text(
+                        text = text,
+                        color = textColor,
+                        fontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) fontSize else if (text.length > 2) 13.sp else 16.sp,
+                        fontWeight = if (text.length > 2) FontWeight.Medium else FontWeight.Normal,
+                        textAlign = TextAlign.Start,
+                        maxLines = 1,
+                        lineHeight = 1.sp,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = 2.dp, start = 4.dp)
+                    )
+                }
 
                 Column(
                     modifier = Modifier
@@ -653,14 +666,23 @@ fun SwipeableKeyButton(
                 }
             }
         } else {
-            Text(
-                text = text,
-                color = textColor,
-                fontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) fontSize else if (text.length > 2) 14.sp else 18.sp,
-                fontWeight = if (text.length > 2) FontWeight.Medium else FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
+            if (icon != null) {
+                Icon(
+                    painter = icon,
+                    contentDescription = text,
+                    tint = textColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Text(
+                    text = text,
+                    color = textColor,
+                    fontSize = if (fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) fontSize else if (text.length > 2) 14.sp else 18.sp,
+                    fontWeight = if (text.length > 2) FontWeight.Medium else FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+            }
 
             if (!(swipeUpKeyLabel ?: swipeText).isNullOrEmpty()) {
                 val keyLabel = (swipeUpKeyLabel ?: swipeText)!!
