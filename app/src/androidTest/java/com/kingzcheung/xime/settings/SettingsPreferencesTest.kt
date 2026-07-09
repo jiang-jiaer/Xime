@@ -22,7 +22,7 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `current schema uses default then persists value`() {
+    fun currentSchemaUsesDefaultThenPersists() {
         assertEquals("wubi86", SettingsPreferences.getCurrentSchema(context))
 
         SettingsPreferences.setCurrentSchema(context, "wubi98")
@@ -31,7 +31,7 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `dark mode persists integer setting`() {
+    fun darkModePersistsIntegerSetting() {
         assertEquals(2, SettingsPreferences.getDarkMode(context))
 
         SettingsPreferences.setDarkMode(context, 0)
@@ -40,7 +40,7 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `dark mode values`() {
+    fun darkModeValues() {
         SettingsPreferences.setDarkMode(context, 0)
         assertEquals(0, SettingsPreferences.getDarkMode(context))
         
@@ -52,7 +52,7 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `sound and vibration defaults and updates work`() {
+    fun soundAndVibrationDefaultsAndUpdatesWork() {
         assertTrue(SettingsPreferences.isSoundEnabled(context))
         assertEquals(50, SettingsPreferences.getSoundVolume(context))
         assertTrue(SettingsPreferences.isVibrationEnabled(context))
@@ -70,7 +70,7 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `sound volume boundary values`() {
+    fun soundVolumeBoundaryValues() {
         SettingsPreferences.setSoundVolume(context, 0)
         assertEquals(0, SettingsPreferences.getSoundVolume(context))
         
@@ -79,7 +79,7 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `vibration intensity boundary values`() {
+    fun vibrationIntensityBoundaryValues() {
         SettingsPreferences.setVibrationIntensity(context, 0)
         assertEquals(0, SettingsPreferences.getVibrationIntensity(context))
         
@@ -88,12 +88,12 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `haptic mode defaults to following system`() {
+    fun hapticModeDefaultsToFollowingSystem() {
         assertEquals("following_system", SettingsPreferences.getHapticMode(context))
     }
 
     @Test
-    fun `haptic mode persists values`() {
+    fun hapticModePersistsValues() {
         SettingsPreferences.setHapticMode(context, "enabled")
         assertEquals("enabled", SettingsPreferences.getHapticMode(context))
 
@@ -105,12 +105,12 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `haptic on key up defaults to false`() {
+    fun hapticOnKeyUpDefaultsToFalse() {
         assertFalse(SettingsPreferences.isHapticOnKeyUp(context))
     }
 
     @Test
-    fun `vibration duration and amplitude defaults to zero`() {
+    fun vibrationDurationAndAmplitudeDefaultsToZero() {
         assertEquals(0, SettingsPreferences.getVibrationPressDuration(context))
         assertEquals(0, SettingsPreferences.getVibrationLongPressDuration(context))
         assertEquals(0, SettingsPreferences.getVibrationPressAmplitude(context))
@@ -118,7 +118,7 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `vibration duration and amplitude persist`() {
+    fun vibrationDurationAndAmplitudePersist() {
         SettingsPreferences.setVibrationPressDuration(context, 30)
         assertEquals(30, SettingsPreferences.getVibrationPressDuration(context))
 
@@ -133,19 +133,19 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `keyboard theme and bottom buttons persist`() {
+    fun keyboardThemeAndToolbarButtonsPersist() {
         assertEquals("lavender_purple", SettingsPreferences.getKeyboardTheme(context))
-        assertFalse(SettingsPreferences.showBottomButtons(context))
+        assertTrue(SettingsPreferences.getToolbarButtons(context).isEmpty())
 
         SettingsPreferences.setKeyboardTheme(context, "sunset")
-        SettingsPreferences.setShowBottomButtons(context, true)
+        SettingsPreferences.setToolbarButtons(context, listOf("symbols", "clipboard"))
 
         assertEquals("sunset", SettingsPreferences.getKeyboardTheme(context))
-        assertTrue(SettingsPreferences.showBottomButtons(context))
+        assertEquals(listOf("symbols", "clipboard"), SettingsPreferences.getToolbarButtons(context))
     }
 
     @Test
-    fun `multiple theme changes`() {
+    fun multipleThemeChanges() {
         SettingsPreferences.setKeyboardTheme(context, "ocean_blue")
         assertEquals("ocean_blue", SettingsPreferences.getKeyboardTheme(context))
         
@@ -157,7 +157,7 @@ class SettingsPreferencesTest {
     }
 
     @Test
-    fun `plugin enabled state is isolated by plugin id`() {
+    fun pluginEnabledStateIsIsolatedByPluginId() {
         val predictionPlugin = "prediction-onnx"
         val emojiPlugin = "meme-bunny"
 
@@ -174,7 +174,7 @@ class SettingsPreferencesTest {
     }
     
     @Test
-    fun `multiple plugins can be enabled independently`() {
+    fun multiplePluginsCanBeEnabledIndependently() {
         val plugins = listOf("plugin1", "plugin2", "plugin3")
         
         for (plugin in plugins) {
@@ -197,7 +197,7 @@ class SettingsPreferencesTest {
     }
     
     @Test
-    fun `smart prediction settings`() {
+    fun smartPredictionSettings() {
         assertFalse("Smart prediction should be disabled by default", 
             SettingsPreferences.isSmartPredictionEnabled(context))
         
@@ -211,7 +211,7 @@ class SettingsPreferencesTest {
     }
     
     @Test
-    fun `prediction model repo settings`() {
+    fun predictionModelRepoSettings() {
         val defaultRepo = "https://www.modelscope.cn/models/bikeand/predictive-text-small"
         assertEquals(defaultRepo, SettingsPreferences.getPredictionModelRepo(context))
         
@@ -221,7 +221,7 @@ class SettingsPreferencesTest {
     }
     
     @Test
-    fun `STT settings`() {
+    fun sttSettings() {
         assertFalse("STT should be disabled by default", 
             SettingsPreferences.isSttEnabled(context))
         
@@ -231,7 +231,7 @@ class SettingsPreferencesTest {
     }
     
     @Test
-    fun `STT provider settings`() {
+    fun sttProviderSettings() {
         assertEquals("funasr", SettingsPreferences.getSttProvider(context))
         
         SettingsPreferences.setSttProvider(context, "whisper")
@@ -239,7 +239,7 @@ class SettingsPreferencesTest {
     }
     
     @Test
-    fun `FunASR API key settings`() {
+    fun funasrApiKeySettings() {
         assertEquals("", SettingsPreferences.getFunAsrApiKey(context))
         
         val apiKey = "test-api-key-12345"
@@ -248,7 +248,7 @@ class SettingsPreferencesTest {
     }
     
     @Test
-    fun `schema switching sequence`() {
+    fun schemaSwitchingSequence() {
         val schemas = listOf("wubi86", "wubi98", "wubi_pinyin")
         
         for (schema in schemas) {
@@ -259,19 +259,19 @@ class SettingsPreferencesTest {
     }
     
     @Test
-    fun `bottom buttons toggle`() {
-        SettingsPreferences.setShowBottomButtons(context, true)
-        assertTrue(SettingsPreferences.showBottomButtons(context))
+    fun toolbarButtonsPersist() {
+        SettingsPreferences.setToolbarButtons(context, listOf("symbols", "clipboard"))
+        assertEquals(listOf("symbols", "clipboard"), SettingsPreferences.getToolbarButtons(context))
         
-        SettingsPreferences.setShowBottomButtons(context, false)
-        assertFalse(SettingsPreferences.showBottomButtons(context))
+        SettingsPreferences.setToolbarButtons(context, emptyList())
+        assertTrue(SettingsPreferences.getToolbarButtons(context).isEmpty())
         
-        SettingsPreferences.setShowBottomButtons(context, true)
-        assertTrue(SettingsPreferences.showBottomButtons(context))
+        SettingsPreferences.setToolbarButtons(context, listOf("symbols"))
+        assertEquals(listOf("symbols"), SettingsPreferences.getToolbarButtons(context))
     }
     
     @Test
-    fun `clearing preferences resets to defaults`() {
+    fun clearingPreferencesResetsToDefaults() {
         SettingsPreferences.setCurrentSchema(context, "custom_schema")
         SettingsPreferences.setDarkMode(context, 2)
         SettingsPreferences.setSoundEnabled(context, false)
