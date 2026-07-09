@@ -36,6 +36,10 @@ class T9InputController(
     }
     // ── 响应式状态 ──
 
+    /** 推迟左侧候选区更新到下一帧，避免重组干扰触摸事件命中测试 */
+    private val candidateUpdater: android.os.Handler? =
+        try { android.os.Handler(android.os.Looper.getMainLooper()) } catch (_: Throwable) { null }
+
     /** 退格操作结果类型 */
     enum class DeleteResult {
         /** 已消费：删除了一个字符 */
@@ -51,7 +55,7 @@ class T9InputController(
     /** 发送给 RIME 的完整输入序列。
      *  格式：已确认拼音 + 分隔符(') + 数字 ...
      *  例如 "j'43"（5后分词确认j，再输入43）、"ji'482"（左侧选ji后继续输入） */
-    var inputBuffer: String by mutableStateOf("")
+    var inputBuffer: String = ""
         internal set
 
     /** 左侧候选区的音节选项列表 */
@@ -59,12 +63,10 @@ class T9InputController(
         private set
 
     /** 上次发送给 RIME 的输入（避免冗余调用） */
-    var lastRimeInput: String? by mutableStateOf(null)
-        private set
+    private var lastRimeInput: String? = null
 
     /** 左侧候选区是否锁定（分词后锁定，用户选择后解锁） */
-    var leftColumnLocked: Boolean by mutableStateOf(false)
-        private set
+    var leftColumnLocked: Boolean = false
 
     // ── 内部状态 ──
 
@@ -190,6 +192,7 @@ class T9InputController(
      * @param force 是否强制更新（用户主动选择时强制刷新）
      */
     fun updateCandidates(force: Boolean = false) {
+        val t0 = System.nanoTime()
         if (leftColumnLocked && !force) return
 
         val parts = parseInputBuffer(inputBuffer)
@@ -233,6 +236,10 @@ class T9InputController(
             cachedFirstOptions = emptyList()
             firstOptions = emptyList()
             leftColumnLocked = false
+        }
+        val elapsed = (System.nanoTime() - t0) / 1_000_000L
+        if (elapsed > 2) {
+            try { android.util.Log.d("T9InputCtrl", "updateCandidates took ${elapsed}ms buffer='${inputBuffer.take(20)}'") } catch (_: Throwable) { }
         }
     }
 
@@ -297,6 +304,7 @@ class T9InputController(
 
     /** 处理数字按键/分词键按下 */
     fun onDigitPressed(digit: String) {
+        val t0 = System.nanoTime()
         if (digit == "1") {
             // 分词键：将当前数字段转为拼音 + 分隔符，锁定左侧候选区。
             // 优先通过 RIME 候选 comment 反推最优首音节；失败时回退到贪婪最长匹配。
@@ -342,8 +350,12 @@ class T9InputController(
             inputBuffer += "'"
         }
         inputBuffer += digit
-        updateCandidates()
+        candidateUpdater?.post { updateCandidates() } ?: updateCandidates()
         sendToRime()
+        val elapsed = (System.nanoTime() - t0) / 1_000_000L
+        if (elapsed > 5) {
+            try { android.util.Log.d("T9InputCtrl", "onDigitPressed('$digit') took ${elapsed}ms, buffer='${inputBuffer.take(20)}'") } catch (_: Throwable) { }
+        }
     }
 
     /** 处理用户从左侧列选择音节 */

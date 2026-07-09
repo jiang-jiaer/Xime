@@ -251,7 +251,7 @@ private fun NumberRows(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(0.9f),
         ) {
             Row(
                 modifier = Modifier
@@ -308,7 +308,7 @@ private fun NumberRows(
                 Column(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .weight(3f),
+                        .weight(3.2f),
                 ) {
                     Row(
                         modifier = Modifier
@@ -429,7 +429,7 @@ private fun NumberRows(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .weight(0.9f),
                 ) {
                     SwipeableIconKeyButton(
                         icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
