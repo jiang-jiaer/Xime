@@ -2224,7 +2224,15 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
         if (rimeEngine.selectCandidate(index)) {
             val committedText = rimeEngine.commit()
-            if (committedText.isNotEmpty() || (isT9 && fullyConsumed && selectedCandidate != null)) {
+            val isFullCommit = if (isT9 && committedText.isEmpty() && fullyConsumed) {
+                // committedText 为空说明 RIME 未实际提交，但 T9 控制器消费了全部数字。
+                // 此时需检查 RIME 是否还有活动 composition，若有则是 partial commit 误判。
+                val comp = rimeEngine.getComposition()
+                comp.input.isEmpty()
+            } else {
+                committedText.isNotEmpty() || (isT9 && fullyConsumed && selectedCandidate != null)
+            }
+            if (isFullCommit) {
                 if (SettingsPreferences.isSmartPredictionEnabled(this) && selectedCandidate != null && AssociationManager.isInitialized()) {
                     if (predictionManager.lastCommittedText.isNotEmpty()) {
                         val lastChar = predictionManager.lastCommittedText.last().toString()
