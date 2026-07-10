@@ -44,8 +44,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -54,6 +56,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -301,14 +304,27 @@ private fun T9LandscapeCandidatePanel(
     shadowElevation: Dp,
     shadowShapeRadius: Dp,
 ) {
+    val density = LocalDensity.current
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, keyBackgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(keyBackgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(
-                if (shadowEnabled) {
-                    Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius), ambientColor = Color(0x40000000), spotColor = Color(0x40000000))
-                } else Modifier
-            )
+            .then(shadowModifier)
             .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
             .background(keyBackgroundColor)
     ) {
@@ -425,6 +441,23 @@ private fun T9KeyboardContent(
     val specialKeyTextColor = if (uiState.isDarkTheme) Color.White
         else KeyboardThemes.getAccentColor(uiState.themeId, false)
 
+    val density = LocalDensity.current
+    val candidateShadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, keyBackgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(keyBackgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
+
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -442,11 +475,7 @@ private fun T9KeyboardContent(
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(3f)
-                    .then(
-                        if (shadowEnabled) {
-                            Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius), ambientColor = Color(0x40000000), spotColor = Color(0x40000000))
-                        } else Modifier
-                    )
+                    .then(candidateShadowModifier)
                     .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
                     .background(keyBackgroundColor)
             ) {
@@ -884,9 +913,22 @@ private fun ResetKey(
     var isPressed by remember { mutableStateOf(false) }
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPress by rememberUpdatedState(onPress)
+    val density = LocalDensity.current
     val shape = RoundedCornerShape(shadowShapeRadius)
-    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shape, ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, backgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(backgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
     }
 
     Box(
@@ -945,6 +987,22 @@ private fun T9SpaceKey(
     val view = LocalView.current
     val currentOnKeyPress by rememberUpdatedState(onKeyPress)
     val currentOnVoiceModeChange by rememberUpdatedState(onVoiceModeChange)
+    val density = LocalDensity.current
+    val spaceShadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, backgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(backgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
 
     Box(
         modifier = modifier
@@ -978,10 +1036,7 @@ private fun T9SpaceKey(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(
-                    if (shadowEnabled) Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius),
-                        ambientColor = Color(0x40000000), spotColor = Color(0x40000000)) else Modifier
-                )
+                .then(spaceShadowModifier)
                 .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
                 .background(backgroundColor)
         )
