@@ -1,8 +1,8 @@
 package com.kingzcheung.xime.ui.keyboard
 
+import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -53,8 +53,9 @@ import com.kingzcheung.xime.keyboard.GestureAction
 /** 半角 → 全角标点映射，中文模式下键帽显示用。提交仍走半角由 Rime 处理。 */
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -126,6 +127,8 @@ fun KeyboardLayout(
     val keyTextColor = if (uiState.isDarkTheme) longToColor(kbColors.keyTextColorDark) else longToColor(kbColors.keyTextColor)
     val specialKeyBackgroundColor = if (uiState.isDarkTheme) kbColors.specialKeyBgColorDark?.let { longToColor(it) }
         ?: themeSpecialKeyColor else kbColors.specialKeyBgColor?.let { longToColor(it) } ?: themeSpecialKeyColor
+    val specialKeyTextColor = if (uiState.isDarkTheme) Color.White
+        else KeyboardThemes.getAccentColor(uiState.themeId, false)
     val kbShadow = KeysConfigHelper.getKeyboardShadow()
     val kbKey = KeysConfigHelper.getKeyboardKeyConfig()
     val shadowEnabled = kbShadow.enabled
@@ -382,7 +385,7 @@ fun KeyboardLayout(
                                 onKeyPress = onKeyPress,
                                 onKeyPressDown = onKeyPressDown,
                                 backgroundColor = specialKeyBackgroundColor,
-                                iconColor = keyTextColor,
+                                iconColor = specialKeyTextColor,
                                 modifier = Modifier
                                     .padding(2.dp,4.dp)
                                     .weight(1.4f)
@@ -495,7 +498,7 @@ fun KeyboardLayout(
                                 icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                                 onClick = { onKeyPress("delete") },
                                 backgroundColor = specialKeyBackgroundColor,
-                                iconColor = keyTextColor,
+                                iconColor = specialKeyTextColor,
                                 modifier = Modifier
                                     .padding(2.dp,0.dp)
                                     .weight(1.4f)
@@ -545,7 +548,7 @@ fun KeyboardLayout(
                                 text = "?123",
                                 onClick = { onKeyPress("mode_change") },
                                 backgroundColor = specialKeyBackgroundColor,
-                                textColor = keyTextColor,
+                                textColor = specialKeyTextColor,
                                 modifier = Modifier.weight(1.2f),
                                 onPress = { onKeyPressDown?.invoke("mode_change") },
                                 onRelease = { onKeyRelease?.invoke("mode_change") },
@@ -807,7 +810,7 @@ fun KeyboardLayout(
                                 text = enterKeyText,
                                 onClick = { onKeyPress("enter") },
                                 backgroundColor = specialKeyBackgroundColor,
-                                textColor = keyTextColor,
+                                textColor = specialKeyTextColor,
                                 modifier = Modifier.weight(1.2f),
                                 onPress = { onKeyPressDown?.invoke("enter") },
                                 onRelease = { onKeyRelease?.invoke("enter") },
@@ -916,7 +919,7 @@ fun KeyboardRowWithConfig(
     config: KeyboardRowConfig,
     isShifted: Boolean,
     isAsciiMode: Boolean = false,
-    modifier: Modifier = Modifier,
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier,
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
     onKeyPressDown: ((String) -> Unit)? = null,
     onKeyRelease: ((String) -> Unit)? = null,
@@ -1038,20 +1041,32 @@ private fun ShiftCapsKeyButton(
     shadowShapeRadius: Dp = 8.dp,
 ) {
     var isPressed by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
 
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, backgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(backgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
-    val shadowModifier = remember(shadowEnabled, shadowElevation, keyClipShape) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, keyClipShape) else Modifier
-    }
 
     fun darkenColor(color: Color, factor: Float = 0.15f): Color {
         return Color(
             red = (color.red * (1 - factor)).coerceIn(0f, 1f),
             green = (color.green * (1 - factor)).coerceIn(0f, 1f),
             blue = (color.blue * (1 - factor)).coerceIn(0f, 1f),
-            alpha = color.alpha
-        )
+            alpha = color.alpha)
     }
 
     Box(
@@ -1080,7 +1095,7 @@ private fun ShiftCapsKeyButton(
                 }
             }
             .then(shadowModifier)
-            .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
+            .clip(keyClipShape)
             .background(
                 if (isPressed) darkenColor(backgroundColor, 0.1f)
                 else if (shiftMode == ShiftMode.CAPS) darkenColor(backgroundColor, 0.2f)
@@ -1163,6 +1178,8 @@ private fun LandscapeKeyboardContent(
     val keyTextColor = if (uiState.isDarkTheme) longToColor(kbColors.keyTextColorDark) else longToColor(kbColors.keyTextColor)
     val specialKeyBackgroundColor = if (uiState.isDarkTheme) kbColors.specialKeyBgColorDark?.let { longToColor(it) }
         ?: themeSpecialKeyColor else kbColors.specialKeyBgColor?.let { longToColor(it) } ?: themeSpecialKeyColor
+    val specialKeyTextColor = if (uiState.isDarkTheme) Color.White
+        else KeyboardThemes.getAccentColor(uiState.themeId, false)
     val kbShadow = KeysConfigHelper.getKeyboardShadow()
     val kbKey = KeysConfigHelper.getKeyboardKeyConfig()
     val shadowEnabled = kbShadow.enabled
@@ -1303,7 +1320,7 @@ private fun LandscapeKeyboardContent(
                     onKeyPress = onKeyPress,
                     onKeyPressDown = onKeyPressDown,
                     backgroundColor = specialKeyBackgroundColor,
-                    iconColor = keyTextColor,
+                    iconColor = specialKeyTextColor,
                     modifier = Modifier.padding(1.dp,2.dp).weight(1.2f),
                         shadowEnabled = shadowEnabled,
                         shadowElevation = shadowElevation,
@@ -1458,7 +1475,7 @@ private fun LandscapeKeyboardContent(
                     icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                     onClick = { onKeyPress("delete") },
                     backgroundColor = specialKeyBackgroundColor,
-                    iconColor = keyTextColor,
+                    iconColor = specialKeyTextColor,
                     modifier = Modifier
                         .padding(1.dp)
                         .width(48.dp)
@@ -1498,7 +1515,7 @@ private fun LandscapeKeyboardContent(
                     text = "?123",
                     onClick = { onKeyPress("mode_change") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("mode_change") },
                     onRelease = { onKeyRelease?.invoke("mode_change") },
@@ -1565,7 +1582,7 @@ private fun LandscapeKeyboardContent(
                     text = enterKeyText,
                     onClick = { onKeyPress("enter") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("enter") },
                     onRelease = { onKeyRelease?.invoke("enter") },
@@ -1639,11 +1656,23 @@ fun SwipeableKeyButtonLandscape(
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
 
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, backgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(backgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
-    val shadowModifier = remember(shadowEnabled, shadowElevation, keyClipShape) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, keyClipShape) else Modifier
-    }
 
     fun darkenColor(color: Color, factor: Float = 0.15f): Color {
         return Color(
@@ -1658,7 +1687,7 @@ fun SwipeableKeyButtonLandscape(
         modifier = modifier
             .fillMaxHeight()
             .fillMaxWidth()
-            .pointerInput(currentLongPressItems, currentOnLongPressSelect) {
+            .pointerInput(currentText, currentLongPressItems.isNullOrEmpty(), currentOnLongPressSelect != null) {
                 if (currentLongPressItems.isNullOrEmpty() || currentOnLongPressSelect == null) {
                     detectTapGestures(
                         onPress = {
@@ -1854,11 +1883,10 @@ fun SwipeableKeyButtonLandscape(
             }
             .padding(LocalKeyVisualPadding.current)
             .then(shadowModifier)
-            .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
+            .clip(keyClipShape)
             .background(if (isPressed) darkenColor(backgroundColor) else backgroundColor),
         contentAlignment = Alignment.TopStart
     ) {
-
 
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -2033,18 +2061,31 @@ private fun SplitSpaceKey(
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
 ) {
+    val density = LocalDensity.current
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, backgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(backgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
-    val shadowModifier = remember(shadowEnabled, shadowElevation, keyClipShape) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, keyClipShape) else Modifier
-    }
 
     Box(
         modifier = modifier
             .fillMaxHeight()
             .padding(LocalKeyVisualPadding.current)
             .then(shadowModifier)
-            .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
+            .clip(keyClipShape)
             .background(backgroundColor)
             .clickable(
                 interactionSource = null,
@@ -2101,10 +2142,21 @@ private fun SpaceKey(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val keyCornerRadius = LocalKeyCornerRadius.current
-    val shadowModifier = remember(shadowEnabled, shadowElevation, keyCornerRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, RoundedCornerShape(keyCornerRadius), ambientColor = Color(0x80000000), spotColor = Color(0x80000000))
-        else Modifier
+    val density = LocalDensity.current
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, keyBackgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(keyBackgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
     }
 
     Box(

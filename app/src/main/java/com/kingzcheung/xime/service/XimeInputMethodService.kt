@@ -83,6 +83,7 @@ import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.rime.T9InputController
+import com.kingzcheung.xime.rime.convertT9PreeditToPinyin
 import com.kingzcheung.xime.settings.SchemaConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
@@ -221,7 +222,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 voiceAmplitude = 0f
             )
             isTrackingVoiceButtons = false
-            keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.FULL)
+            keyboardViewModel.exitVoice()
         }
     )
     
@@ -648,7 +649,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     voiceButtonState = VoiceButtonState(),
                     voiceRecognizedText = ""
                 )
-                keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.FULL)
+                keyboardViewModel.exitVoice()
                 isTrackingVoiceButtons = false
             }
         )
@@ -913,7 +914,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                             voiceRecognizedText = ""
                                         )
                                         if (enabled) {
-                                            keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.VOICE)
+                                            keyboardViewModel.enterVoice()
                                             feedbackManager.performVibration()
                                             isTrackingVoiceButtons = true
                                             keyboardContainer.enableVoiceButtonTracking()
@@ -921,7 +922,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                             voiceRecognitionHandler.startRecognition()
                                             Log.d("VoiceButtons", "Speech recognition starting...")
                                         } else {
-            keyboardViewModel.switchMain(com.kingzcheung.xime.keyboard.MainType.FULL)
+                                            keyboardViewModel.exitVoice()
                                             isTrackingVoiceButtons = false
                                         }
                                     },
@@ -979,23 +980,33 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                         SettingsPreferences.setFloatingOffsetY(this@XimeInputMethodService, s.floatingOffsetY, isLandscape)
                                     },
                                     onT9ReplaceFullPinyin = { pinyin ->
-                                        when {
-                                            pinyin == T9InputController.CLEAR_COMPOSITION_ONLY -> {
-                                                rimeEngine.clearComposition()
+                                        val t0 = System.nanoTime()
+                                        serviceScope.launch(keyProcessingDispatcher) {
+                                            when {
+                                                pinyin == T9InputController.CLEAR_COMPOSITION_ONLY -> {
+                                                    rimeEngine.clearComposition()
+                                                }
+                                                pinyin == T9InputController.CLEAR_ALL -> {
+                                                    t9PartialCommitTexts.clear()
+                                                    rimeEngine.setInput("")
+                                                    rimeEngine.clearComposition()
+                                                }
+                                                pinyin.isEmpty() -> {
+                                                    rimeEngine.clearComposition()
+                                                }
+                                                else -> {
+                                                    rimeEngine.setInput(pinyin)
+                                                }
                                             }
-                                            pinyin == T9InputController.CLEAR_ALL -> {
-                                                t9PartialCommitTexts.clear()
-                                                rimeEngine.setInput("")
-                                                rimeEngine.clearComposition()
-                                            }
-                                            pinyin.isEmpty() -> {
-                                                rimeEngine.clearComposition()
-                                            }
-                                            else -> {
-                                                rimeEngine.setInput(pinyin)
+                                            val composition = rimeEngine.getComposition()
+                                            withContext(Dispatchers.Main) {
+                                                val totalMs = (System.nanoTime() - t0) / 1_000_000L
+                                                if (totalMs > 10) {
+                                                    Log.d(TAG, "T9 replaceFullPinyin: '${pinyin.take(20)}' total=${totalMs}ms")
+                                                }
+                                                mainHandler.post { applyComposition(composition) }
                                             }
                                         }
-                                        updateUI()
                                     },
                                     onT9RightCommitUndone = { count ->
                                         currentInputConnection?.deleteSurroundingText(count, 0)
@@ -1160,7 +1171,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 postRimeJob {
                     rimeEngine.clearComposition()
                     withContext(Dispatchers.Main) {
-                        updateUI()
+                        mainHandler.post { updateUI() }
                     }
                 }
             }
@@ -1513,9 +1524,10 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
     
     private fun updateUI() {
-        // 一次性查询 RIME composition 全部状态，替代 getInput + getPreedit +
-        // getCandidatesWithComments + isAsciiMode + hasNextPage + hasPrevPage 的多次 JNI 调用。
-        val composition = rimeEngine.getComposition()
+        applyComposition(rimeEngine.getComposition())
+    }
+
+    private fun applyComposition(composition: com.kingzcheung.xime.rime.RimeComposition) {
         val inputText = composition.input
         val preeditText = composition.preedit
         val candidatesWithComments = composition.candidates.toList()
@@ -1537,17 +1549,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             candidatesWithComments.map { it.text } to candidatesWithComments.map { it.comment }
         }
 
-        // 非 T9 方案（如双拼）使用原始输入文本显示，
-        // 避免显示 rime speller 展开后的编码（如双拼 i → ch）
         val isT9Schema = isT9Schema(uiState.value.currentSchemaId)
         val displayText = if (isT9Schema) {
-            val preeditDisplay = if (preeditText.isNotEmpty()) preeditText else inputText
-            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, preeditDisplay)
+            val rawPreedit = if (preeditText.isNotEmpty()) preeditText else inputText
+            val convertedPreedit = convertT9PreeditToPinyin(rawPreedit, candidatesWithComments.firstOrNull()?.comment ?: "")
+            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, convertedPreedit)
         } else {
             inputText
         }
-        // T9 模式下，只要还有 partial commit 未最终上屏，就应保持 composing 状态，
-        // 以便预编辑区域继续显示已提交的候选文本（如场景 6 BS5 的"策"）
         val isComposing = inputText.isNotEmpty() || (isT9Schema && t9PartialCommitTexts.isNotEmpty())
 
         candidateState.value = candidateState.value.copy(
@@ -1563,8 +1572,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         )
         uiState.value = uiState.value.copy(isAsciiMode = isAsciiMode)
 
-        // 悬浮候选栏通过 Compose 内联显示（见 onCreateInputView），拖拽由 pointerInput 处理
-        
         if (pendingEnglish.isNotEmpty()) {
             serviceScope.launch {
                 val candidates = predictionManager.getEnglishAssociations(pendingEnglish, PredictionManager.MAX_ASSOCIATION_COUNT)
@@ -1600,8 +1607,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         // 避免显示 rime speller 展开后的编码（如双拼 i → ch）
         val isT9Schema = isT9Schema(uiState.value.currentSchemaId)
         val displayText = if (isT9Schema) {
-            val preeditDisplay = if (result.preeditText.isNotEmpty()) result.preeditText else result.inputText
-            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, preeditDisplay)
+            val rawPreedit = if (result.preeditText.isNotEmpty()) result.preeditText else result.inputText
+            val convertedPreedit = convertT9PreeditToPinyin(rawPreedit, candidatesWithComments.firstOrNull()?.comment ?: "")
+            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, convertedPreedit)
         } else {
             result.inputText
         }

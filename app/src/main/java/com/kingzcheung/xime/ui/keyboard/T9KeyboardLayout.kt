@@ -1,5 +1,6 @@
 package com.kingzcheung.xime.ui.keyboard
 
+import android.annotation.SuppressLint
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -44,8 +45,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -54,6 +57,8 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -63,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.R
 import com.kingzcheung.xime.rime.T9InputController
+import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.util.PermissionHelper
 import com.kingzcheung.xime.util.SubcharHelper
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
@@ -102,6 +108,65 @@ fun T9KeyboardLayout(
     val configuration = LocalConfiguration.current
     val isLandscape = !isFloatingMode && configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    fun handleDelete() {
+        when (val result = controller.onDeleted()) {
+            T9InputController.DeleteResult.UNDO_COMMIT -> {
+                controller.clearRimeAndResend()
+            }
+
+            T9InputController.DeleteResult.NOT_CONSUMED -> {
+                onKeyPress("delete")
+            }
+
+            T9InputController.DeleteResult.DELETED, T9InputController.DeleteResult.UNDO_CHOICE -> {
+            }
+        }
+    }
+
+    T9KeyboardSwipeOverlay(
+        modifier = modifier,
+        keyboardBackgroundColor = keyboardBackgroundColor,
+        keyCornerRadius = keyCornerRadius,
+        keyTextColor = keyTextColor,
+        isLandscape = isLandscape,
+        isFloatingMode = isFloatingMode,
+        onKeyPress = onKeyPress,
+        callbacks = callbacks,
+        uiState = uiState,
+        controller = controller,
+        keyBackgroundColor = keyBackgroundColor,
+        specialKeyBackgroundColor = specialKeyBackgroundColor,
+        shadowEnabled = shadowEnabled,
+        shadowElevation = shadowElevation,
+        shadowShapeRadius = shadowShapeRadius,
+        onKeyPressDown = onKeyPressDown,
+        onDelete = ::handleDelete,
+    )
+}
+
+
+// ─── 滑动气泡覆盖层（隔离 swipeState 作用域，避免全键盘重组） ────────
+
+@Composable
+private fun T9KeyboardSwipeOverlay(
+    modifier: Modifier,
+    keyboardBackgroundColor: Color,
+    keyCornerRadius: Dp,
+    keyTextColor: Color,
+    isLandscape: Boolean,
+    isFloatingMode: Boolean,
+    onKeyPress: (String) -> Unit,
+    callbacks: KeyboardCallbacks,
+    uiState: KeyboardUiState,
+    controller: T9InputController,
+    keyBackgroundColor: Color,
+    specialKeyBackgroundColor: Color,
+    shadowEnabled: Boolean,
+    shadowElevation: Dp,
+    shadowShapeRadius: Dp,
+    onKeyPressDown: ((String) -> Unit)?,
+    onDelete: () -> Unit,
+) {
     var swipeState by remember { mutableStateOf(SwipeState()) }
     var keyboardBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
     var lastKeyBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
@@ -119,25 +184,6 @@ fun T9KeyboardLayout(
             right = bounds.right - keyboardBounds.left,
             bottom = bounds.bottom - keyboardBounds.top
         )
-    }
-
-
-
-
-    fun handleDelete() {
-        when (val result = controller.onDeleted()) {
-            T9InputController.DeleteResult.UNDO_COMMIT -> {
-                controller.clearRimeAndResend()
-            }
-
-            T9InputController.DeleteResult.NOT_CONSUMED -> {
-                onKeyPress("delete")
-            }
-
-            T9InputController.DeleteResult.DELETED, T9InputController.DeleteResult.UNDO_CHOICE -> {
-                // 已消费
-            }
-        }
     }
 
     val isDarkTheme = keyTextColor == Color(0xFFE8EAED)
@@ -163,13 +209,11 @@ fun T9KeyboardLayout(
             }
             .padding(bottom = if (isFloatingMode || isLandscape) 0.dp else 10.dp)) {
         if (isLandscape) {
-            // ── 横屏分体布局（参考 NumberKeyboardLayout） ──
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(vertical = 2.dp, horizontal = 50.dp),
             ) {
-                // 左侧：RIME 候选面板
                 Column(
                     modifier = Modifier
                         .weight(0.42f)
@@ -188,7 +232,6 @@ fun T9KeyboardLayout(
 
                 Spacer(modifier = Modifier.weight(0.16f))
 
-                // 右侧：九键键盘
                 Box(
                     modifier = Modifier
                         .weight(0.42f)
@@ -210,14 +253,13 @@ fun T9KeyboardLayout(
                             shadowShapeRadius = shadowShapeRadius,
                             onKeyPressDown = onKeyPressDown,
                             onSwipeStateChange = ::processSwipeState,
-                            onDelete = ::handleDelete,
+                            onDelete = onDelete,
                             compactMode = true,
                         )
                     }
                 }
             }
         } else {
-            // ── 竖屏：原三列布局 ──
             CompositionLocalProvider(
                 LocalKeyVisualPadding provides PaddingValues(horizontal = 2.dp, vertical = 2.dp)
             ) {
@@ -240,7 +282,7 @@ fun T9KeyboardLayout(
                         shadowShapeRadius = shadowShapeRadius,
                         onKeyPressDown = onKeyPressDown,
                         onSwipeStateChange = ::processSwipeState,
-                        onDelete = ::handleDelete,
+                        onDelete = onDelete,
                         compactMode = false,
                     )
                 }
@@ -263,14 +305,27 @@ private fun T9LandscapeCandidatePanel(
     shadowElevation: Dp,
     shadowShapeRadius: Dp,
 ) {
+    val density = LocalDensity.current
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, keyBackgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(keyBackgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(
-                if (shadowEnabled) {
-                    Modifier.shadow(shadowElevation, RoundedCornerShape(LocalKeyCornerRadius.current))
-                } else Modifier
-            )
+            .then(shadowModifier)
             .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
             .background(keyBackgroundColor)
     ) {
@@ -364,6 +419,7 @@ private fun LandscapeCandidateItem(
 
 // ─── 九键键盘三列主体（竖屏整宽 / 横屏右栏复用） ──────────────────────
 
+@SuppressLint("SuspiciousIndentation")
 @Composable
 private fun T9KeyboardContent(
     onKeyPress: (String) -> Unit,
@@ -384,6 +440,25 @@ private fun T9KeyboardContent(
     val t9DigitFontSize = if (compactMode) 13.sp else 16.sp
     val ctrlFontSize = if (compactMode) 11.sp else androidx.compose.ui.unit.TextUnit.Unspecified
     val candidateFontSize = if (compactMode) 11.sp else 13.sp
+    val specialKeyTextColor = if (uiState.isDarkTheme) Color.White
+        else KeyboardThemes.getAccentColor(uiState.themeId, false)
+
+    val density = LocalDensity.current
+    val candidateShadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, keyBackgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(keyBackgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
 
     Row(
         modifier = Modifier
@@ -395,18 +470,14 @@ private fun T9KeyboardContent(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .weight(1f),
+                .weight(0.9f),
             verticalArrangement = Arrangement.spacedBy(if (compactMode) 2.dp else 4.dp)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(3f)
-                    .then(
-                        if (shadowEnabled) {
-                            Modifier.shadow(shadowElevation, RoundedCornerShape(shadowShapeRadius))
-                        } else Modifier
-                    )
+                    .then(candidateShadowModifier)
                     .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
                     .background(keyBackgroundColor)
             ) {
@@ -477,7 +548,7 @@ private fun T9KeyboardContent(
                 text = "符号",
                 onClick = { onKeyPress("symbol") },
                 backgroundColor = specialKeyBackgroundColor,
-                textColor = keyTextColor,
+                textColor = specialKeyTextColor,
                 modifier = Modifier.weight(1f),
                 onPress = { onKeyPressDown?.invoke("symbol") },
                 shadowEnabled = shadowEnabled,
@@ -491,7 +562,7 @@ private fun T9KeyboardContent(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .weight(3f),
+                .weight(3.2f),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().weight(1f),
@@ -657,13 +728,14 @@ private fun T9KeyboardContent(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .weight(1f),
+                .weight(0.9f),
         ) {
             SwipeableIconKeyButton(
                 icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                 onClick = { onDelete() },
+                onLongClick = { onDelete() },
                 backgroundColor = specialKeyBackgroundColor,
-                iconColor = keyTextColor,
+                iconColor = specialKeyTextColor,
                 modifier = Modifier.weight(1f),
                 swipeText = if (compactMode) null else "清空",
                 onSwipe = { onKeyPress("clear_composition") },
@@ -687,7 +759,7 @@ private fun T9KeyboardContent(
                 onClick = { controller.clearAll() },
                 onPress = { onKeyPressDown?.invoke("clear") },
                 backgroundColor = specialKeyBackgroundColor,
-                textColor = keyTextColor,
+                textColor = specialKeyTextColor,
                 modifier = Modifier.weight(1f),
                 shadowEnabled = shadowEnabled,
                 shadowElevation = shadowElevation,
@@ -698,7 +770,7 @@ private fun T9KeyboardContent(
                 text = uiState.enterKeyText,
                 onClick = { onKeyPress("enter") },
                 backgroundColor = specialKeyBackgroundColor,
-                textColor = keyTextColor,
+                textColor = specialKeyTextColor,
                 modifier = Modifier.weight(2f),
                 onPress = { onKeyPressDown?.invoke("enter") },
                 shadowEnabled = shadowEnabled,
@@ -843,9 +915,22 @@ private fun ResetKey(
     var isPressed by remember { mutableStateOf(false) }
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPress by rememberUpdatedState(onPress)
+    val density = LocalDensity.current
     val shape = RoundedCornerShape(shadowShapeRadius)
-    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shape) else Modifier
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, backgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(backgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
     }
 
     Box(
@@ -901,55 +986,62 @@ private fun T9SpaceKey(
     shadowShapeRadius: Dp = 8.dp,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val view = LocalView.current
     val currentOnKeyPress by rememberUpdatedState(onKeyPress)
-    val currentOnKeyPressDown by rememberUpdatedState(onKeyPressDown)
     val currentOnVoiceModeChange by rememberUpdatedState(onVoiceModeChange)
-    val shape = RoundedCornerShape(shadowShapeRadius)
-    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, shape) else Modifier
+    val density = LocalDensity.current
+    val spaceShadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, backgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(backgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
     }
 
     Box(
         modifier = modifier
             .fillMaxHeight()
             .padding(horizontal = 2.dp, vertical = 2.dp)
-            .then(shadowModifier)
-            .clip(shape)
-            .background(backgroundColor)
-            .pointerInput(isSttEnabled) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    currentOnKeyPressDown?.invoke("space")
-
-                    var longPressTriggered = false
-                    val longPressJob = scope.launch {
-                        delay(400)
-                        longPressTriggered = true
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        onKeyPressDown?.invoke("space")
+                        tryAwaitRelease()
+                    },
+                    onTap = { currentOnKeyPress("space") },
+                    onLongPress = {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                         if (isSttEnabled) {
                             if (!PermissionHelper.hasRecordAudioPermission(context)) {
-                                Toast.makeText(
-                                    context, "需要麦克风权限才能使用语音输入", Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(context, "需要麦克风权限才能使用语音输入", Toast.LENGTH_SHORT).show()
                                 PermissionHelper.requestRecordAudioPermission(context)
                             } else {
                                 currentOnVoiceModeChange?.invoke(true)
                             }
                         } else {
-                            while (true) {
-                                currentOnKeyPress("space")
-                                delay(80)
-                            }
+                            // 连续空格：在主线程上快速发送多个 space
+                            repeat(5) { currentOnKeyPress("space") }
                         }
                     }
-
-                    longPressJob.cancel()
-                    if (!longPressTriggered) {
-                        currentOnKeyPress("space")
-                    }
-                }
+                )
             }, contentAlignment = Alignment.Center
     ) {
+        // 背景层
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(spaceShadowModifier)
+                .clip(RoundedCornerShape(LocalKeyCornerRadius.current))
+                .background(backgroundColor)
+        )
         Text(
             text = schemaName,
             color = textColor,

@@ -108,10 +108,10 @@ keyboard:
 
   # ── 按键阴影（可选，不设置则使用默认值）──
   # enabled:            是否启用阴影
-  # elevation:          阴影高度（dp，默认 1）
+  # elevation:          阴影高度（dp，默认 0.5）
   shadow:
     enabled: true
-    elevation: 1
+    elevation: 0.5
   qwerty:
     # ── 按键布局模式 ──
     # standard: 默认布局（主文字居中，下滑提示在底部）

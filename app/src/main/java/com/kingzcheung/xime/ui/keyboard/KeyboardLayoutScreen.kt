@@ -36,6 +36,8 @@ fun KeyboardLayoutScreen(
     val keyTextColor = if (uiState.isDarkTheme) longToColor(kbColors.keyTextColorDark) else longToColor(kbColors.keyTextColor)
     val specialKeyBgColor = if (uiState.isDarkTheme) kbColors.specialKeyBgColorDark?.let { longToColor(it) }
         ?: themeSpecialKeyColor else kbColors.specialKeyBgColor?.let { longToColor(it) } ?: themeSpecialKeyColor
+    val specialKeyTextColor = if (uiState.isDarkTheme) Color.White
+        else KeyboardThemes.getAccentColor(uiState.themeId, false)
     val kbShadow = KeysConfigHelper.getKeyboardShadow()
     val kbKey = KeysConfigHelper.getKeyboardKeyConfig()
 
@@ -130,6 +132,7 @@ fun KeyboardLayoutScreen(
                 modifier = modifier,
                 onKeyPressDown = callbacks.onKeyPressDown,
                 isFloatingMode = uiState.isFloatingMode,
+                specialKeyTextColor = specialKeyTextColor,
             )
         }
 
@@ -148,6 +151,7 @@ fun KeyboardLayoutScreen(
                 modifier = modifier,
                 onKeyPressDown = callbacks.onKeyPressDown,
                 isFloatingMode = uiState.isFloatingMode,
+                specialKeyTextColor = specialKeyTextColor,
             )
         }
 
@@ -165,6 +169,7 @@ fun KeyboardLayoutScreen(
                 modifier = modifier,
                 onKeyPressDown = callbacks.onKeyPressDown,
                 isFloatingMode = uiState.isFloatingMode,
+                specialKeyTextColor = specialKeyTextColor,
             )
         }
 

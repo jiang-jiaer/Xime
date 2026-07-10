@@ -27,8 +27,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -67,6 +69,7 @@ fun StrokeKeyboardLayout(
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
     isFloatingMode: Boolean = false,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape =
@@ -155,6 +158,7 @@ fun StrokeKeyboardLayout(
                         shadowElevation = shadowElevation,
                         shadowShapeRadius = shadowShapeRadius,
                         onKeyPressDown = onKeyPressDown,
+                        specialKeyTextColor = specialKeyTextColor,
                         onSwipeStateChange = { state, bounds ->
                             val newState = if (state.isSwipeDown && state.swipeText != null) {
                                 state.copy(charInfos = SubcharHelper.parseSwipeDownText(state.swipeText))
@@ -229,7 +233,8 @@ private fun StrokeRows(
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
     onKeyPressDown: ((String) -> Unit)? = null,
-    onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null
+    onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val suppressCursorMove = LocalSuppressCursorMove.current
     val symbols = listOf("。", "？", "！", "~")
@@ -298,7 +303,7 @@ private fun StrokeRows(
                             icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                             onClick = { onKeyPress("delete") },
                             backgroundColor = specialKeyBackgroundColor,
-                            iconColor = keyTextColor,
+                            iconColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                             swipeText = "清空",
                             onSwipe = { onKeyPress("clear_composition") },
@@ -356,7 +361,7 @@ private fun StrokeRows(
                             text = "换行",
                             onClick = { onKeyPress("enter") },
                             backgroundColor = specialKeyBackgroundColor,
-                            textColor = keyTextColor,
+                            textColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                             onPress = { onKeyPressDown?.invoke("enter") },
                             shadowEnabled = shadowEnabled,
@@ -415,7 +420,7 @@ private fun StrokeRows(
                             icon = rememberVectorPainter(Icons.Default.EmojiEmotions),
                             onClick = { onKeyPress("emoji") },
                             backgroundColor = specialKeyBackgroundColor,
-                            iconColor = keyTextColor,
+                            iconColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                             onPress = { onKeyPressDown?.invoke("emoji") },
                             shadowEnabled = shadowEnabled,
@@ -434,7 +439,7 @@ private fun StrokeRows(
                     text = "符号",
                     onClick = { onKeyPress("symbol") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1f),
                     onPress = { onKeyPressDown?.invoke("symbol") },
                     shadowEnabled = shadowEnabled,
@@ -480,7 +485,7 @@ private fun StrokeRows(
                     text = "确定",
                     onClick = { onKeyPress("enter") },
                     backgroundColor = specialKeyBackgroundColor,
-                    textColor = keyTextColor,
+                    textColor = specialKeyTextColor,
                     modifier = Modifier.weight(1.2f),
                     onPress = { onKeyPressDown?.invoke("enter") },
                     shadowEnabled = shadowEnabled,
@@ -558,11 +563,23 @@ private fun StrokeKeyButton(
     val density = LocalDensity.current
     val swipeUpThreshold = with(density) { (-40).dp.toPx() }
 
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius, density, backgroundColor) {
+        if (shadowEnabled) {
+            val offsetPx = with(density) { shadowElevation.toPx() }
+            val cornerPx = with(density) { shadowShapeRadius.toPx() }
+            val color = crispShadowColor(backgroundColor)
+            Modifier.drawBehind {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(0f, offsetPx),
+                    size = size,
+                    cornerRadius = CornerRadius(cornerPx)
+                )
+            }
+        } else Modifier
+    }
     val keyCornerRadius = LocalKeyCornerRadius.current
     val keyClipShape = remember(keyCornerRadius) { RoundedCornerShape(keyCornerRadius) }
-    val shadowModifier = remember(shadowEnabled, shadowElevation, keyClipShape) {
-        if (shadowEnabled) Modifier.shadow(shadowElevation, keyClipShape) else Modifier
-    }
 
     fun darkenColor(color: Color, factor: Float = 0.15f): Color {
         return Color(
@@ -575,34 +592,8 @@ private fun StrokeKeyButton(
 
     Box(
         modifier = modifier
-            .fillMaxWidth()
             .fillMaxHeight()
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = {
-                        isPressed = true
-                        dragOffsetY = 0f
-                        hasTriggeredSwipeUp = false
-                    },
-                    onDragEnd = {
-                        isPressed = false
-                        dragOffsetY = 0f
-                        hasTriggeredSwipeUp = false
-                    },
-                    onDragCancel = {
-                        isPressed = false
-                        dragOffsetY = 0f
-                        hasTriggeredSwipeUp = false
-                    },
-                    onDrag = { change, dragAmount ->
-                        dragOffsetY += dragAmount.y
-                        if (dragOffsetY < swipeUpThreshold && !hasTriggeredSwipeUp && onSwipeUp != null) {
-                            hasTriggeredSwipeUp = true
-                            onSwipeUp()
-                        }
-                    }
-                )
-            }
+            .fillMaxWidth()
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
@@ -611,12 +602,9 @@ private fun StrokeKeyButton(
                         tryAwaitRelease()
                         isPressed = false
                     },
-                    onTap = {
-                        if (!hasTriggeredSwipeUp) onClick()
-                    }
+                    onTap = { onClick() }
                 )
             }
-            .padding(horizontal = 2.dp, vertical = 2.dp)
             .then(shadowModifier)
             .clip(keyClipShape)
             .background(

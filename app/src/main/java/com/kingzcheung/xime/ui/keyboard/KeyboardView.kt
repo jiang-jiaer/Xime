@@ -140,6 +140,8 @@ fun KeyboardView(
     val specialKeyBgColor = if (state.isDarkTheme) kbColors.specialKeyBgColorDark?.let { longToColor(it) }
         ?: themeSpecialKeyColor
         else kbColors.specialKeyBgColor?.let { longToColor(it) } ?: themeSpecialKeyColor
+    val specialKeyTextColor = if (state.isDarkTheme) androidx.compose.ui.graphics.Color.White
+        else KeyboardThemes.getAccentColor(state.themeId, false)
     val candidateBarBg = if (state.isDarkTheme) longToColor(kbColors.candidateBarBgColorDark)
         else longToColor(kbColors.candidateBarBgColor)
     val candidateTextColor = if (state.isDarkTheme) longToColor(kbColors.candidateTextColorDark)
@@ -574,6 +576,7 @@ fun KeyboardView(
                             keyBackgroundColor = keyBgColor,
                             keyTextColor = keyTextColor,
                             specialKeyBackgroundColor = specialKeyBgColor,
+                            specialKeyTextColor = specialKeyTextColor,
                             modifier = Modifier.weight(1f),
                         )
                         if (state.keyboardBottomPaddingDp > 0) {
@@ -643,6 +646,7 @@ fun KeyboardView(
                         keyCornerRadius = kbKey.cornerRadius.dp,
                         onKeyPressDown = callbacks.onKeyPressDown,
                         isFloatingMode = state.isFloatingMode,
+                        specialKeyTextColor = specialKeyTextColor,
                         modifier = Modifier.weight(1f).fillMaxWidth()
                     )
 
@@ -667,6 +671,7 @@ fun KeyboardView(
                         keyCornerRadius = kbKey.cornerRadius.dp,
                         onKeyPressDown = callbacks.onKeyPressDown,
                         isFloatingMode = state.isFloatingMode,
+                        specialKeyTextColor = specialKeyTextColor,
                         modifier = Modifier.weight(1f).fillMaxWidth()
                     )
 

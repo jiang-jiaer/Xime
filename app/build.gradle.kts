@@ -494,3 +494,12 @@ dependencies {
     androidTestImplementation("androidx.test:rules:1.6.1")
     androidTestImplementation("androidx.concurrent:concurrent-futures:1.2.0")
 }
+
+// Align concurrent-futures version: espresso 3.7.0 requires 1.2.0
+dependencies {
+    constraints {
+        implementation("androidx.concurrent:concurrent-futures:1.2.0") {
+            because("test dependencies (espresso 3.7.0) require 1.2.0")
+        }
+    }
+}

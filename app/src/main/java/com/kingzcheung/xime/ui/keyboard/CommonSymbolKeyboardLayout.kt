@@ -46,6 +46,7 @@ fun CommonSymbolKeyboardLayout(
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
     isFloatingMode: Boolean = false,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val row2Symbols = if (isAsciiMode) {
         listOf("@", "#", "$", "&", "_", "-", "+", "(", ")", "/")
@@ -119,6 +120,7 @@ fun CommonSymbolKeyboardLayout(
                 onKeyPressDown = onKeyPressDown,
                 suppressCursorMove = suppressCursorMove,
                 onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
+                specialKeyTextColor = specialKeyTextColor,
             )
         } else {
             CompositionLocalProvider(
@@ -182,7 +184,7 @@ fun CommonSymbolKeyboardLayout(
                         text = "符号",
                         onClick = { onKeyPress("symbol") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.3f),
                         onPress = { onKeyPressDown?.invoke("symbol") },
                         shadowEnabled = shadowEnabled,
@@ -208,7 +210,7 @@ fun CommonSymbolKeyboardLayout(
                         icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                         onClick = { onKeyPress("delete") },
                         backgroundColor = specialKeyBackgroundColor,
-                        iconColor = keyTextColor,
+                        iconColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.2f),
                         swipeText = "清空",
                         onSwipe = { onKeyPress("clear_composition") },
@@ -237,7 +239,7 @@ fun CommonSymbolKeyboardLayout(
                         text = "返回",
                         onClick = { onKeyPress("abc") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.2f),
                         onPress = { onKeyPressDown?.invoke("abc") },
                         shadowEnabled = shadowEnabled,
@@ -249,7 +251,7 @@ fun CommonSymbolKeyboardLayout(
                         text = "123",
                         onClick = { onKeyPress("number") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.2f),
                         onPress = { onKeyPressDown?.invoke("number") },
                         shadowEnabled = shadowEnabled,
@@ -297,7 +299,7 @@ fun CommonSymbolKeyboardLayout(
                         text = "确定",
                         onClick = { onKeyPress("enter") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.2f),
                         onPress = { onKeyPressDown?.invoke("enter") },
                         shadowEnabled = shadowEnabled,
@@ -329,6 +331,7 @@ private fun CommonSymbolLandscapeContent(
     onKeyPressDown: ((String) -> Unit)?,
     suppressCursorMove: androidx.compose.runtime.MutableState<Boolean>,
     onSwipeStateChange: (SwipeState, Rect) -> Unit,
+    specialKeyTextColor: Color = Color.White,
 ) {
     val keyVisualPadding = PaddingValues(horizontal = 1.dp, vertical = 2.dp)
 
@@ -381,7 +384,7 @@ private fun CommonSymbolLandscapeContent(
                         text = "符号",
                         onClick = { onKeyPress("symbol") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.3f),
                         onPress = { onKeyPressDown?.invoke("symbol") },
                         shadowEnabled = shadowEnabled,
@@ -409,7 +412,7 @@ private fun CommonSymbolLandscapeContent(
                         text = "返回",
                         onClick = { onKeyPress("abc") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.2f),
                         onPress = { onKeyPressDown?.invoke("abc") },
                         shadowEnabled = shadowEnabled,
@@ -421,7 +424,7 @@ private fun CommonSymbolLandscapeContent(
                         text = "123",
                         onClick = { onKeyPress("number") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.2f),
                         onPress = { onKeyPressDown?.invoke("number") },
                         shadowEnabled = shadowEnabled,
@@ -529,7 +532,7 @@ private fun CommonSymbolLandscapeContent(
                         icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
                         onClick = { onKeyPress("delete") },
                         backgroundColor = specialKeyBackgroundColor,
-                        iconColor = keyTextColor,
+                        iconColor = specialKeyTextColor,
                         modifier = Modifier.weight(1f),
                         swipeText = "清空",
                         onSwipe = { onKeyPress("clear_composition") },
@@ -575,7 +578,7 @@ private fun CommonSymbolLandscapeContent(
                         text = "确定",
                         onClick = { onKeyPress("enter") },
                         backgroundColor = specialKeyBackgroundColor,
-                        textColor = keyTextColor,
+                        textColor = specialKeyTextColor,
                         modifier = Modifier.weight(1.2f),
                         onPress = { onKeyPressDown?.invoke("enter") },
                         shadowEnabled = shadowEnabled,
