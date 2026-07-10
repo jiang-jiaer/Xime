@@ -83,6 +83,7 @@ import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.rime.T9InputController
+import com.kingzcheung.xime.rime.convertT9PreeditToPinyin
 import com.kingzcheung.xime.settings.SchemaConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
@@ -1550,8 +1551,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
         val isT9Schema = isT9Schema(uiState.value.currentSchemaId)
         val displayText = if (isT9Schema) {
-            val preeditDisplay = if (preeditText.isNotEmpty()) preeditText else inputText
-            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, preeditDisplay)
+            val rawPreedit = if (preeditText.isNotEmpty()) preeditText else inputText
+            val convertedPreedit = convertT9PreeditToPinyin(rawPreedit, candidatesWithComments.firstOrNull()?.comment ?: "")
+            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, convertedPreedit)
         } else {
             inputText
         }
@@ -1605,8 +1607,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         // 避免显示 rime speller 展开后的编码（如双拼 i → ch）
         val isT9Schema = isT9Schema(uiState.value.currentSchemaId)
         val displayText = if (isT9Schema) {
-            val preeditDisplay = if (result.preeditText.isNotEmpty()) result.preeditText else result.inputText
-            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, preeditDisplay)
+            val rawPreedit = if (result.preeditText.isNotEmpty()) result.preeditText else result.inputText
+            val convertedPreedit = convertT9PreeditToPinyin(rawPreedit, candidatesWithComments.firstOrNull()?.comment ?: "")
+            PreeditMergeHelper.mergePartialCommitText(t9PartialCommitTexts, convertedPreedit)
         } else {
             result.inputText
         }
