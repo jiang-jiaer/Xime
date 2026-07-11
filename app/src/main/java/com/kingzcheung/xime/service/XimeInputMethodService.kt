@@ -1292,18 +1292,22 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             updateSchemaName()
         }
 
+        // 必须在 uiState.copy 之前获取 RIME 当前状态，
+        // 因为 uiState.copy 触发 LaunchedEffect(state.inputSessionId)，
+        // 进而触发 InputSessionStarted(state.isAsciiMode, state.currentSchemaId)。
+        // 如果此时 currentSchemaId 还是旧值，InputSessionStarted 会把键盘
+        // 布局错误地设为 Chinese QWERTY，覆盖随后 resetKeyboard 的正确值。
+        val currentAsciiMode = RimeEngine.isInitialized() && rimeEngine.isAsciiMode()
+        val currentSchema = if (RimeEngine.isInitialized()) rimeEngine.getCurrentSchema() else ""
         uiState.value = uiState.value.copy(
             inputSessionId = System.nanoTime(),
             isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
+            currentSchemaId = currentSchema,
+            isAsciiMode = currentAsciiMode,
         )
 
-        // 重置键盘布局到初始状态，避免切换应用后仍残留之前的布局（如英文、数字、符号）。
-        // 必须携带当前 schemaId，否则 T9/笔画等专用布局会被错误重置为默认全键盘。
         if (RimeEngine.isInitialized()) {
-            // 使用 rimeEngine.getCurrentSchema() 而非 uiState.value.currentSchemaId，
-            // 避免 switchSchema 后 uiState 尚未更新导致键盘布局与 RIME 实际方案不一致。
-            // 表现：用户看到英文 QWERTY → 按第一键后键盘跳变 T9 + 中文候选词。
-            keyboardViewModel.resetKeyboard(rimeEngine.isAsciiMode(), rimeEngine.getCurrentSchema())
+            keyboardViewModel.resetKeyboard(currentAsciiMode, currentSchema)
         }
 
         // 先重置候选状态到初始值，避免前一 session 的残留状态影响新输入
