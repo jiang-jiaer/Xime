@@ -1300,7 +1300,10 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         // 重置键盘布局到初始状态，避免切换应用后仍残留之前的布局（如英文、数字、符号）。
         // 必须携带当前 schemaId，否则 T9/笔画等专用布局会被错误重置为默认全键盘。
         if (RimeEngine.isInitialized()) {
-            keyboardViewModel.resetKeyboard(rimeEngine.isAsciiMode(), uiState.value.currentSchemaId)
+            // 使用 rimeEngine.getCurrentSchema() 而非 uiState.value.currentSchemaId，
+            // 避免 switchSchema 后 uiState 尚未更新导致键盘布局与 RIME 实际方案不一致。
+            // 表现：用户看到英文 QWERTY → 按第一键后键盘跳变 T9 + 中文候选词。
+            keyboardViewModel.resetKeyboard(rimeEngine.isAsciiMode(), rimeEngine.getCurrentSchema())
         }
 
         // 先重置候选状态到初始值，避免前一 session 的残留状态影响新输入
