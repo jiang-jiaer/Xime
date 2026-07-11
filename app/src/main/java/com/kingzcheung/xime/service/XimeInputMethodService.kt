@@ -1292,6 +1292,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             updateSchemaName()
         }
 
+        // 南昌海立MES-PROD (com.HCMeD): 默认锁定大写英文键盘
+        if (attribute?.packageName == "com.HCMeD" && RimeEngine.isInitialized()) {
+            if (!rimeEngine.isAsciiMode()) {
+                rimeEngine.toggleAsciiMode()
+            }
+        }
+
         // 必须在 uiState.copy 之前获取 RIME 当前状态，
         // 因为 uiState.copy 触发 LaunchedEffect(state.inputSessionId)，
         // 进而触发 InputSessionStarted(state.isAsciiMode, state.currentSchemaId)。
@@ -1308,6 +1315,10 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
         if (RimeEngine.isInitialized()) {
             keyboardViewModel.resetKeyboard(currentAsciiMode, currentSchema)
+            // com.HCMeD: 锁定大写
+            if (attribute?.packageName == "com.HCMeD") {
+                keyboardViewModel.doubleTapShift()
+            }
         }
 
         // 先重置候选状态到初始值，避免前一 session 的残留状态影响新输入
