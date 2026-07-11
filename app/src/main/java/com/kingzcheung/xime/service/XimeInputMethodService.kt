@@ -1457,6 +1457,11 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
 
     private fun updateEnterKeyText(editorInfo: EditorInfo) {
+        // 南昌海立MES-PROD (com.HCMeD): 应用未声明 IME_ACTION_GO，强制显示"前往"
+        if (editorInfo.packageName == "com.HCMeD") {
+            uiState.value = uiState.value.copy(enterKeyText = "前往")
+            return
+        }
         val imeOptions = editorInfo.imeOptions
         val action = imeOptions and EditorInfo.IME_MASK_ACTION
         val noEnterAction = imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
@@ -1901,7 +1906,12 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             val imeOptions = currentInputEditorInfo?.imeOptions ?: 0
                             val action = imeOptions and EditorInfo.IME_MASK_ACTION
                             val noEnterAction = imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
+                            // 南昌海立MES-PROD (com.HCMeD): 强制发送 IME_ACTION_GO
+                            val packageName = currentInputEditorInfo?.packageName
                             when {
+                                packageName == "com.HCMeD" -> {
+                                    currentInputConnection?.performEditorAction(EditorInfo.IME_ACTION_GO)
+                                }
                                 // 如果设置了 IME_FLAG_NO_ENTER_ACTION，必须插入换行符
                                 // 不能走 performEditorAction，否则某些应用收到 Done/Send 等
                                 // 动作后会收起键盘，但按键标签显示的是"换行"
