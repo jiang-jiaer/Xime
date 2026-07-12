@@ -166,6 +166,7 @@ fun NumberKeyboardLayout(
                         onKeyPressDown = onKeyPressDown,
                         compactMode = true,
                         specialKeyTextColor = specialKeyTextColor,
+                        leftSymbols = leftSymbols,
                         onSwipeStateChange = { state, bounds ->
                             val newState = if (state.isSwipeDown && state.swipeText != null) {
                                 state.copy(charInfos = SubcharHelper.parseSwipeDownText(state.swipeText))
@@ -204,6 +205,7 @@ fun NumberKeyboardLayout(
                     shadowShapeRadius = shadowShapeRadius,
                     onKeyPressDown = onKeyPressDown,
                     specialKeyTextColor = specialKeyTextColor,
+                    leftSymbols = leftSymbols,
                     onSwipeStateChange = { state, bounds ->
                         val newState = if (state.isSwipeDown && state.swipeText != null) {
                             state.copy(charInfos = SubcharHelper.parseSwipeDownText(state.swipeText))
@@ -237,6 +239,7 @@ private fun NumberRows(
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
     compactMode: Boolean = false,
     specialKeyTextColor: Color = Color.White,
+    leftSymbols: List<String>? = null,
 ) {
     val symFontSize = if (compactMode) 14.sp else 18.sp
     val keyFontSize = if (compactMode) 16.sp else androidx.compose.ui.unit.TextUnit.Unspecified

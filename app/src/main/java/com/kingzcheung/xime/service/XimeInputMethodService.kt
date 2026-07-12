@@ -1311,7 +1311,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             try {
                 recentClipboardItemsState.value = clipboardManager.getRecentItems(30)
             } catch (_: Exception) {}
-            saveKeyboardHeightForCompactMode(displayHeight)
             return
         }
 
