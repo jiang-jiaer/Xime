@@ -234,6 +234,7 @@ fun KeyboardView(
                         ToolbarButton.END -> ({ callbacks.onToolbarEditingAction?.invoke("end") })
                         ToolbarButton.FLOAT -> ({ callbacks.onFloatingModeChange?.invoke(!state.isFloatingMode) })
                         ToolbarButton.HANDWRITING_LOOKUP -> ({ isHandwritingLookup = !isHandwritingLookup })
+                        ToolbarButton.AT -> ({ callbacks.onCommitText?.invoke("@") })
                     }
                     ToolbarAction(button, onClick)
                 },
@@ -242,7 +243,8 @@ fun KeyboardView(
                     textColor = candidateTextColor,
                     dividerColor = dividerColor,
                     accentColor = accentColor,
-                    isDarkTheme = state.isDarkTheme
+                    isDarkTheme = state.isDarkTheme,
+                    isHailiMode = keyboardState is KeyboardLayoutState.Haili
                 ),
                 callbacks = CandidateBarCallbacks(
                     onCandidateSelect = { index ->

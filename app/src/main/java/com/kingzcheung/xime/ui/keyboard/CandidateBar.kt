@@ -2,6 +2,7 @@ package com.kingzcheung.xime.ui.keyboard
 
 import com.kingzcheung.xime.service.PredictionManager
 import android.annotation.SuppressLint
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -63,6 +65,7 @@ data class CandidateBarVisuals(
     val dividerColor: Color,
     val accentColor: Color = Color(0xFF1A73E8),
     val isDarkTheme: Boolean = false,
+    val isHailiMode: Boolean = false,
 )
 
 data class CandidateBarCallbacks(
@@ -277,12 +280,20 @@ fun CandidateBar(
                                     .clickable { callbacks.onLogoClick?.invoke() },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    painter = painterResource(id = if (visuals.isDarkTheme) R.drawable.logo_dark else R.drawable.logo),
-                                    contentDescription = "曦码 Logo",
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                if (visuals.isHailiMode) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.haili_logo),
+                                        contentDescription = "海立 Logo",
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Icon(
+                                        painter = painterResource(id = if (visuals.isDarkTheme) R.drawable.logo_dark else R.drawable.logo),
+                                        contentDescription = "曦码 Logo",
+                                        tint = Color.Unspecified,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                         Spacer(modifier = Modifier.width(4.dp))
