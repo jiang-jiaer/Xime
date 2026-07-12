@@ -13,6 +13,7 @@ import androidx.compose.material.icons.twotone.Quickreply
 import androidx.compose.material.icons.twotone.SelectAll
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.twotone.ContentPasteGo
@@ -35,7 +36,7 @@ enum class ToolbarButton(
     HOME("home", "段首", Icons.TwoTone.FirstPage),
     END("end", "段尾", Icons.AutoMirrored.TwoTone.LastPage),
     HANDWRITING_LOOKUP("handwriting_lookup", "手写找字", Icons.Outlined.Gesture),
-    AT("at", "@", Icons.Filled.AlternateEmail);
+    AT("at", "@", Icons.Filled.Email);
 
     companion object {
         val DEFAULT_VISIBLE = emptySet<ToolbarButton>()
