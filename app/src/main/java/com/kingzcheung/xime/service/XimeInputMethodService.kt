@@ -1298,13 +1298,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 rimeEngine.toggleAsciiMode()
             }
             val currentSchema = rimeEngine.getCurrentSchema()
+            // 注意：不更新 inputSessionId，避免触发 InputSessionStarted dispatch
+            // 该 dispatch 会用 initialKeyboardLayoutState 覆盖 Haili 状态
             uiState.value = uiState.value.copy(
-                inputSessionId = System.nanoTime(),
                 isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
                 currentSchemaId = currentSchema,
                 isAsciiMode = true,
             )
-            keyboardViewModel.resetKeyboard(true, currentSchema)
             keyboardViewModel.setKeyboardState(com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.Haili)
             candidateState.value = CandidateState()
             ensureClipboardManagerInitialized()
