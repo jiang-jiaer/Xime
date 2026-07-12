@@ -332,6 +332,13 @@ android {
                 keyPassword = keystoreProperties.getProperty("keyPassword")
             }
         }
+        // 固定 debug keystore，确保每次编译签名一致，支持覆盖安装
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
