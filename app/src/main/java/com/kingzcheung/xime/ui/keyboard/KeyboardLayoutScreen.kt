@@ -136,6 +136,25 @@ fun KeyboardLayoutScreen(
             )
         }
 
+        is KeyboardLayoutState.Haili -> {
+            NumberKeyboardLayout(
+                onKeyPress = onKeyPress,
+                keyBackgroundColor = keyBgColor,
+                keyTextColor = keyTextColor,
+                specialKeyBackgroundColor = specialKeyBgColor,
+                keyboardBackgroundColor = keyboardBgColor,
+                shadowEnabled = kbShadow.enabled,
+                shadowElevation = kbShadow.elevation.dp,
+                shadowShapeRadius = kbShadow.shapeRadius.dp,
+                keyCornerRadius = kbKey.cornerRadius.dp,
+                modifier = modifier,
+                onKeyPressDown = callbacks.onKeyPressDown,
+                isFloatingMode = uiState.isFloatingMode,
+                specialKeyTextColor = specialKeyTextColor,
+                leftSymbols = listOf("TX", "ZZ", "Z", "/"),
+            )
+        }
+
         is KeyboardLayoutState.CommonSymbol -> {
             CommonSymbolKeyboardLayout(
                 onKeyPress = onKeyPress,

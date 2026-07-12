@@ -499,7 +499,8 @@ fun KeyboardView(
                         val currentOnKeyPress = when (keyboardState) {
                             is KeyboardLayoutState.Chinese,
                             is KeyboardLayoutState.English -> fullScreenOnKeyPress
-                            is KeyboardLayoutState.Number -> numberOnKeyPress
+                            is KeyboardLayoutState.Number,
+                            is KeyboardLayoutState.Haili -> numberOnKeyPress
                             is KeyboardLayoutState.CommonSymbol -> commonSymbolOnKeyPress
                             is KeyboardLayoutState.Stroke -> strokeOnKeyPress
                             is KeyboardLayoutState.T9Pinyin -> t9OnKeyPress

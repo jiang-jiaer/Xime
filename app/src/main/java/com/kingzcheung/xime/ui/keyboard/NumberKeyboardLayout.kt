@@ -64,6 +64,7 @@ fun NumberKeyboardLayout(
     onKeyPressDown: ((String) -> Unit)? = null,
     isFloatingMode: Boolean = false,
     specialKeyTextColor: Color = Color.White,
+    leftSymbols: List<String>? = null,  // 自定义左侧符号列，null 则用默认 + - * /
 ) {
 
     val configuration = LocalConfiguration.current
@@ -241,7 +242,7 @@ private fun NumberRows(
     val keyFontSize = if (compactMode) 16.sp else androidx.compose.ui.unit.TextUnit.Unspecified
     val ctrlFontSize = if (compactMode) 12.sp else androidx.compose.ui.unit.TextUnit.Unspecified
     val suppressCursorMove = LocalSuppressCursorMove.current
-    val symbols = listOf("+", "-", "*", "/")
+    val symbols = leftSymbols ?: listOf("+", "-", "*", "/")
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -272,7 +273,7 @@ private fun NumberRows(
                             .fillMaxHeight()
                             .weight(3f),
                     ) {
-                        symbols.forEach { symbol ->
+                        symbols.forEachIndexed { index, symbol ->
                             NumberSymbolKey(
                                 text = symbol,
                                 onClick = { onKeyPress(symbol) },
@@ -280,8 +281,8 @@ private fun NumberRows(
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(1f),
                                 onPress = { onKeyPressDown?.invoke(symbol) },
-                                isFirst = symbol == "+",
-                                isLast = symbol == "/",
+                                isFirst = index == 0,
+                                isLast = index == symbols.lastIndex,
                                 fontSize = symFontSize,
                             )
                         }

@@ -33,6 +33,9 @@ sealed class KeyboardLayoutState {
     /** 拼音九键键盘（t9_pinyin schema 专用 T9 九宫格布局） */
     data object T9Pinyin : KeyboardLayoutState()
 
+    /** 海立拆拼键盘（com.HCMeD 专属：TX/ZZ/Z + 数字 + 退格 + 前往） */
+    data object Haili : KeyboardLayoutState()
+
     /** 是否为全键盘类（Chinese / English / T9Pinyin） */
     val isFullKeyboard: Boolean get() = this is Chinese || this is English || this is T9Pinyin
 }

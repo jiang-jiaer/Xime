@@ -337,6 +337,7 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
                     is KeyboardLayoutState.Stroke -> KeyboardViewState.StrokeFull
                     is KeyboardLayoutState.Number -> KeyboardViewState.NumberPanel(com.kingzcheung.xime.keyboard.MainType.FULL)
                     is KeyboardLayoutState.CommonSymbol -> KeyboardViewState.CommonSymbolPanel(com.kingzcheung.xime.keyboard.MainType.FULL)
+                    is KeyboardLayoutState.Haili -> KeyboardViewState.NumberPanel(com.kingzcheung.xime.keyboard.MainType.FULL)
                     else -> KeyboardViewState.ChineseFull
                 }
                 com.kingzcheung.xime.keyboard.MainType.HANDWRITING -> KeyboardViewState.Handwriting

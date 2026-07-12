@@ -1292,11 +1292,27 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             updateSchemaName()
         }
 
-        // 南昌海立MES-PROD (com.HCMeD): 默认锁定大写英文键盘
+        // 南昌海立MES-PROD (com.HCMeD): 默认海立拆拼键盘
         if (attribute?.packageName == "com.HCMeD" && RimeEngine.isInitialized()) {
             if (!rimeEngine.isAsciiMode()) {
                 rimeEngine.toggleAsciiMode()
             }
+            val currentSchema = rimeEngine.getCurrentSchema()
+            uiState.value = uiState.value.copy(
+                inputSessionId = System.nanoTime(),
+                isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
+                currentSchemaId = currentSchema,
+                isAsciiMode = true,
+            )
+            keyboardViewModel.resetKeyboard(true, currentSchema)
+            keyboardViewModel.setKeyboardState(com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.Haili)
+            candidateState.value = CandidateState()
+            ensureClipboardManagerInitialized()
+            try {
+                recentClipboardItemsState.value = clipboardManager.getRecentItems(30)
+            } catch (_: Exception) {}
+            saveKeyboardHeightForCompactMode(displayHeight)
+            return
         }
 
         // 必须在 uiState.copy 之前获取 RIME 当前状态，
@@ -2023,6 +2039,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     withContext(Dispatchers.Main) {
                         switchInputMethod()
                     }
+                }
+                // 海立拆拼键盘专用：直接提交文本
+                "TX", "ZZ", "Z" -> {
+                    withContext(Dispatchers.Main) {
+                        commitText(key)
+                    }
+                    needsUIUpdate = true
                 }
                 "abc" -> {
                     calculatorEngine.clear()
