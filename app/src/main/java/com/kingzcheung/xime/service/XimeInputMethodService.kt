@@ -1294,16 +1294,10 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
         // 南昌海立MES-PROD (com.HCMeD): 默认海立拆拼键盘
         if (attribute?.packageName == "com.HCMeD" && RimeEngine.isInitialized()) {
-            if (!rimeEngine.isAsciiMode()) {
-                rimeEngine.toggleAsciiMode()
-            }
-            val currentSchema = rimeEngine.getCurrentSchema()
             // 注意：不更新 inputSessionId，避免触发 InputSessionStarted dispatch
             // 该 dispatch 会用 initialKeyboardLayoutState 覆盖 Haili 状态
             uiState.value = uiState.value.copy(
                 isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
-                currentSchemaId = currentSchema,
-                isAsciiMode = true,
             )
             keyboardViewModel.setKeyboardState(com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.Haili)
             candidateState.value = CandidateState()
@@ -1330,10 +1324,6 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
         if (RimeEngine.isInitialized()) {
             keyboardViewModel.resetKeyboard(currentAsciiMode, currentSchema)
-            // com.HCMeD: 锁定大写
-            if (attribute?.packageName == "com.HCMeD") {
-                keyboardViewModel.doubleTapShift()
-            }
         }
 
         // 先重置候选状态到初始值，避免前一 session 的残留状态影响新输入
@@ -2040,7 +2030,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     }
                 }
                 // 海立拆拼键盘专用：直接提交文本
-                "TX", "ZZ", "Z" -> {
+                "TXZZ", "TXZ", "TX00", "TX0" -> {
                     withContext(Dispatchers.Main) {
                         commitText(key)
                     }

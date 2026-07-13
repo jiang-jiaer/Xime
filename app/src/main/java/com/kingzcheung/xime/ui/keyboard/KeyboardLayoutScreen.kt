@@ -151,7 +151,7 @@ fun KeyboardLayoutScreen(
                 onKeyPressDown = callbacks.onKeyPressDown,
                 isFloatingMode = uiState.isFloatingMode,
                 specialKeyTextColor = specialKeyTextColor,
-                leftSymbols = listOf("TX", "ZZ", "Z", "/"),
+                leftSymbols = listOf("TXZZ", "TXZ", "TX00", "TX0"),
             )
         }
 
