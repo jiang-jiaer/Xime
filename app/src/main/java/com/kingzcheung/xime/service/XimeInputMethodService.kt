@@ -1767,7 +1767,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     // 数字/符号键盘：直接发送系统退格，不经过 Rime
                     // 防止 T9 残留状态被 Rime 退格修改导致 UI 不一致
                     val layoutState = keyboardViewModel.keyboardState.value
-                    if (layoutState is KeyboardLayoutState.Number || layoutState is KeyboardLayoutState.Symbol) {
+                    if (layoutState is KeyboardLayoutState.Number || layoutState is KeyboardLayoutState.Symbol || layoutState is KeyboardLayoutState.Haili) {
                         withContext(Dispatchers.Main) {
                             sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                         }
@@ -2050,6 +2050,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 }
                 else -> {
                     val isNumberKeyboard = keyboardViewModel.keyboardState.value is com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.Number
+                            || keyboardViewModel.keyboardState.value is com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.Haili
                     val isCommonSymbolKeyboard = keyboardViewModel.keyboardState.value is com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.CommonSymbol
 
                     val routeResult = com.kingzcheung.xime.calculator.routeCalculatorKey(
