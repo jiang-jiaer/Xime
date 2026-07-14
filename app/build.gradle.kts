@@ -309,7 +309,7 @@ android {
         minSdk = 28
         targetSdk = 35
         versionCode = 53
-        versionName = "2.5.0-beta10-haili.11"
+        versionName = "2.5.0-beta10-haili.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

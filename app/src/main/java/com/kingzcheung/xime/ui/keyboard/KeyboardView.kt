@@ -235,6 +235,7 @@ fun KeyboardView(
                         ToolbarButton.FLOAT -> ({ callbacks.onFloatingModeChange?.invoke(!state.isFloatingMode) })
                         ToolbarButton.HANDWRITING_LOOKUP -> ({ isHandwritingLookup = !isHandwritingLookup })
                         ToolbarButton.AT -> ({ callbacks.onCommitText?.invoke("@") })
+                        ToolbarButton.HASH -> ({ callbacks.onCommitText?.invoke("#") })
                     }
                     ToolbarAction(button, onClick)
                 },
